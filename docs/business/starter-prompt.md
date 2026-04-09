@@ -63,7 +63,82 @@ The project already includes several shadcn/ui components (button, dialog, avata
 
 ## What I Want to Build
 
-Basic todo list app with the ability for users to add, remove, update, complete and view todos.
+Estamos haciendo el Proyecto Barrio Stefani, un proyecto de loteo en el municipio de Moreno, Provincia de Buenos Aires
+Son cerca de 360 lotes, de entre 230 y 400m2
+Sobre la Ruta Provincial 24, frente a la cerámica Juan Stefani, https://maps.app.goo.gl/dSVZwbWjYcpDp73Z9
+Quiero una buena página para mostrar el proyecto, y llevando a los usuarios a llenar un form de contacto
+
+Backend
+En el back, necesito una base de leads, y una base de lotes
+Para los lotes te subí el listado completo de parcelas y pricing (se llama así)
+A la base de parcelas hay que agregarle estos campos, por ahora todos vacios: Nombre comprador	DNI / CUIT	Teléfono	Email comprador	Nombre corredor	Email corredor	Forma de pago	Fecha reserva	Fecha vencimiento	Modificado por	Observaciones
+
+Los usuarios pueden ser rol admin o rol comercial
+El admin puede crear usuarios nuevos con ambos roles, cambiar datos de los leads, de los lotes, etc
+El comercial puede cambiar el status de leads, el status de los lotes y agregar o cambiar los datos del comprador y reserva que te pasé arriba
+
+Algunas faqs que podemos incluir
+¿Dónde se encuentra ubicado el loteo?
+El Barrio Stefani se encuentra en Cuartel V, Moreno, frente a la fábrica de cerámica Juan Stefani. Una zona residencial tranquila en pleno desarrollo, con excelente acceso a rutas principales y cercanía a servicios, colegios y comercios.
+¿Qué tamaños tienen los lotes disponibles?
+Contamos con lotes entre 230 y 399 metros cuadrados aproximadamente, ideales para construir la casa de tus sueños en un barrio planificado con infraestructura completa.
+¿Se puede financiar la compra del lote?
+¡Sí! Ofrecemos financiación de hasta 60 cuotas sin interés. Además, tenemos opciones de pago al contado a valor promocional para quienes prefieren aprovechar el mejor precio.
+¿Qué servicios están disponibles en el loteo?
+El barrio contará con: Red eléctrica aérea de media tensión (EDENOR), 120 luminarias LED, desagües pluviales por zanjas a cielo abierto con 14 pases hidráulicos, calles internas con sub base compactada y terminación en piedra partida, boulevard central de 4150m², y sistema de efluentes mediante biodigestores individuales. El agua será mediante perforación individual en cada lote.
+¿Cuándo estarán listos los lotes para construir?
+La entrega de los lotes está proyectada para fines de 2026, una vez finalizadas todas las obras de infraestructura que incluyen 14.130m² de calles, el boulevard, iluminación LED y sistema de drenaje pluvial completo
+¿Es posible visitar el lote antes de comprar?
+¡Por supuesto! Coordinamos visitas al terreno para que puedas recorrer el loteo, conocer la ubicación y elegir el lote que más te convenga. Contactanos para agendar tu visita.
+
+
+Haceme una linda hero section, con tarjetas y buena ui de shadcn
+Tu Hogar Rodeado de Naturaleza
+Barrio Stefani ofrece amplios espacios verdes y un boulevard central diseñado para disfrutar al aire libre
+
+Boulevard Central
+4.150 m² de espacios verdes
+
+Áreas de Recreación
+Espacios diseñados para la familia
+
+Entorno Natural
+10 hectáreas de desarrollo sustentable
+
+Un Barrio Pensado para Vivir
+Boulevard central de más de 4.000 m² para paseos y actividades
+Calles internas con iluminación LED de última generación
+Diseño urbano moderno con espacios de circulación amplios
+Ubicación frente a la histórica fábrica de cerámica Juan Stefani
+🌳
+Aire Puro y Tranquilidad
+Disfrutá de la calidad de vida que siempre soñaste en un entorno natural privilegiado
+
+Ubicación Estratégica
+Cuartel V, Moreno - Frente a Cerámica Juan Stefani
+
+Características del Barrio
+10 Hectáreas
+Superficie total del desarrollo
+
+Lotes 250-399 m²
+Tamaños ideales para tu proyecto
+
+Ubicación Premium
+Frente a fábrica Juan Stefani, zona en desarrollo
+
+Accesos y Conectividad
+Excelente acceso desde rutas principales
+
+Cercanía a centros comerciales y servicios
+
+Escuelas y colegios en la zona
+
+Transporte público disponible
+
+Zona residencial consolidada y segura
+
+Un lugar ideal para construir tu futuro, con toda la infraestructura necesaria y en constante crecimiento
 
 ## Request
 

@@ -13,7 +13,14 @@
       "Bash(git log:*)",
       "Bash(find:*)",
       "Bash(git checkout:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(find 'c:/Users/julia/Python_Juli/Barrio Stefani 2' -type f -path */src/* -o -path */data/* \\\\\\(-name *.json -o -name *.csv \\\\\\))",
+      "Bash(ls /c/Users/julia/Python_Juli/\"Barrio Stefani 2\"/src/app/\\\\\\(auth\\\\\\))",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(printf 'N\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\n')",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm typecheck:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

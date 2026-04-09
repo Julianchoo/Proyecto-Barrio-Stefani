@@ -15,6 +15,20 @@
       "when": 1766719908715,
       "tag": "0001_last_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775745408546,
+      "tag": "0002_useful_mathemanic",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775762404442,
+      "tag": "0003_charming_nitro",
+      "breakpoints": true
     }
   ]
 }
