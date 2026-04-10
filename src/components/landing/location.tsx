@@ -1,33 +1,63 @@
-import { MapPin, School, ShoppingBag, Bus, Home } from "lucide-react";
+import { MapPin, School, ShoppingBag, Bus, Factory, Plane, Warehouse } from "lucide-react";
 
 const amenities = [
-  { icon: School, text: "Escuelas y colegios en la zona" },
-  { icon: ShoppingBag, text: "Cercanía a centros comerciales y servicios" },
-  { icon: Bus, text: "Transporte público disponible" },
-  { icon: Home, text: "Zona residencial consolidada y segura" },
+  {
+    icon: Factory,
+    title: "Centro Industrial de Moreno",
+    text: "Pegados al PIM 1 y PIM 2 y varios parques industriales de la zona",
+  },
+  {
+    icon: Plane,
+    title: "Aeródromo Cuartel V (UPA)",
+    text: "Aeropuerto con uso comercial y militar, y un gran centro logístico",
+  },
+  {
+    icon: Warehouse,
+    title: "Hub logístico regional",
+    text: "Zona de alto crecimiento con infraestructura logística e industrial consolidada",
+  },
+  {
+    icon: School,
+    title: "Educación y servicios",
+    text: "Escuelas, centros de salud y servicios esenciales en la zona",
+  },
+  {
+    icon: ShoppingBag,
+    title: "Comercios y conectividad",
+    text: "Centros comerciales, transporte público y acceso directo a rutas principales",
+  },
+  {
+    icon: Bus,
+    title: "Acceso rápido a Moreno",
+    text: "Sobre la Ruta Provincial 24, a minutos del centro de Moreno",
+  },
 ];
 
 export function Location() {
   return (
-    <section className="py-20 px-4 bg-gray-50">
-      <div className="container mx-auto max-w-5xl">
-        <div className="text-center mb-12">
-          <span className="text-sm font-medium text-green-700 bg-green-100 px-3 py-1 rounded-full">
-            Dónde estamos
-          </span>
-          <h2 className="text-3xl font-bold text-gray-900 mt-4 mb-3">
-            Ubicación Estratégica
-          </h2>
-          <div className="flex items-center justify-center gap-2 text-gray-500">
-            <MapPin className="h-4 w-4 text-green-700" />
-            <span>Cuartel V, Moreno — Frente a Cerámica Juan Stefani</span>
+    <section className="py-24 px-4 bg-[#F7F3ED]">
+      <div className="container mx-auto max-w-6xl">
+        {/* Header */}
+        <div className="mb-14 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <span className="font-body text-xs tracking-[0.25em] uppercase text-[#B8963E] font-medium">
+              Dónde estamos
+            </span>
+            <h2 className="font-display text-4xl md:text-5xl font-light text-[#1B3A2D] mt-3 leading-tight">
+              Ubicación<br />Estratégica
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 text-[#1B3A2D]/50">
+            <MapPin className="h-4 w-4 text-[#B8963E] flex-shrink-0" />
+            <span className="font-body text-sm">Cuartel V, Moreno — Frente a Cerámica Juan Stefani</span>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 items-start">
-          <div className="rounded-2xl overflow-hidden border shadow-sm h-96">
+        <div className="grid md:grid-cols-2 gap-10 items-start">
+          {/* Map */}
+          <div className="rounded-sm overflow-hidden border border-[#1B3A2D]/10 shadow-md h-[420px]">
             <iframe
-              src="https://maps.google.com/maps?q=-34.550367,-58.817616&z=16&output=embed"
+              src="https://maps.google.com/maps?q=-34.550367,-58.817616&z=15&output=embed"
               width="100%"
               height="100%"
               style={{ border: 0 }}
@@ -38,28 +68,19 @@ export function Location() {
             />
           </div>
 
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Accesos y Conectividad
-            </h3>
-            <p className="text-gray-500 text-sm mb-6">
-              Sobre la Ruta Provincial 24, con excelente acceso a rutas
-              principales y a minutos del centro de Moreno.
-            </p>
-            <ul className="space-y-4">
-              {amenities.map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-100 flex-shrink-0">
-                    <Icon className="h-4 w-4 text-green-700" />
-                  </div>
-                  <span className="text-gray-700 text-sm">{text}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 text-sm text-gray-500 italic">
-              Un lugar ideal para construir tu futuro, con toda la
-              infraestructura necesaria y en constante crecimiento.
-            </p>
+          {/* Amenities */}
+          <div className="space-y-4">
+            {amenities.map(({ icon: Icon, title, text }) => (
+              <div key={title} className="flex items-start gap-4 group">
+                <div className="flex-shrink-0 p-2.5 rounded-sm bg-[#1B3A2D]/6 group-hover:bg-[#B8963E]/12 transition-colors">
+                  <Icon className="h-4 w-4 text-[#1B3A2D]" />
+                </div>
+                <div>
+                  <p className="font-body text-sm font-semibold text-[#1B3A2D]">{title}</p>
+                  <p className="font-body text-xs text-[#1B3A2D]/55 mt-0.5 leading-relaxed">{text}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

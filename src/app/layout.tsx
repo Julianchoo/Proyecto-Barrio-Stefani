@@ -1,17 +1,19 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const cormorant = Cormorant_Garamond({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -38,24 +40,19 @@ export const metadata: Metadata = {
     description:
       "Más de 360 lotes de 230 a 400 m² con infraestructura completa y financiación hasta 60 cuotas.",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`${cormorant.variable} ${jakarta.variable}`}
       suppressHydrationWarning
     >
-      <body className="antialiased">
+      <body className="antialiased font-body">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

@@ -1,70 +1,76 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { TreePine, Users, Leaf } from "lucide-react";
+"use client";
 
-const cards = [
-  {
-    icon: TreePine,
-    title: "Boulevard Central",
-    description: "4.150 m² de espacios verdes",
-  },
-  {
-    icon: Users,
-    title: "Áreas de Recreación",
-    description: "Espacios diseñados para la familia",
-  },
-  {
-    icon: Leaf,
-    title: "Entorno Natural",
-    description: "10 hectáreas de desarrollo sustentable",
-  },
-];
+import Image from "next/image";
+import { ArrowDown } from "lucide-react";
 
 export function Hero() {
   return (
-    <section
-      className="relative py-32 px-4"
-      style={{
-        backgroundImage:
-          "url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000')",
-        backgroundAttachment: "fixed",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      {/* dark overlay */}
-      <div className="absolute inset-0 bg-black/45" />
+    <section className="relative min-h-[92vh] flex flex-col justify-end overflow-hidden">
+      {/* Background aerial photo */}
+      <div className="absolute inset-0">
+        <Image
+          src="/foto_aerea1.jpeg"
+          alt="Vista aérea de Barrio Stefani"
+          fill
+          priority
+          className="object-cover object-center"
+          sizes="100vw"
+        />
+      </div>
 
-      <div className="relative container mx-auto max-w-5xl text-center">
-        <span className="inline-block text-sm font-medium text-green-300 bg-green-900/60 px-3 py-1 rounded-full mb-4 backdrop-blur-sm">
+      {/* Gradient overlay - bottom-heavy for text legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0D1F17]/90 via-[#0D1F17]/40 to-transparent" />
+
+      {/* Top badge */}
+      <div className="absolute top-8 left-0 right-0 flex justify-center">
+        <span className="text-xs font-body tracking-[0.25em] uppercase text-[#F7F3ED]/60 border border-[#F7F3ED]/20 px-4 py-1.5 rounded-full backdrop-blur-sm bg-black/10">
           Cuartel V · Moreno · Buenos Aires
         </span>
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-6 drop-shadow-lg">
-          Tu Hogar Rodeado de{" "}
-          <span className="text-green-400">Naturaleza</span>
-        </h1>
-        <p className="text-xl text-gray-200 max-w-2xl mx-auto mb-12 drop-shadow">
-          Barrio Stefani ofrece amplios espacios verdes y un boulevard central
-          diseñado para disfrutar al aire libre con toda la infraestructura
-          que necesitás.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {cards.map(({ icon: Icon, title, description }) => (
-            <Card
-              key={title}
-              className="border-white/10 bg-white/10 backdrop-blur-md shadow-lg hover:bg-white/20 transition-colors"
+      </div>
+
+      {/* Main content — bottom aligned */}
+      <div className="relative container mx-auto max-w-6xl px-6 pb-16 md:pb-24">
+        <div className="max-w-3xl">
+          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-light text-[#F7F3ED] leading-[0.95] tracking-tight mb-6">
+            Tu Hogar<br />
+            <em className="not-italic text-[#B8963E]">Rodeado de</em><br />
+            Naturaleza
+          </h1>
+          <p className="font-body text-lg text-[#F7F3ED]/70 max-w-xl mb-10 leading-relaxed">
+            Barrio Stefani — 360+ lotes en 10 hectáreas con boulevard central,
+            calles iluminadas e infraestructura completa. Financiación en hasta 60 cuotas.
+          </p>
+          <div className="flex items-center gap-6">
+            <a
+              href="#contacto"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("contacto")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="inline-flex items-center gap-2 bg-[#B8963E] hover:bg-[#B8963E]/90 text-white font-body font-medium px-8 py-3.5 rounded-sm transition-colors tracking-wide text-sm"
             >
-              <CardContent className="pt-6 pb-6 text-center">
-                <div className="flex justify-center mb-4">
-                  <div className="p-3 rounded-full bg-green-400/20">
-                    <Icon className="h-6 w-6 text-green-300" />
-                  </div>
-                </div>
-                <h3 className="font-semibold text-white mb-1">{title}</h3>
-                <p className="text-sm text-gray-300">{description}</p>
-              </CardContent>
-            </Card>
-          ))}
+              Quiero mi lote
+            </a>
+            <a
+              href="#proyecto"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("proyecto")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="font-body text-sm text-[#F7F3ED]/60 hover:text-[#F7F3ED] transition-colors tracking-wide flex items-center gap-2"
+            >
+              Ver el proyecto <ArrowDown className="h-3.5 w-3.5" />
+            </a>
+          </div>
         </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="absolute bottom-6 right-6 hidden md:flex flex-col items-center gap-2 opacity-40">
+        <div className="w-px h-12 bg-[#F7F3ED] animate-pulse" />
+        <span className="font-body text-[10px] text-[#F7F3ED] tracking-[0.2em] uppercase rotate-90 origin-center mt-4">
+          Scroll
+        </span>
       </div>
     </section>
   );

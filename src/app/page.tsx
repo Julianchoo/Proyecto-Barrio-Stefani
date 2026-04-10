@@ -1,11 +1,11 @@
-import { Navbar } from "@/components/landing/navbar";
-import { Hero } from "@/components/landing/hero";
-import { Stats } from "@/components/landing/stats";
-import { Features } from "@/components/landing/features";
-import { Location } from "@/components/landing/location";
-import { Faq } from "@/components/landing/faq";
 import { ContactForm } from "@/components/landing/contact-form";
+import { Faq } from "@/components/landing/faq";
+import { Features } from "@/components/landing/features";
 import { Footer } from "@/components/landing/footer";
+import { Hero } from "@/components/landing/hero";
+import { Location } from "@/components/landing/location";
+import { Navbar } from "@/components/landing/navbar";
+import { Stats } from "@/components/landing/stats";
 
 export default function HomePage() {
   return (
@@ -17,21 +17,20 @@ export default function HomePage() {
         <Features />
         <Location />
         <Faq />
-        <section id="contacto" className="py-20 px-4 bg-green-50">
+        <section id="contacto" className="py-24 px-4 bg-[#1B3A2D]">
           <div className="container mx-auto max-w-lg">
             <div className="text-center mb-10">
-              <span className="text-sm font-medium text-green-700 bg-green-100 px-3 py-1 rounded-full">
+              <span className="font-body text-xs tracking-[0.25em] uppercase text-[#B8963E] font-medium">
                 Contacto
               </span>
-              <h2 className="text-3xl font-bold text-gray-900 mt-4 mb-3">
+              <h2 className="font-display text-4xl font-light text-[#F7F3ED] mt-3 mb-3">
                 ¿Te interesa un lote?
               </h2>
-              <p className="text-gray-500">
-                Dejanos tus datos y un asesor te contacta para ayudarte a
-                elegir el lote ideal.
+              <p className="font-body text-[#F7F3ED]/55 text-sm">
+                Dejanos tus datos y un asesor te contacta para ayudarte a elegir el lote ideal.
               </p>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border p-8">
+            <div className="bg-[#F7F3ED] rounded-sm shadow-2xl p-8">
               <ContactForm />
             </div>
           </div>

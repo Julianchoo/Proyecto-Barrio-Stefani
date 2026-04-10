@@ -1,6 +1,17 @@
 @import "tailwindcss";
 
+@layer base {
+  :root {
+    --color-cream: #F7F3ED;
+    --color-forest: #1B3A2D;
+    --color-gold: #B8963E;
+    --color-bark: #5C4033;
+  }
+}
+
 @theme inline {
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
