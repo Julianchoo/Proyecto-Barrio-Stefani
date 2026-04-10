@@ -61,8 +61,8 @@ export default async function CrmDashboard() {
   return (
     <div className="space-y-8">
       <div className="border-b pb-6">
-        <h1 className="font-display text-3xl font-light text-gray-900">Dashboard</h1>
-        <p className="font-body text-sm text-gray-400 mt-1">Resumen general del proyecto Barrio Stefani</p>
+        <h1 className="font-display text-3xl font-light text-foreground">Dashboard</h1>
+        <p className="font-body text-sm text-muted-foreground mt-1">Resumen general del proyecto Barrio Stefani</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -95,21 +95,21 @@ export default async function CrmDashboard() {
       </div>
 
       {/* Recent leads */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50">
-          <h2 className="font-body text-sm font-semibold text-gray-700">Últimos leads recibidos</h2>
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="font-body text-sm font-semibold text-foreground">Últimos leads recibidos</h2>
         </div>
         {stats.recentLeads.length === 0 ? (
-          <p className="font-body text-sm text-gray-400 py-10 text-center">No hay leads aún.</p>
+          <p className="font-body text-sm text-muted-foreground py-10 text-center">No hay leads aún.</p>
         ) : (
-          <ul className="divide-y divide-gray-50">
+          <ul className="divide-y divide-border">
             {stats.recentLeads.map((lead) => {
               const badge = estadoBadge[lead.estado] ?? { bg: "bg-gray-100", text: "text-gray-600", label: lead.estado };
               return (
-                <li key={lead.id} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50/50 transition-colors">
+                <li key={lead.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors">
                   <div className="min-w-0">
-                    <p className="font-body text-sm font-semibold text-gray-900 truncate">{lead.nombre}</p>
-                    <p className="font-body text-xs text-gray-400 mt-0.5">{lead.email} · {lead.telefono}</p>
+                    <p className="font-body text-sm font-semibold text-foreground truncate">{lead.nombre}</p>
+                    <p className="font-body text-xs text-muted-foreground mt-0.5">{lead.email} · {lead.telefono}</p>
                   </div>
                   <span className={`ml-4 flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium font-body ${badge.bg} ${badge.text}`}>
                     {badge.label}

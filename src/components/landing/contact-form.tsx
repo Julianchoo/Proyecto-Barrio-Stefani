@@ -130,7 +130,7 @@ export function ContactForm() {
         />
         <Button
           type="submit"
-          className="w-full bg-green-700 hover:bg-green-800 text-white"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           disabled={form.formState.isSubmitting}
         >
           {form.formState.isSubmitting ? "Enviando..." : "Quiero que me contacten"}

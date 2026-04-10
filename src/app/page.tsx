@@ -17,20 +17,20 @@ export default function HomePage() {
         <Features />
         <Location />
         <Faq />
-        <section id="contacto" className="py-24 px-4 bg-[#1B3A2D]">
+        <section id="contacto" className="py-24 px-4 bg-primary">
           <div className="container mx-auto max-w-lg">
             <div className="text-center mb-10">
-              <span className="font-body text-xs tracking-[0.25em] uppercase text-[#B8963E] font-medium">
+              <span className="font-body text-xs tracking-[0.25em] uppercase text-accent font-medium">
                 Contacto
               </span>
-              <h2 className="font-display text-4xl font-light text-[#F7F3ED] mt-3 mb-3">
+              <h2 className="font-display text-4xl font-light text-primary-foreground mt-3 mb-3">
                 ¿Te interesa un lote?
               </h2>
-              <p className="font-body text-[#F7F3ED]/55 text-sm">
+              <p className="font-body text-primary-foreground/55 text-sm">
                 Dejanos tus datos y un asesor te contacta para ayudarte a elegir el lote ideal.
               </p>
             </div>
-            <div className="bg-[#F7F3ED] rounded-sm shadow-2xl p-8">
+            <div className="bg-background rounded-sm shadow-2xl p-8">
               <ContactForm />
             </div>
           </div>
