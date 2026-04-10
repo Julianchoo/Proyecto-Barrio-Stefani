@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { PlusCircle, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, Eye, EyeOff, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -48,24 +48,39 @@ type UserRow = {
   createdAt: string;
 };
 
-const schema = z.object({
+const createSchema = z.object({
   name: z.string().min(2, "Ingresá el nombre"),
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres"),
   role: z.enum(["admin", "comercial"]),
 });
 
-type FormValues = z.infer<typeof schema>;
+type CreateFormValues = z.infer<typeof createSchema>;
+
+const editSchema = z.object({
+  name: z.string().min(2, "Ingresá el nombre"),
+  email: z.string().email("Email inválido"),
+  role: z.enum(["admin", "comercial"]),
+});
+
+type EditFormValues = z.infer<typeof editSchema>;
 
 export default function UsuariosPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  const form = useForm<CreateFormValues>({
+    resolver: zodResolver(createSchema),
     defaultValues: { name: "", email: "", password: "", role: "comercial" },
+  });
+
+  const editForm = useForm<EditFormValues>({
+    resolver: zodResolver(editSchema),
+    defaultValues: { name: "", email: "", role: "comercial" },
   });
 
   const fetchUsers = async () => {
@@ -81,7 +96,7 @@ export default function UsuariosPage() {
     fetchUsers();
   }, []);
 
-  async function onSubmit(values: FormValues) {
+  async function onSubmit(values: CreateFormValues) {
     const res = await fetch("/api/crm/usuarios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,6 +110,34 @@ export default function UsuariosPage() {
     } else {
       const data = await res.json();
       toast.error(data.error ?? "Error al crear usuario");
+    }
+  }
+
+  function openEditDialog(u: UserRow) {
+    setEditUser(u);
+    editForm.reset({
+      name: u.name,
+      email: u.email,
+      role: u.role as "admin" | "comercial",
+    });
+    setEditOpen(true);
+  }
+
+  async function onEditSubmit(values: EditFormValues) {
+    if (!editUser) return;
+    const res = await fetch(`/api/crm/usuarios/${editUser.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    if (res.ok) {
+      toast.success("Usuario actualizado correctamente");
+      setEditOpen(false);
+      setEditUser(null);
+      fetchUsers();
+    } else {
+      const data = await res.json();
+      toast.error(data.error ?? "Error al actualizar usuario");
     }
   }
 
@@ -218,13 +261,14 @@ export default function UsuariosPage() {
               <TableHead>Email</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead>Fecha de alta</TableHead>
+              <TableHead>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 4 }).map((_, j) => (
+                    {Array.from({ length: 5 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -249,6 +293,17 @@ export default function UsuariosPage() {
                     <TableCell className="text-sm text-gray-500">
                       {new Date(u.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(u)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Editar</span>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
           </TableBody>
@@ -259,6 +314,73 @@ export default function UsuariosPage() {
           </p>
         )}
       </div>
+
+      {/* Edit user dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar usuario</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Juan Pérez" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="juan@empresa.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rol</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="comercial">Comercial</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full bg-green-700 hover:bg-green-800 text-white"
+                disabled={editForm.formState.isSubmitting}
+              >
+                {editForm.formState.isSubmitting ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
