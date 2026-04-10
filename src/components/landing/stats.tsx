@@ -1,7 +1,7 @@
 const stats = [
   { value: "10", unit: "ha", label: "Superficie total" },
   { value: "360+", unit: "", label: "Lotes disponibles" },
-  { value: "210–399", unit: "m²", label: "Tamaños de lote" },
+  { value: "210 a 399", unit: "m²", label: "Tamaños de lote" },
   { value: "60", unit: " cuotas", label: "Financiación máxima" },
 ];
 
@@ -23,9 +23,9 @@ export function Stats() {
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-primary-foreground/10">
           {stats.map(({ value, unit, label }) => (
             <div key={label} className="text-center px-6 py-4 first:pl-0 last:pr-0">
-              <div className="font-display text-5xl md:text-6xl font-light text-primary-foreground leading-none mb-1">
+              <div className="font-display text-[2rem] sm:text-5xl md:text-6xl font-light text-primary-foreground leading-none mb-1">
                 {value}
-                <span className="text-accent text-3xl md:text-4xl">{unit}</span>
+                <span className="text-accent text-xl sm:text-3xl md:text-4xl">{unit}</span>
               </div>
               <div className="font-body text-xs tracking-[0.15em] uppercase text-primary-foreground/40 mt-3">
                 {label}

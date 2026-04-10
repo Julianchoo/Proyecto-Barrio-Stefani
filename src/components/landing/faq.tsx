@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     q: "¿Qué tamaños tienen los lotes disponibles?",
-    a: "Contamos con lotes entre 230 y 399 metros cuadrados aproximadamente, ideales para construir la casa de tus sueños en un barrio planificado con infraestructura completa.",
+    a: "Contamos con lotes entre 210 y 400 metros cuadrados aproximadamente, ideales para construir la casa de tus sueños en un barrio planificado con infraestructura completa. También contamos con lotes para uso comercial para que lleves a cabo tu emprendimiento soñado.",
   },
   {
     q: "¿Se puede financiar la compra del lote?",
