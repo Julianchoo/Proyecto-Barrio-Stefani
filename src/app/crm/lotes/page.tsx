@@ -49,7 +49,7 @@ export default function LotesPage() {
   const [loading, setLoading] = useState(true);
   const [manzanas, setManzanas] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("all");
+  const [filterEstado, setFilterEstado] = useState<string>("disponible");
   const [filterManzana, setFilterManzana] = useState<string>("all");
   const [filterSuperficie, setFilterSuperficie] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
