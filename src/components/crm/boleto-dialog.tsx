@@ -75,6 +75,7 @@ const schema = z.object({
   // Entrega
   tipoEntrega: z.enum(["saldo", "mes"]).optional(),
   mesEntrega: z.string().optional(),
+  anioEntrega: z.string().optional(),
   // Co-buyer (hasCoComprador is managed by local state, not Zod)
   nombreCoComprador: z.string().optional(),
   dniCoComprador: z.string().optional(),
@@ -118,6 +119,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
       tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
       mesEntrega: parcela.mesEntrega ?? "",
+      anioEntrega: parcela.anioEntrega ?? "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
@@ -156,6 +158,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
       tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
       mesEntrega: parcela.mesEntrega ?? "",
+      anioEntrega: parcela.anioEntrega ?? "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
@@ -452,26 +455,45 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
                   )}
                 />
                 {form.watch("tipoEntrega") === "mes" && (
-                  <FormField
-                    control={form.control}
-                    name="mesEntrega"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mes de entrega (número)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="ej: 3 (para marzo)"
-                            type="number"
-                            min="1"
-                            max="12"
-                            {...field}
-                            value={field.value ?? ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="mesEntrega"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mes (número)</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="ej: 3"
+                              type="number"
+                              min="1"
+                              max="12"
+                              {...field}
+                              value={field.value ?? ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="anioEntrega"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Año</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="ej: 2027"
+                              {...field}
+                              value={field.value ?? ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
               </div>
             </section>

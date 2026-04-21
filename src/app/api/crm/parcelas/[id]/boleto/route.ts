@@ -40,6 +40,7 @@ const boletoSchema = z.object({
   // Entrega
   tipoEntrega: z.enum(["saldo", "mes"]).optional().default("saldo"),
   mesEntrega: z.string().optional().default(""),
+  anioEntrega: z.string().optional().default(""),
   // Co-comprador (opcional)
   hasCoComprador: z.boolean().optional().default(false),
   nombreCoComprador: z.string().optional().default(""),
@@ -146,10 +147,8 @@ export async function POST(
       if (form.tipoEntrega !== "mes" || !form.mesEntrega) return "";
       const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
       const mesNum = parseInt(form.mesEntrega);
-      const mesNombre = MESES_ES[(mesNum - 1) % 12] ?? "";
-      const anioBase = parseInt(form.anio);
-      // If the month number wraps past December, add a year
-      const anio = mesNum > 12 ? anioBase + Math.floor((mesNum - 1) / 12) : anioBase;
+      const mesNombre = MESES_ES[(mesNum - 1)] ?? "";
+      const anio = form.anioEntrega || form.anio;
       return `${mesNombre} ${anio}`;
     })(),
     // Co-buyer

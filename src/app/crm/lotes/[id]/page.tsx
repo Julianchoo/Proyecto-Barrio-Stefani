@@ -43,6 +43,7 @@ const schema = z.object({
   domicilioComprador: z.string().nullable().optional(),
   tipoEntrega: z.enum(["saldo", "mes"]).nullable().optional(),
   mesEntrega: z.string().nullable().optional(),
+  anioEntrega: z.string().nullable().optional(),
   nombreCorredor: z.string().nullable().optional(),
   emailCorredor: z.string().email().or(z.literal("")).nullable().optional(),
   formaPago: z.string().nullable().optional(),
@@ -77,6 +78,7 @@ export default function LoteDetailPage() {
           domicilioComprador: data.domicilioComprador ?? "",
           tipoEntrega: (data.tipoEntrega as "saldo" | "mes") ?? null,
           mesEntrega: data.mesEntrega ?? "",
+          anioEntrega: data.anioEntrega ?? "",
           nombreCorredor: data.nombreCorredor ?? "",
           emailCorredor: data.emailCorredor ?? "",
           formaPago: data.formaPago ?? "",
@@ -269,26 +271,45 @@ export default function LoteDetailPage() {
                   )}
                 />
                 {form.watch("tipoEntrega") === "mes" && (
-                  <FormField
-                    control={form.control}
-                    name="mesEntrega"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mes de entrega (número)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            value={field.value ?? ""}
-                            placeholder="ej: 3 (para marzo)"
-                            type="number"
-                            min="1"
-                            max="12"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="mesEntrega"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mes (número)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              value={field.value ?? ""}
+                              placeholder="ej: 3"
+                              type="number"
+                              min="1"
+                              max="12"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="anioEntrega"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Año</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              value={field.value ?? ""}
+                              placeholder="ej: 2027"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
               </div>
 
