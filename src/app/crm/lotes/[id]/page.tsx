@@ -32,6 +32,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import type { Parcela } from "@/lib/schema";
+import { BoletoDialog } from "@/components/crm/boleto-dialog";
 
 const schema = z.object({
   estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]),
@@ -117,7 +118,7 @@ export default function LoteDetailPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-semibold text-gray-900">
             Lote N° {lote.numero}
           </h1>
@@ -125,6 +126,7 @@ export default function LoteDetailPage() {
             Manzana {lote.manzana} · Parcela {lote.parcela}
           </p>
         </div>
+        <BoletoDialog parcela={lote} />
       </div>
 
       {/* Read-only property data */}
