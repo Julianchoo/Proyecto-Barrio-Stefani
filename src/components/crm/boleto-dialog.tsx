@@ -71,6 +71,7 @@ const schema = z.object({
   saldoPalabras: z.string().optional(),
   saldoNum: z.string().optional(),
   cantidadCuotas: z.string().optional(),
+  cuotaMensualPalabras: z.string().optional(),
   cuotaMensual: z.string().optional(),
   // Entrega
   tipoEntrega: z.enum(["saldo", "mes"]).optional(),
@@ -116,6 +117,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       saldoPalabras: "",
       saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
       cantidadCuotas: parcela.cuotas48 ? "48" : "",
+      cuotaMensualPalabras: "",
       cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
       tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
       mesEntrega: parcela.mesEntrega ?? "",
@@ -155,6 +157,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       saldoPalabras: "",
       saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
       cantidadCuotas: parcela.cuotas48 ? "48" : "",
+      cuotaMensualPalabras: "",
       cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
       tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
       mesEntrega: parcela.mesEntrega ?? "",
@@ -412,6 +415,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
                   { name: "saldoPalabras" as const, label: "Saldo (en letras)", placeholder: "VEINTE MIL" },
                   { name: "saldoNum" as const, label: "Saldo (número)", placeholder: "20000" },
                   { name: "cantidadCuotas" as const, label: "Cantidad de cuotas", placeholder: "48" },
+                  { name: "cuotaMensualPalabras" as const, label: "Cuota mensual (en letras)", placeholder: "QUINIENTOS" },
                   { name: "cuotaMensual" as const, label: "Cuota mensual (USD)", placeholder: "500" },
                 ].map(({ name, label, placeholder }) => (
                   <FormField

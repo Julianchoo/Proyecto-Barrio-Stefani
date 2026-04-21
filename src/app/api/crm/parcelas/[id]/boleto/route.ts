@@ -36,6 +36,7 @@ const boletoSchema = z.object({
   saldoPalabras: z.string().optional().default(""),
   saldoNum: z.string().optional().default(""),
   cantidadCuotas: z.string().optional().default(""),
+  cuotaMensualPalabras: z.string().optional().default(""),
   cuotaMensual: z.string().optional().default(""),
   // Entrega
   tipoEntrega: z.enum(["saldo", "mes"]).optional().default("saldo"),
@@ -139,7 +140,10 @@ export async function POST(
     saldoPalabras: form.saldoPalabras || "",
     saldoNum: form.saldoNum || formatUsd(parcela.saldoUsd),
     cantidadCuotas: form.cantidadCuotas || "",
+    cuotaMensualPalabras: form.cuotaMensualPalabras || "",
     cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
+    tieneCuotas: !!(form.cantidadCuotas && form.cantidadCuotas !== "0" && form.cantidadCuotas !== "1"),
+    sinCuotas: !(form.cantidadCuotas && form.cantidadCuotas !== "0" && form.cantidadCuotas !== "1"),
     // Entrega
     entregaAlSaldo: form.tipoEntrega === "saldo",
     entregaMes: form.tipoEntrega === "mes",
