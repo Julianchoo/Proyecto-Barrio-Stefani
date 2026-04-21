@@ -156,6 +156,7 @@ export const parcelas = pgTable(
     dniCuit: text("dni_cuit"),
     telefono: text("telefono"),
     emailComprador: text("email_comprador"),
+    domicilioComprador: text("domicilio_comprador"),
     nombreCorredor: text("nombre_corredor"),
     emailCorredor: text("email_corredor"),
     formaPago: text("forma_pago"),

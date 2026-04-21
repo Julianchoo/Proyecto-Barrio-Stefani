@@ -93,7 +93,7 @@ export default function UsuariosPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   async function onSubmit(values: CreateFormValues) {

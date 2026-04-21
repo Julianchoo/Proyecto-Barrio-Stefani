@@ -99,7 +99,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       fechaNacimiento: "",
       estadoCivil: "",
       cuitComprador: "",
-      domicilioComprador: "",
+      domicilioComprador: parcela.domicilioComprador ?? "",
       calleInmueble: "",
       limites: "",
       medidas: parcela.superficieM2 ? `${parcela.superficieM2} m²` : "",
@@ -133,7 +133,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       fechaNacimiento: "",
       estadoCivil: "",
       cuitComprador: "",
-      domicilioComprador: "",
+      domicilioComprador: parcela.domicilioComprador ?? "",
       calleInmueble: "",
       limites: "",
       medidas: parcela.superficieM2 ? `${parcela.superficieM2} m²` : "",
@@ -149,7 +149,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       estadoCivilCoComprador: "",
       porcentajeCoComprador: "50",
     });
-    setShowCoComprador(false);
+    setShowCoComprador(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSubmit(values: FormValues) {
