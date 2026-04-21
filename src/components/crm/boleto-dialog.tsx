@@ -70,6 +70,8 @@ const schema = z.object({
   anticipoNum: z.string().optional(),
   saldoPalabras: z.string().optional(),
   saldoNum: z.string().optional(),
+  cantidadCuotas: z.string().optional(),
+  cuotaMensual: z.string().optional(),
   // Co-buyer (hasCoComprador is managed by local state, not Zod)
   nombreCoComprador: z.string().optional(),
   dniCoComprador: z.string().optional(),
@@ -109,6 +111,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       anticipoNum: parcela.anticipoUsd ? String(Number(parcela.anticipoUsd)) : "",
       saldoPalabras: "",
       saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
+      cantidadCuotas: parcela.cuotas48 ? "48" : "",
+      cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
@@ -143,6 +147,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       anticipoNum: parcela.anticipoUsd ? String(Number(parcela.anticipoUsd)) : "",
       saldoPalabras: "",
       saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
+      cantidadCuotas: parcela.cuotas48 ? "48" : "",
+      cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
@@ -395,6 +401,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
                   { name: "anticipoNum" as const, label: "Anticipo (número)", placeholder: "5000" },
                   { name: "saldoPalabras" as const, label: "Saldo (en letras)", placeholder: "VEINTE MIL" },
                   { name: "saldoNum" as const, label: "Saldo (número)", placeholder: "20000" },
+                  { name: "cantidadCuotas" as const, label: "Cantidad de cuotas", placeholder: "48" },
+                  { name: "cuotaMensual" as const, label: "Cuota mensual (USD)", placeholder: "500" },
                 ].map(({ name, label, placeholder }) => (
                   <FormField
                     key={name}

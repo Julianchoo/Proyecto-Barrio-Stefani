@@ -35,6 +35,8 @@ const boletoSchema = z.object({
   anticipoNum: z.string().optional().default(""),
   saldoPalabras: z.string().optional().default(""),
   saldoNum: z.string().optional().default(""),
+  cantidadCuotas: z.string().optional().default(""),
+  cuotaMensual: z.string().optional().default(""),
   // Co-comprador (opcional)
   hasCoComprador: z.boolean().optional().default(false),
   nombreCoComprador: z.string().optional().default(""),
@@ -132,6 +134,8 @@ export async function POST(
     anticipoNum: form.anticipoNum || formatUsd(parcela.anticipoUsd),
     saldoPalabras: form.saldoPalabras || "",
     saldoNum: form.saldoNum || formatUsd(parcela.saldoUsd),
+    cantidadCuotas: form.cantidadCuotas || "",
+    cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
     // Co-buyer
     hasCoComprador: form.hasCoComprador ?? false,
     nombreCoComprador: form.nombreCoComprador ?? "",
