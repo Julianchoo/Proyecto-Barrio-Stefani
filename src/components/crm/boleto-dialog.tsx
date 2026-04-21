@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -87,13 +87,12 @@ interface BoletoDialogProps {
 export function BoletoDialog({ parcela }: BoletoDialogProps) {
   const [open, setOpen] = useState(false);
 
-  const today = new Date();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      dia: String(today.getDate()),
-      mes: MESES[today.getMonth()] ?? "enero",
-      anio: String(today.getFullYear()),
+      dia: String(new Date().getDate()),
+      mes: MESES[new Date().getMonth()] ?? "enero",
+      anio: String(new Date().getFullYear()),
       nombreComprador: parcela.nombreComprador ?? "",
       dniComprador: parcela.dniCuit ?? "",
       nacionalidad: "argentina/o",
@@ -119,6 +118,39 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   });
 
   const [showCoComprador, setShowCoComprador] = useState(false);
+
+  // Reset form with current parcela data every time the dialog opens
+  useEffect(() => {
+    if (!open) return;
+    const today = new Date();
+    form.reset({
+      dia: String(today.getDate()),
+      mes: MESES[today.getMonth()] ?? "enero",
+      anio: String(today.getFullYear()),
+      nombreComprador: parcela.nombreComprador ?? "",
+      dniComprador: parcela.dniCuit ?? "",
+      nacionalidad: "argentina/o",
+      fechaNacimiento: "",
+      estadoCivil: "",
+      cuitComprador: "",
+      domicilioComprador: "",
+      calleInmueble: "",
+      limites: "",
+      medidas: parcela.superficieM2 ? `${parcela.superficieM2} m²` : "",
+      precioTotalPalabras: "",
+      precioTotalNum: parcela.precioEtapa1 ? String(Number(parcela.precioEtapa1)) : "",
+      anticipoPalabras: "",
+      anticipoNum: parcela.anticipoUsd ? String(Number(parcela.anticipoUsd)) : "",
+      saldoPalabras: "",
+      saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
+      nombreCoComprador: "",
+      dniCoComprador: "",
+      cuitCoComprador: "",
+      estadoCivilCoComprador: "",
+      porcentajeCoComprador: "50",
+    });
+    setShowCoComprador(false);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSubmit(values: FormValues) {
     try {
