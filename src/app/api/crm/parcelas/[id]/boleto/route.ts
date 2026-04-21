@@ -37,6 +37,9 @@ const boletoSchema = z.object({
   saldoNum: z.string().optional().default(""),
   cantidadCuotas: z.string().optional().default(""),
   cuotaMensual: z.string().optional().default(""),
+  // Entrega
+  tipoEntrega: z.enum(["saldo", "mes"]).optional().default("saldo"),
+  mesEntrega: z.string().optional().default(""),
   // Co-comprador (opcional)
   hasCoComprador: z.boolean().optional().default(false),
   nombreCoComprador: z.string().optional().default(""),
@@ -136,6 +139,19 @@ export async function POST(
     saldoNum: form.saldoNum || formatUsd(parcela.saldoUsd),
     cantidadCuotas: form.cantidadCuotas || "",
     cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
+    // Entrega
+    entregaAlSaldo: form.tipoEntrega === "saldo",
+    entregaMes: form.tipoEntrega === "mes",
+    mesEntregaTexto: (() => {
+      if (form.tipoEntrega !== "mes" || !form.mesEntrega) return "";
+      const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+      const mesNum = parseInt(form.mesEntrega);
+      const mesNombre = MESES_ES[(mesNum - 1) % 12] ?? "";
+      const anioBase = parseInt(form.anio);
+      // If the month number wraps past December, add a year
+      const anio = mesNum > 12 ? anioBase + Math.floor((mesNum - 1) / 12) : anioBase;
+      return `${mesNombre} ${anio}`;
+    })(),
     // Co-buyer
     hasCoComprador: form.hasCoComprador ?? false,
     nombreCoComprador: form.nombreCoComprador ?? "",

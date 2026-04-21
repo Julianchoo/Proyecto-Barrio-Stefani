@@ -41,6 +41,8 @@ const schema = z.object({
   telefono: z.string().nullable().optional(),
   emailComprador: z.string().email().or(z.literal("")).nullable().optional(),
   domicilioComprador: z.string().nullable().optional(),
+  tipoEntrega: z.enum(["saldo", "mes"]).nullable().optional(),
+  mesEntrega: z.string().nullable().optional(),
   nombreCorredor: z.string().nullable().optional(),
   emailCorredor: z.string().email().or(z.literal("")).nullable().optional(),
   formaPago: z.string().nullable().optional(),
@@ -73,6 +75,8 @@ export default function LoteDetailPage() {
           telefono: data.telefono ?? "",
           emailComprador: data.emailComprador ?? "",
           domicilioComprador: data.domicilioComprador ?? "",
+          tipoEntrega: (data.tipoEntrega as "saldo" | "mes") ?? null,
+          mesEntrega: data.mesEntrega ?? "",
           nombreCorredor: data.nombreCorredor ?? "",
           emailCorredor: data.emailCorredor ?? "",
           formaPago: data.formaPago ?? "",
@@ -239,6 +243,53 @@ export default function LoteDetailPage() {
                     )}
                   />
                 ))}
+              </div>
+
+              {/* Entrega */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="tipoEntrega"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Entrega</FormLabel>
+                      <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccioná" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="saldo">Contra el pago total del saldo</SelectItem>
+                          <SelectItem value="mes">Mes específico</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.watch("tipoEntrega") === "mes" && (
+                  <FormField
+                    control={form.control}
+                    name="mesEntrega"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mes de entrega (número)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value ?? ""}
+                            placeholder="ej: 3 (para marzo)"
+                            type="number"
+                            min="1"
+                            max="12"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
               <FormField

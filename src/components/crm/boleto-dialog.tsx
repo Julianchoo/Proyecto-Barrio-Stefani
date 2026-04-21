@@ -72,6 +72,9 @@ const schema = z.object({
   saldoNum: z.string().optional(),
   cantidadCuotas: z.string().optional(),
   cuotaMensual: z.string().optional(),
+  // Entrega
+  tipoEntrega: z.enum(["saldo", "mes"]).optional(),
+  mesEntrega: z.string().optional(),
   // Co-buyer (hasCoComprador is managed by local state, not Zod)
   nombreCoComprador: z.string().optional(),
   dniCoComprador: z.string().optional(),
@@ -113,6 +116,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
       cantidadCuotas: parcela.cuotas48 ? "48" : "",
       cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
+      tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
+      mesEntrega: parcela.mesEntrega ?? "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
@@ -149,13 +154,15 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       saldoNum: parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : "",
       cantidadCuotas: parcela.cuotas48 ? "48" : "",
       cuotaMensual: parcela.cuotas48 ? String(parcela.cuotas48) : "",
+      tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
+      mesEntrega: parcela.mesEntrega ?? "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
       estadoCivilCoComprador: "",
       porcentajeCoComprador: "50",
     });
-    setShowCoComprador(false); // eslint-disable-line react-hooks/set-state-in-effect
+    setShowCoComprador(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSubmit(values: FormValues) {
@@ -419,6 +426,53 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
                     )}
                   />
                 ))}
+              </div>
+
+              {/* Entrega */}
+              <div className="grid sm:grid-cols-2 gap-3 mt-3">
+                <FormField
+                  control={form.control}
+                  name="tipoEntrega"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Entrega</FormLabel>
+                      <Select value={field.value ?? "saldo"} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="saldo">Contra el pago total del saldo</SelectItem>
+                          <SelectItem value="mes">Mes específico</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.watch("tipoEntrega") === "mes" && (
+                  <FormField
+                    control={form.control}
+                    name="mesEntrega"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mes de entrega (número)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="ej: 3 (para marzo)"
+                            type="number"
+                            min="1"
+                            max="12"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
             </section>
 
