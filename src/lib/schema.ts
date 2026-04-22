@@ -168,6 +168,17 @@ export const parcelas = pgTable(
     modificadoPor: text("modificado_por"),
     observaciones: text("observaciones"),
 
+    // Datos de precio / financiación (opcionales, en letras y números)
+    precioTotalPalabras: text("precio_total_palabras"),
+    precioTotalNum: text("precio_total_num"),
+    anticipoPalabras: text("anticipo_palabras"),
+    anticipoNum: text("anticipo_num"),
+    saldoPalabras: text("saldo_palabras"),
+    saldoNum: text("saldo_num"),
+    cantidadCuotas: text("cantidad_cuotas"),
+    cuotaMensualPalabras: text("cuota_mensual_palabras"),
+    cuotaMensual: text("cuota_mensual"),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

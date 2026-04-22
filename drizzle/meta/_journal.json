@@ -29,6 +29,13 @@
       "when": 1775762404442,
       "tag": "0003_charming_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776868624429,
+      "tag": "0004_breezy_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

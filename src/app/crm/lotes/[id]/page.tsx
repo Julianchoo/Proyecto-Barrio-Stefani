@@ -50,6 +50,15 @@ const schema = z.object({
   fechaReserva: z.string().nullable().optional(),
   fechaVencimiento: z.string().nullable().optional(),
   observaciones: z.string().nullable().optional(),
+  precioTotalPalabras: z.string().nullable().optional(),
+  precioTotalNum: z.string().nullable().optional(),
+  anticipoPalabras: z.string().nullable().optional(),
+  anticipoNum: z.string().nullable().optional(),
+  saldoPalabras: z.string().nullable().optional(),
+  saldoNum: z.string().nullable().optional(),
+  cantidadCuotas: z.string().nullable().optional(),
+  cuotaMensualPalabras: z.string().nullable().optional(),
+  cuotaMensual: z.string().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -87,6 +96,15 @@ export default function LoteDetailPage() {
           fechaReserva: data.fechaReserva ?? "",
           fechaVencimiento: data.fechaVencimiento ?? "",
           observaciones: data.observaciones ?? "",
+          precioTotalPalabras: data.precioTotalPalabras ?? "",
+          precioTotalNum: data.precioTotalNum ?? "",
+          anticipoPalabras: data.anticipoPalabras ?? "",
+          anticipoNum: data.anticipoNum ?? "",
+          saldoPalabras: data.saldoPalabras ?? "",
+          saldoNum: data.saldoNum ?? "",
+          cantidadCuotas: data.cantidadCuotas ?? "",
+          cuotaMensualPalabras: data.cuotaMensualPalabras ?? "",
+          cuotaMensual: data.cuotaMensual ?? "",
         });
         setLoading(false);
       });
@@ -135,6 +153,15 @@ export default function LoteDetailPage() {
         ["formaPago", data.formaPago],
         ["nombreCorredor", data.nombreCorredor],
         ["observaciones", data.observaciones],
+        ["precioTotalPalabras", data.precioTotalPalabras],
+        ["precioTotalNum", data.precioTotalNum],
+        ["anticipoPalabras", data.anticipoPalabras],
+        ["anticipoNum", data.anticipoNum],
+        ["saldoPalabras", data.saldoPalabras],
+        ["saldoNum", data.saldoNum],
+        ["cantidadCuotas", data.cantidadCuotas],
+        ["cuotaMensualPalabras", data.cuotaMensualPalabras],
+        ["cuotaMensual", data.cuotaMensual],
       ];
       for (const [field, value] of fieldMap) {
         if (value != null) form.setValue(field, value);
@@ -375,6 +402,43 @@ export default function LoteDetailPage() {
                     />
                   </>
                 )}
+              </div>
+
+              {/* Precio */}
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-3">Precio (USD)</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { name: "precioTotalPalabras" as const, label: "Precio total (en letras)", placeholder: "VEINTICINCO MIL" },
+                    { name: "precioTotalNum" as const, label: "Precio total (número)", placeholder: "25000" },
+                    { name: "anticipoPalabras" as const, label: "Anticipo (en letras)", placeholder: "CINCO MIL" },
+                    { name: "anticipoNum" as const, label: "Anticipo (número)", placeholder: "5000" },
+                    { name: "saldoPalabras" as const, label: "Saldo (en letras)", placeholder: "VEINTE MIL" },
+                    { name: "saldoNum" as const, label: "Saldo (número)", placeholder: "20000" },
+                    { name: "cantidadCuotas" as const, label: "Cantidad de cuotas", placeholder: "48" },
+                    { name: "cuotaMensualPalabras" as const, label: "Cuota mensual (en letras)", placeholder: "QUINIENTOS" },
+                    { name: "cuotaMensual" as const, label: "Cuota mensual (USD)", placeholder: "500" },
+                  ].map(({ name, label, placeholder }) => (
+                    <FormField
+                      key={name}
+                      control={form.control}
+                      name={name}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{label}</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              value={field.value ?? ""}
+                              placeholder={placeholder}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
 
               <FormField

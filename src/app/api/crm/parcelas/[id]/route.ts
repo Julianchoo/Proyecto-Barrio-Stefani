@@ -21,6 +21,15 @@ const COMERCIAL_FIELDS = [
   "fechaReserva",
   "fechaVencimiento",
   "observaciones",
+  "precioTotalPalabras",
+  "precioTotalNum",
+  "anticipoPalabras",
+  "anticipoNum",
+  "saldoPalabras",
+  "saldoNum",
+  "cantidadCuotas",
+  "cuotaMensualPalabras",
+  "cuotaMensual",
 ] as const;
 
 const updateSchema = z
@@ -40,6 +49,15 @@ const updateSchema = z
     fechaReserva: z.string().nullable().optional(),
     fechaVencimiento: z.string().nullable().optional(),
     observaciones: z.string().nullable().optional(),
+    precioTotalPalabras: z.string().nullable().optional(),
+    precioTotalNum: z.string().nullable().optional(),
+    anticipoPalabras: z.string().nullable().optional(),
+    anticipoNum: z.string().nullable().optional(),
+    saldoPalabras: z.string().nullable().optional(),
+    saldoNum: z.string().nullable().optional(),
+    cantidadCuotas: z.string().nullable().optional(),
+    cuotaMensualPalabras: z.string().nullable().optional(),
+    cuotaMensual: z.string().nullable().optional(),
     // Admin-only fields
     precioEtapa1: z.string().nullable().optional(),
     valorM2: z.string().nullable().optional(),
