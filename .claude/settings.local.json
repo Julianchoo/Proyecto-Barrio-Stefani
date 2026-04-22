@@ -20,7 +20,9 @@
       "Bash(pnpm dlx:*)",
       "Bash(printf 'N\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\nN\\\\n')",
       "Bash(pnpm db:generate)",
-      "Bash(pnpm typecheck:*)"
+      "Bash(pnpm typecheck:*)",
+      "Bash(node -e \":*)",
+      "WebFetch(domain:docs.mistral.ai)"
     ]
   },
   "enableAllProjectMcpServers": true,

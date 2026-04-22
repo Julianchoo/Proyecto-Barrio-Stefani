@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -131,6 +131,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   });
 
   const [showCoComprador, setShowCoComprador] = useState(false);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset form with current parcela data every time the dialog opens
   useEffect(() => {
@@ -171,6 +173,64 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
     setShowCoComprador(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsOcrLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch(`/api/crm/parcelas/${parcela.id}/ocr-boleto`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        toast.error("No se pudo procesar la imagen");
+        return;
+      }
+      const data = await res.json();
+
+      // Fecha
+      if (data.dia) form.setValue("dia", data.dia);
+      if (data.mes) form.setValue("mes", data.mes);
+      if (data.anio) form.setValue("anio", data.anio);
+      // Comprador
+      if (data.nombreComprador) form.setValue("nombreComprador", data.nombreComprador);
+      if (data.dniComprador) form.setValue("dniComprador", data.dniComprador);
+      if (data.cuitComprador) form.setValue("cuitComprador", data.cuitComprador);
+      if (data.domicilioComprador) form.setValue("domicilioComprador", data.domicilioComprador);
+      if (data.nacionalidad) form.setValue("nacionalidad", data.nacionalidad);
+      if (data.fechaNacimiento) form.setValue("fechaNacimiento", data.fechaNacimiento);
+      if (data.estadoCivil) form.setValue("estadoCivil", data.estadoCivil);
+      // Co-comprador
+      if (data.nombreCoComprador) {
+        setShowCoComprador(true);
+        form.setValue("nombreCoComprador", data.nombreCoComprador);
+        if (data.dniCoComprador) form.setValue("dniCoComprador", data.dniCoComprador);
+        if (data.cuitCoComprador) form.setValue("cuitCoComprador", data.cuitCoComprador);
+        if (data.estadoCivilCoComprador) form.setValue("estadoCivilCoComprador", data.estadoCivilCoComprador);
+        if (data.porcentajeCoComprador) form.setValue("porcentajeCoComprador", data.porcentajeCoComprador);
+      }
+      // Precio
+      if (data.precioTotalPalabras) form.setValue("precioTotalPalabras", data.precioTotalPalabras);
+      if (data.precioTotalNum) form.setValue("precioTotalNum", data.precioTotalNum);
+      if (data.anticipoPalabras) form.setValue("anticipoPalabras", data.anticipoPalabras);
+      if (data.anticipoNum) form.setValue("anticipoNum", data.anticipoNum);
+      if (data.saldoPalabras) form.setValue("saldoPalabras", data.saldoPalabras);
+      if (data.saldoNum) form.setValue("saldoNum", data.saldoNum);
+      if (data.cantidadCuotas) form.setValue("cantidadCuotas", data.cantidadCuotas);
+      if (data.cuotaMensualPalabras) form.setValue("cuotaMensualPalabras", data.cuotaMensualPalabras);
+      if (data.cuotaMensual) form.setValue("cuotaMensual", data.cuotaMensual);
+
+      toast.success("Datos extraídos. Revisá y completá lo que falte.");
+    } catch {
+      toast.error("Error al procesar la imagen");
+    } finally {
+      setIsOcrLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   async function onSubmit(values: FormValues) {
     try {
       const res = await fetch(`/api/crm/parcelas/${parcela.id}/boleto`, {
@@ -210,10 +270,33 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-start justify-between gap-4">
           <DialogTitle>
             Generar Boleto — Lote {parcela.numero} · Manzana {parcela.manzana}
           </DialogTitle>
+          <div className="shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleOcrUpload}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isOcrLoading}
+            >
+              {isOcrLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <ImageUp className="h-4 w-4 mr-1" />
+              )}
+              {isOcrLoading ? "Procesando..." : "Subir reserva"}
+            </Button>
+          </div>
         </DialogHeader>
 
         <Form {...form}>

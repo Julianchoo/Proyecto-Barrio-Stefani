@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +59,8 @@ export default function LoteDetailPage() {
   const router = useRouter();
   const [lote, setLote] = useState<Parcela | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -104,6 +106,45 @@ export default function LoteDetailPage() {
       toast.success("Lote actualizado");
     } else {
       toast.error("Error al guardar");
+    }
+  }
+
+  async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsOcrLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch(`/api/crm/parcelas/${id}/ocr-reserva`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        toast.error("No se pudo procesar la imagen");
+        return;
+      }
+      const data = await res.json();
+      const fieldMap: Array<[keyof FormValues, string | null]> = [
+        ["nombreComprador", data.nombreComprador],
+        ["dniCuit", data.dniCuit],
+        ["telefono", data.telefono],
+        ["domicilioComprador", data.domicilioComprador],
+        ["fechaReserva", data.fechaReserva],
+        ["fechaVencimiento", data.fechaVencimiento],
+        ["formaPago", data.formaPago],
+        ["nombreCorredor", data.nombreCorredor],
+        ["observaciones", data.observaciones],
+      ];
+      for (const [field, value] of fieldMap) {
+        if (value != null) form.setValue(field, value);
+      }
+      toast.success("Datos extraídos. Revisá y guardá los cambios.");
+    } catch {
+      toast.error("Error al procesar la imagen");
+    } finally {
+      setIsOcrLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -179,8 +220,31 @@ export default function LoteDetailPage() {
 
       {/* Editable form */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="text-base">Datos de reserva / comprador</CardTitle>
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleOcrUpload}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isOcrLoading}
+            >
+              {isOcrLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <ImageUp className="h-4 w-4 mr-1" />
+              )}
+              {isOcrLoading ? "Procesando..." : "Subir reserva"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Form {...form}>
