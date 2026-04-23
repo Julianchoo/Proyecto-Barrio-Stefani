@@ -120,7 +120,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       cantidadCuotas: parcela.cantidadCuotas ?? (parcela.cuotas48 ? "48" : ""),
       cuotaMensualPalabras: parcela.cuotaMensualPalabras ?? "",
       cuotaMensual: parcela.cuotaMensual ?? (parcela.cuotas48 ? String(parcela.cuotas48) : ""),
-      numeroCuotaEntrega: "",
+      numeroCuotaEntrega: parcela.tipoEntrega === "cuota" ? (parcela.mesEntrega ?? "") : "",
       nombreApoderado: "",
       dniApoderado: "",
       nombreCoComprador: "",
@@ -132,7 +132,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   });
 
   const [showApoderado, setShowApoderado] = useState(false);
-  const [entregaCuota, setEntregaCuota] = useState(false);
+  const [entregaCuota, setEntregaCuota] = useState(parcela.tipoEntrega === "cuota");
   const [showCoComprador, setShowCoComprador] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -164,7 +164,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       cantidadCuotas: parcela.cantidadCuotas ?? (parcela.cuotas48 ? "48" : ""),
       cuotaMensualPalabras: parcela.cuotaMensualPalabras ?? "",
       cuotaMensual: parcela.cuotaMensual ?? (parcela.cuotas48 ? String(parcela.cuotas48) : ""),
-      numeroCuotaEntrega: "",
+      numeroCuotaEntrega: parcela.tipoEntrega === "cuota" ? (parcela.mesEntrega ?? "") : "",
       nombreApoderado: "",
       dniApoderado: "",
       nombreCoComprador: "",
@@ -174,7 +174,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       porcentajeCoComprador: "50",
     });
     setShowApoderado(false);
-    setEntregaCuota(false);
+    setEntregaCuota(parcela.tipoEntrega === "cuota");
     setShowCoComprador(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
