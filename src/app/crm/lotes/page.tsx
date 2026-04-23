@@ -550,7 +550,7 @@ export default function LotesPage() {
                             {estadoLabels[lote.estado]}
                           </span>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent position="popper">
                           {(Object.keys(estadoLabels) as EstadoParcela[]).map(
                             (e) => (
                               <SelectItem key={e} value={e}>
