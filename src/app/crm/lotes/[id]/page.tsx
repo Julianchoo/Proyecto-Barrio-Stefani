@@ -78,6 +78,7 @@ export default function LoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [entregaCuota, setEntregaCuota] = useState(false);
+  const [tipoPago, setTipoPago] = useState<"contado" | "financiado">("financiado");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leadSearch, setLeadSearch] = useState("");
   const [leadResults, setLeadResults] = useState<LeadOption[]>([]);
@@ -91,6 +92,7 @@ export default function LoteDetailPage() {
     const data: Parcela = await r.json();
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
+    setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
     form.reset({
       estado: data.estado,
       nombreComprador: data.nombreComprador ?? "",
@@ -390,7 +392,6 @@ export default function LoteDetailPage() {
                   { name: "domicilioComprador" as const, label: "Domicilio comprador" },
                   { name: "nombreCorredor" as const, label: "Nombre corredor" },
                   { name: "emailCorredor" as const, label: "Email corredor" },
-                  { name: "formaPago" as const, label: "Forma de pago" },
                   { name: "fechaReserva" as const, label: "Fecha reserva" },
                   { name: "fechaVencimiento" as const, label: "Fecha vencimiento" },
                 ].map(({ name, label }) => (
@@ -413,6 +414,29 @@ export default function LoteDetailPage() {
                     )}
                   />
                 ))}
+
+                {/* Tipo de pago */}
+                <FormItem>
+                  <FormLabel>Tipo de pago</FormLabel>
+                  <Select
+                    value={tipoPago}
+                    onValueChange={(v) => {
+                      const val = v as "contado" | "financiado";
+                      setTipoPago(val);
+                      form.setValue("formaPago", val);
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="financiado">Financiado (con cuotas)</SelectItem>
+                      <SelectItem value="contado">Contado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
               </div>
 
               {/* Entrega */}
@@ -455,6 +479,28 @@ export default function LoteDetailPage() {
                     { name: "anticipoNum" as const, label: "Anticipo (número)", placeholder: "5000" },
                     { name: "saldoPalabras" as const, label: "Saldo (en letras)", placeholder: "VEINTE MIL" },
                     { name: "saldoNum" as const, label: "Saldo (número)", placeholder: "20000" },
+                  ].map(({ name, label, placeholder }) => (
+                    <FormField
+                      key={name}
+                      control={form.control}
+                      name={name}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{label}</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              value={field.value ?? ""}
+                              placeholder={placeholder}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+
+                  {tipoPago === "financiado" && [
                     { name: "cantidadCuotas" as const, label: "Cantidad de cuotas", placeholder: "48" },
                     { name: "cuotaMensualPalabras" as const, label: "Cuota mensual (en letras)", placeholder: "QUINIENTOS" },
                     { name: "cuotaMensual" as const, label: "Cuota mensual (USD)", placeholder: "500" },

@@ -38,6 +38,8 @@ const boletoSchema = z.object({
   cantidadCuotas: z.string().optional().default(""),
   cuotaMensualPalabras: z.string().optional().default(""),
   cuotaMensual: z.string().optional().default(""),
+  // Tipo de pago
+  tipoPago: z.enum(["contado", "financiado"]).default("financiado"),
   // Entrega
   entregaCuota: z.boolean().optional().default(false),
   numeroCuotaEntrega: z.string().optional().default(""),
@@ -145,8 +147,8 @@ export async function POST(
     cantidadCuotas: form.cantidadCuotas || "",
     cuotaMensualPalabras: form.cuotaMensualPalabras || "",
     cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
-    tieneCuotas: !!(form.cantidadCuotas && form.cantidadCuotas !== "0" && form.cantidadCuotas !== "1"),
-    sinCuotas: !(form.cantidadCuotas && form.cantidadCuotas !== "0" && form.cantidadCuotas !== "1"),
+    tieneCuotas: form.tipoPago === "financiado",
+    sinCuotas: form.tipoPago === "contado",
     // Entrega
     entregaAlSaldo: !(form.entregaCuota ?? false),
     entregaCuota: form.entregaCuota ?? false,

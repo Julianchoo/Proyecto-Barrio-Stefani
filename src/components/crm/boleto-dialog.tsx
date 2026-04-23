@@ -132,6 +132,9 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   });
 
   const [showApoderado, setShowApoderado] = useState(false);
+  const [tipoPago, setTipoPago] = useState<"contado" | "financiado">(
+    parcela.formaPago === "contado" ? "contado" : "financiado"
+  );
   const [entregaCuota, setEntregaCuota] = useState(parcela.tipoEntrega === "cuota");
   const [showCoComprador, setShowCoComprador] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
@@ -174,6 +177,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       porcentajeCoComprador: "50",
     });
     setShowApoderado(false);
+    setTipoPago(parcela.formaPago === "contado" ? "contado" : "financiado");
     setEntregaCuota(parcela.tipoEntrega === "cuota");
     setShowCoComprador(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -223,6 +227,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       if (data.anticipoNum) form.setValue("anticipoNum", data.anticipoNum);
       if (data.saldoPalabras) form.setValue("saldoPalabras", data.saldoPalabras);
       if (data.saldoNum) form.setValue("saldoNum", data.saldoNum);
+      if (data.tipoPago === "contado" || data.tipoPago === "financiado") setTipoPago(data.tipoPago);
       if (data.cantidadCuotas) form.setValue("cantidadCuotas", data.cantidadCuotas);
       if (data.cuotaMensualPalabras) form.setValue("cuotaMensualPalabras", data.cuotaMensualPalabras);
       if (data.cuotaMensual) form.setValue("cuotaMensual", data.cuotaMensual);
@@ -241,7 +246,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       const res = await fetch(`/api/crm/parcelas/${parcela.id}/boleto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, hasApoderado: showApoderado, hasCoComprador: showCoComprador, entregaCuota, numeroCuotaEntrega: values.numeroCuotaEntrega ?? "" }),
+        body: JSON.stringify({ ...values, tipoPago, hasApoderado: showApoderado, hasCoComprador: showCoComprador, entregaCuota, numeroCuotaEntrega: values.numeroCuotaEntrega ?? "" }),
       });
 
       if (!res.ok) {
@@ -544,6 +549,21 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
             {/* ── Precio ── */}
             <section>
               <p className="text-sm font-semibold text-gray-700 mb-3">Precio (USD)</p>
+
+              {/* Tipo de pago */}
+              <div className="mb-3">
+                <p className="text-sm font-medium text-gray-700 mb-1">Tipo de pago</p>
+                <Select value={tipoPago} onValueChange={(v) => setTipoPago(v as "contado" | "financiado")}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="financiado">Financiado (con cuotas)</SelectItem>
+                    <SelectItem value="contado">Contado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   { name: "precioTotalPalabras" as const, label: "Precio total (en letras)", placeholder: "VEINTICINCO MIL" },
@@ -552,6 +572,24 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
                   { name: "anticipoNum" as const, label: "Anticipo (número)", placeholder: "5000" },
                   { name: "saldoPalabras" as const, label: "Saldo (en letras)", placeholder: "VEINTE MIL" },
                   { name: "saldoNum" as const, label: "Saldo (número)", placeholder: "20000" },
+                ].map(({ name, label, placeholder }) => (
+                  <FormField
+                    key={name}
+                    control={form.control}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={placeholder} {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+
+                {tipoPago === "financiado" && [
                   { name: "cantidadCuotas" as const, label: "Cantidad de cuotas", placeholder: "48" },
                   { name: "cuotaMensualPalabras" as const, label: "Cuota mensual (en letras)", placeholder: "QUINIENTOS" },
                   { name: "cuotaMensual" as const, label: "Cuota mensual (USD)", placeholder: "500" },
