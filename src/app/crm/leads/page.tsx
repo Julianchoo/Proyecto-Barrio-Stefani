@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoLead } from "@/lib/schema";
 
@@ -91,6 +91,9 @@ export default function LeadsPage() {
   const [editLead, setEditLead] = useState<LeadRow | null>(null);
   const [editForm, setEditForm] = useState({ nombre: "", telefono: "", email: "", dniCuit: "", domicilio: "", notas: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({ nombre: "", telefono: "", email: "", mensaje: "", dniCuit: "", domicilio: "", notas: "" });
+  const [createSaving, setCreateSaving] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -279,6 +282,33 @@ export default function LeadsPage() {
     setEditSaving(false);
   }
 
+  async function handleCreateSave() {
+    if (!createForm.nombre || !createForm.telefono || !createForm.email) return;
+    setCreateSaving(true);
+    const res = await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: createForm.nombre,
+        telefono: createForm.telefono,
+        email: createForm.email,
+        mensaje: createForm.mensaje || null,
+        dniCuit: createForm.dniCuit || null,
+        domicilio: createForm.domicilio || null,
+        notas: createForm.notas || null,
+      }),
+    });
+    if (res.ok) {
+      toast.success("Lead creado");
+      setCreateOpen(false);
+      setCreateForm({ nombre: "", telefono: "", email: "", mensaje: "", dniCuit: "", domicilio: "", notas: "" });
+      fetchLeads();
+    } else {
+      toast.error("Error al crear el lead");
+    }
+    setCreateSaving(false);
+  }
+
   const allSelected = leads.length > 0 && selected.size === leads.length;
   const someSelected = selected.size > 0 && selected.size < leads.length;
   const colCount = isAdmin ? 9 : 8;
@@ -297,6 +327,10 @@ export default function LeadsPage() {
       </div>
 
       <div className="flex gap-3">
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Nuevo lead
+        </Button>
         <Select value={filterEstado} onValueChange={setFilterEstado}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Filtrar por estado" />
@@ -446,6 +480,51 @@ export default function LeadsPage() {
           </p>
         )}
       </div>
+
+      {/* Create lead dialog */}
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) setCreateOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="create-nombre">Nombre *</Label>
+              <Input id="create-nombre" value={createForm.nombre} onChange={(e) => setCreateForm((f) => ({ ...f, nombre: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-telefono">Teléfono *</Label>
+              <Input id="create-telefono" value={createForm.telefono} onChange={(e) => setCreateForm((f) => ({ ...f, telefono: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-email">Email *</Label>
+              <Input id="create-email" type="email" value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-dniCuit">DNI / CUIT</Label>
+              <Input id="create-dniCuit" value={createForm.dniCuit} onChange={(e) => setCreateForm((f) => ({ ...f, dniCuit: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-domicilio">Domicilio</Label>
+              <Input id="create-domicilio" value={createForm.domicilio} onChange={(e) => setCreateForm((f) => ({ ...f, domicilio: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-mensaje">Mensaje</Label>
+              <Textarea id="create-mensaje" rows={2} value={createForm.mensaje} onChange={(e) => setCreateForm((f) => ({ ...f, mensaje: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-notas">Notas</Label>
+              <Textarea id="create-notas" rows={2} value={createForm.notas} onChange={(e) => setCreateForm((f) => ({ ...f, notas: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateSave} disabled={createSaving || !createForm.nombre || !createForm.telefono || !createForm.email}>
+              {createSaving ? "Creando..." : "Crear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit lead dialog */}
       <Dialog open={editLead !== null} onOpenChange={(open) => { if (!open) setEditLead(null); }}>

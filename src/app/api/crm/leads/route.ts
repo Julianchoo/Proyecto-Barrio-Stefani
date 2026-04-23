@@ -4,6 +4,17 @@ import { leads, user } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoLead } from "@/lib/schema";
+import { z } from "zod";
+
+const createLeadSchema = z.object({
+  nombre: z.string().min(1),
+  telefono: z.string().min(1),
+  email: z.string().email(),
+  mensaje: z.string().optional().nullable(),
+  dniCuit: z.string().optional().nullable(),
+  domicilio: z.string().optional().nullable(),
+  notas: z.string().optional().nullable(),
+});
 
 export async function GET(request: Request) {
   const authResult = await requireApiAuth();
@@ -54,4 +65,24 @@ export async function GET(request: Request) {
         .orderBy(leads.createdAt);
 
   return NextResponse.json(rows);
+}
+
+export async function POST(request: Request) {
+  const authResult = await requireApiAuth();
+  if (isErrorResponse(authResult)) return authResult;
+
+  const body = await request.json();
+  const parsed = createLeadSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  }
+
+  const { nombre, telefono, email, mensaje, dniCuit, domicilio, notas } = parsed.data;
+
+  const [created] = await db
+    .insert(leads)
+    .values({ nombre, telefono, email, mensaje: mensaje ?? null, dniCuit: dniCuit ?? null, domicilio: domicilio ?? null, notas: notas ?? null })
+    .returning();
+
+  return NextResponse.json(created, { status: 201 });
 }
