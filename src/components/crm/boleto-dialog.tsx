@@ -77,6 +77,9 @@ const schema = z.object({
   tipoEntrega: z.enum(["saldo", "mes"]).optional(),
   mesEntrega: z.string().optional(),
   anioEntrega: z.string().optional(),
+  // Apoderado vendedora (managed by local state, not Zod)
+  nombreApoderado: z.string().optional(),
+  dniApoderado: z.string().optional(),
   // Co-buyer (hasCoComprador is managed by local state, not Zod)
   nombreCoComprador: z.string().optional(),
   dniCoComprador: z.string().optional(),
@@ -122,6 +125,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
       mesEntrega: parcela.mesEntrega ?? "",
       anioEntrega: parcela.anioEntrega ?? "",
+      nombreApoderado: "",
+      dniApoderado: "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
@@ -130,6 +135,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
     },
   });
 
+  const [showApoderado, setShowApoderado] = useState(false);
   const [showCoComprador, setShowCoComprador] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -164,12 +170,15 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
       mesEntrega: parcela.mesEntrega ?? "",
       anioEntrega: parcela.anioEntrega ?? "",
+      nombreApoderado: "",
+      dniApoderado: "",
       nombreCoComprador: "",
       dniCoComprador: "",
       cuitCoComprador: "",
       estadoCivilCoComprador: "",
       porcentajeCoComprador: "50",
     });
+    setShowApoderado(false);
     setShowCoComprador(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -236,7 +245,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       const res = await fetch(`/api/crm/parcelas/${parcela.id}/boleto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, hasCoComprador: showCoComprador }),
+        body: JSON.stringify({ ...values, hasApoderado: showApoderado, hasCoComprador: showCoComprador }),
       });
 
       if (!res.ok) {
@@ -301,6 +310,56 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-2">
+
+            {/* ── Apoderado vendedora ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Checkbox
+                  id="hasApoderado"
+                  checked={showApoderado}
+                  onCheckedChange={(checked) => setShowApoderado(!!checked)}
+                />
+                <label
+                  htmlFor="hasApoderado"
+                  className="text-sm font-semibold text-gray-700 cursor-pointer"
+                >
+                  La parte vendedora actúa por apoderado
+                </label>
+              </div>
+
+              {showApoderado && (
+                <div className="grid sm:grid-cols-2 gap-3 pl-6">
+                  <FormField
+                    control={form.control}
+                    name="nombreApoderado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre y apellido del apoderado</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Juan Pérez" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dniApoderado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>DNI del apoderado</FormLabel>
+                        <FormControl>
+                          <Input placeholder="12345678" {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </section>
+
+            <Separator />
 
             {/* ── Fecha ── */}
             <section>

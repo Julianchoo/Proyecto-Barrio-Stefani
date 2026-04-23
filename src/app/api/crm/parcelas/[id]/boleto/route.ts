@@ -42,6 +42,10 @@ const boletoSchema = z.object({
   tipoEntrega: z.enum(["saldo", "mes"]).optional().default("saldo"),
   mesEntrega: z.string().optional().default(""),
   anioEntrega: z.string().optional().default(""),
+  // Apoderado vendedora (opcional)
+  hasApoderado: z.boolean().optional().default(false),
+  nombreApoderado: z.string().optional().default(""),
+  dniApoderado: z.string().optional().default(""),
   // Co-comprador (opcional)
   hasCoComprador: z.boolean().optional().default(false),
   nombreCoComprador: z.string().optional().default(""),
@@ -155,6 +159,10 @@ export async function POST(
       const anio = form.anioEntrega || form.anio;
       return `${mesNombre} ${anio}`;
     })(),
+    // Apoderado
+    hasApoderado: form.hasApoderado ?? false,
+    nombreApoderado: form.nombreApoderado ?? "",
+    dniApoderado: form.dniApoderado ?? "",
     // Co-buyer
     hasCoComprador: form.hasCoComprador ?? false,
     nombreCoComprador: form.nombreCoComprador ?? "",

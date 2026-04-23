@@ -130,6 +130,28 @@ function processXml(xml) {
     }
   );
 
+  // ── Step 7: Inject apoderado conditional for seller block ────────────────────────────
+  // The seller paragraph has Lazzaro's info across multiple runs (1–7).
+  // We collapse them into one run with a {^hasApoderado}/{#hasApoderado} conditional.
+  const LAZZARO_BLOCK =
+    "1) MIGUEL \u00c1NGEL L\u00c1ZZARO, argentino, titular del Documento Nacional de Identidad 8.206.039 y del CUIL 20-08206039-2, domiciliado en la calle Ladislao Mart\u00ednez 243 Piso 2, Localidad de Mart\u00ednez, Partido de San Isidro, Provincia de Buenos Aires, quien interviene en nombre y representaci\u00f3n, en su car\u00e1cter de Presidente de la Sociedad que gira en esta plaza, bajo la denominaci\u00f3n de \u201cBARRIO STEFANI SOCIEDAD AN\u00d3NIMA\u201d, CUIT 30-71917882-7, con sede social en la calle Talcahuano 469, Piso 2, de \u00e9sta Ciudad";
+
+  const APODERADO_BLOCK =
+    "1) \u201cBARRIO STEFANI SOCIEDAD AN\u00d3NIMA\u201d, CUIT 30-71917882-7, con sede social en la calle Talcahuano 469, Piso 2, de \u00e9sta Ciudad, representada en este acto por {nombreApoderado}, titular del Documento Nacional de Identidad {dniApoderado}";
+
+  const SELLER_RUN =
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>' +
+    '<w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="es-ES_tradnl"/></w:rPr>' +
+    '<w:t xml:space="preserve">' +
+    `{^hasApoderado}${LAZZARO_BLOCK}{/hasApoderado}` +
+    `{#hasApoderado}${APODERADO_BLOCK}{/hasApoderado}` +
+    "</w:t></w:r>";
+
+  xml = xml.replace(
+    /<w:r[^>]*><w:rPr>[\s\S]*?<\/w:rPr><w:t[^>]*>1\) MIGUEL ÁNGEL LÁZZARO,<\/w:t><\/w:r>[\s\S]*?Talcahuano 469, Piso 2, de ésta Ciudad<\/w:t><\/w:r>/,
+    SELLER_RUN
+  );
+
   // ── Step 6: Ensure xml:space="preserve" on text nodes with leading/trailing spaces ──
   // Without this, XML parsers strip surrounding whitespace from <w:t> elements,
   // which causes "LOTE62DE LA MANZANA3" instead of "LOTE 62 DE LA MANZANA 3".
