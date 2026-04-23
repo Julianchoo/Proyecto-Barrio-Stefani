@@ -39,9 +39,8 @@ const boletoSchema = z.object({
   cuotaMensualPalabras: z.string().optional().default(""),
   cuotaMensual: z.string().optional().default(""),
   // Entrega
-  tipoEntrega: z.enum(["saldo", "mes"]).optional().default("saldo"),
-  mesEntrega: z.string().optional().default(""),
-  anioEntrega: z.string().optional().default(""),
+  entregaCuota: z.boolean().optional().default(false),
+  numeroCuotaEntrega: z.string().optional().default(""),
   // Apoderado vendedora (opcional)
   hasApoderado: z.boolean().optional().default(false),
   nombreApoderado: z.string().optional().default(""),
@@ -149,16 +148,9 @@ export async function POST(
     tieneCuotas: !!(form.cantidadCuotas && form.cantidadCuotas !== "0" && form.cantidadCuotas !== "1"),
     sinCuotas: !(form.cantidadCuotas && form.cantidadCuotas !== "0" && form.cantidadCuotas !== "1"),
     // Entrega
-    entregaAlSaldo: form.tipoEntrega === "saldo",
-    entregaMes: form.tipoEntrega === "mes",
-    mesEntregaTexto: (() => {
-      if (form.tipoEntrega !== "mes" || !form.mesEntrega) return "";
-      const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-      const mesNum = parseInt(form.mesEntrega);
-      const mesNombre = MESES_ES[(mesNum - 1)] ?? "";
-      const anio = form.anioEntrega || form.anio;
-      return `${mesNombre} ${anio}`;
-    })(),
+    entregaAlSaldo: !(form.entregaCuota ?? false),
+    entregaCuota: form.entregaCuota ?? false,
+    numeroCuotaEntrega: form.numeroCuotaEntrega ?? "",
     // Apoderado
     hasApoderado: form.hasApoderado ?? false,
     nombreApoderado: form.nombreApoderado ?? "",
