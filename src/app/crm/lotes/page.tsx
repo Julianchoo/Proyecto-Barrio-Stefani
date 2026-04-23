@@ -427,7 +427,7 @@ export default function LotesPage() {
                     onChange={() => {}}
                     onClick={(e) => {
                       const newValue = !visibleCols[col.key];
-                      let next = { ...visibleCols };
+                      const next = { ...visibleCols };
                       if (e.shiftKey && lastColPickerIndexRef.current !== null) {
                         const from = Math.min(lastColPickerIndexRef.current, colIndex);
                         const to = Math.max(lastColPickerIndexRef.current, colIndex);

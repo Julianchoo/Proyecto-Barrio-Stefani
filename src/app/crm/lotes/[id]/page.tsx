@@ -86,39 +86,42 @@ export default function LoteDetailPage() {
     resolver: zodResolver(schema),
   });
 
+  async function fetchLote() {
+    const r = await fetch(`/api/crm/parcelas/${id}`);
+    const data: Parcela = await r.json();
+    setLote(data);
+    setEntregaCuota(data.tipoEntrega === "cuota");
+    form.reset({
+      estado: data.estado,
+      nombreComprador: data.nombreComprador ?? "",
+      dniCuit: data.dniCuit ?? "",
+      telefono: data.telefono ?? "",
+      emailComprador: data.emailComprador ?? "",
+      domicilioComprador: data.domicilioComprador ?? "",
+      numeroCuotaEntrega: data.mesEntrega ?? "",
+      nombreCorredor: data.nombreCorredor ?? "",
+      emailCorredor: data.emailCorredor ?? "",
+      formaPago: data.formaPago ?? "",
+      fechaReserva: data.fechaReserva ?? "",
+      fechaVencimiento: data.fechaVencimiento ?? "",
+      observaciones: data.observaciones ?? "",
+      precioTotalPalabras: data.precioTotalPalabras ?? "",
+      precioTotalNum: data.precioTotalNum ?? "",
+      anticipoPalabras: data.anticipoPalabras ?? "",
+      anticipoNum: data.anticipoNum ?? "",
+      saldoPalabras: data.saldoPalabras ?? "",
+      saldoNum: data.saldoNum ?? "",
+      cantidadCuotas: data.cantidadCuotas ?? "",
+      cuotaMensualPalabras: data.cuotaMensualPalabras ?? "",
+      cuotaMensual: data.cuotaMensual ?? "",
+    });
+    setLoading(false);
+  }
+
   useEffect(() => {
-    fetch(`/api/crm/parcelas/${id}`)
-      .then((r) => r.json())
-      .then((data: Parcela) => {
-        setLote(data);
-        setEntregaCuota(data.tipoEntrega === "cuota");
-        form.reset({
-          estado: data.estado,
-          nombreComprador: data.nombreComprador ?? "",
-          dniCuit: data.dniCuit ?? "",
-          telefono: data.telefono ?? "",
-          emailComprador: data.emailComprador ?? "",
-          domicilioComprador: data.domicilioComprador ?? "",
-          numeroCuotaEntrega: data.mesEntrega ?? "",
-          nombreCorredor: data.nombreCorredor ?? "",
-          emailCorredor: data.emailCorredor ?? "",
-          formaPago: data.formaPago ?? "",
-          fechaReserva: data.fechaReserva ?? "",
-          fechaVencimiento: data.fechaVencimiento ?? "",
-          observaciones: data.observaciones ?? "",
-          precioTotalPalabras: data.precioTotalPalabras ?? "",
-          precioTotalNum: data.precioTotalNum ?? "",
-          anticipoPalabras: data.anticipoPalabras ?? "",
-          anticipoNum: data.anticipoNum ?? "",
-          saldoPalabras: data.saldoPalabras ?? "",
-          saldoNum: data.saldoNum ?? "",
-          cantidadCuotas: data.cantidadCuotas ?? "",
-          cuotaMensualPalabras: data.cuotaMensualPalabras ?? "",
-          cuotaMensual: data.cuotaMensual ?? "",
-        });
-        setLoading(false);
-      });
-  }, [id, form]);
+    fetchLote();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   async function onSubmit(values: FormValues) {
     const payload: Record<string, unknown> = {};
@@ -136,6 +139,7 @@ export default function LoteDetailPage() {
     });
     if (res.ok) {
       toast.success("Lote actualizado");
+      await fetchLote();
     } else {
       toast.error("Error al guardar");
     }
