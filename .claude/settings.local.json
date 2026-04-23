@@ -23,7 +23,8 @@
       "Bash(pnpm typecheck:*)",
       "Bash(node -e \":*)",
       "WebFetch(domain:docs.mistral.ai)",
-      "Bash(npx drizzle-kit:*)"
+      "Bash(npx drizzle-kit:*)",
+      "Bash(node -e \"console.log\\(require\\(''docxtemplater/package.json''\\).version\\)\")"
     ]
   },
   "enableAllProjectMcpServers": true,

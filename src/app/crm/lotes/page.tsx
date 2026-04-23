@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import {
   Table,
   TableBody,
@@ -44,6 +45,109 @@ const SUPERFICIE_RANGES = [
   { label: "Más de 800 m²", min: 800, max: undefined },
 ] as const;
 
+type ColKey =
+  | "comprador"
+  | "dniCuit"
+  | "telefono"
+  | "email"
+  | "domicilio"
+  | "corredor"
+  | "emailCorredor"
+  | "formaPago"
+  | "entrega"
+  | "fechaReserva"
+  | "fechaVencimiento"
+  | "precioTotal"
+  | "anticipo"
+  | "saldo"
+  | "cuotas"
+  | "cuotaMensual"
+  | "observaciones";
+
+const OPTIONAL_COLS: { key: ColKey; label: string }[] = [
+  { key: "comprador", label: "Comprador" },
+  { key: "dniCuit", label: "DNI / CUIT" },
+  { key: "telefono", label: "Teléfono" },
+  { key: "email", label: "Email comprador" },
+  { key: "domicilio", label: "Domicilio" },
+  { key: "corredor", label: "Corredor" },
+  { key: "emailCorredor", label: "Email corredor" },
+  { key: "formaPago", label: "Forma de pago" },
+  { key: "entrega", label: "Entrega posesión" },
+  { key: "fechaReserva", label: "Fecha reserva" },
+  { key: "fechaVencimiento", label: "Fecha vencimiento" },
+  { key: "precioTotal", label: "Precio total" },
+  { key: "anticipo", label: "Anticipo" },
+  { key: "saldo", label: "Saldo" },
+  { key: "cuotas", label: "Cuotas" },
+  { key: "cuotaMensual", label: "Cuota mensual" },
+  { key: "observaciones", label: "Observaciones" },
+];
+
+function formatEntrega(lote: Parcela): string {
+  if (!lote.tipoEntrega) return "—";
+  if (lote.tipoEntrega === "cuota") {
+    return lote.mesEntrega ? `Contra cuota N° ${lote.mesEntrega}` : "Contra cuota";
+  }
+  return "Contra saldo";
+}
+
+function getCellValue(lote: Parcela, key: ColKey): string {
+  switch (key) {
+    case "comprador": return lote.nombreComprador ?? "—";
+    case "dniCuit": return lote.dniCuit ?? "—";
+    case "telefono": return lote.telefono ?? "—";
+    case "email": return lote.emailComprador ?? "—";
+    case "domicilio": return lote.domicilioComprador ?? "—";
+    case "corredor": return lote.nombreCorredor ?? "—";
+    case "emailCorredor": return lote.emailCorredor ?? "—";
+    case "formaPago": return lote.formaPago ?? "—";
+    case "entrega": return formatEntrega(lote);
+    case "fechaReserva": return lote.fechaReserva ?? "—";
+    case "fechaVencimiento": return lote.fechaVencimiento ?? "—";
+    case "precioTotal": return lote.precioTotalNum ? `USD ${lote.precioTotalNum}` : "—";
+    case "anticipo": return lote.anticipoNum ? `USD ${lote.anticipoNum}` : "—";
+    case "saldo": return lote.saldoNum ? `USD ${lote.saldoNum}` : "—";
+    case "cuotas": return lote.cantidadCuotas ?? "—";
+    case "cuotaMensual": return lote.cuotaMensual ? `USD ${lote.cuotaMensual}` : "—";
+    case "observaciones": return lote.observaciones ?? "—";
+  }
+}
+
+const DEFAULT_COLS: Record<ColKey, boolean> = {
+  comprador: true,
+  dniCuit: false,
+  telefono: false,
+  email: false,
+  domicilio: false,
+  corredor: false,
+  emailCorredor: false,
+  formaPago: false,
+  entrega: false,
+  fechaReserva: false,
+  fechaVencimiento: false,
+  precioTotal: false,
+  anticipo: false,
+  saldo: false,
+  cuotas: false,
+  cuotaMensual: false,
+  observaciones: false,
+};
+
+const STORAGE_KEY = "lotes-visible-cols";
+
+function loadVisibleCols(): Record<ColKey, boolean> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_COLS;
+    const parsed = JSON.parse(raw) as Partial<Record<ColKey, boolean>>;
+    // Merge with defaults to handle new keys added later
+    return { ...DEFAULT_COLS, ...parsed };
+  } catch {
+    return DEFAULT_COLS;
+  }
+}
+
 export default function LotesPage() {
   const [lotes, setLotes] = useState<Parcela[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +159,17 @@ export default function LotesPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkEstado, setBulkEstado] = useState<EstadoParcela | "">("");
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(DEFAULT_COLS);
+
+  // Load persisted columns on mount
+  useEffect(() => {
+    setVisibleCols(loadVisibleCols());
+  }, []);
+  const [colPickerOpen, setColPickerOpen] = useState(false);
   const lastCheckedIndexRef = useRef<number | null>(null);
+  const lastColPickerIndexRef = useRef<number | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const colPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/crm/parcelas/manzanas")
@@ -64,6 +177,17 @@ export default function LotesPage() {
       .then(setManzanas)
       .catch(() => {});
   }, []);
+
+  // Close col picker when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
+        setColPickerOpen(false);
+      }
+    }
+    if (colPickerOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [colPickerOpen]);
 
   const fetchLotes = useCallback(async () => {
     setLoading(true);
@@ -172,12 +296,52 @@ export default function LotesPage() {
     }
   };
 
+  const handleExportExcel = () => {
+    const activeCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
+
+    const headers = [
+      "N°",
+      "Circ.",
+      "Secc.",
+      "Manzana",
+      "Parcela",
+      "Partida ARBA",
+      "Superficie",
+      "Precio Etapa 1",
+      "Estado",
+      ...activeCols.map((c) => c.label),
+    ];
+
+    const rows = lotes.map((lote) => [
+      lote.numero,
+      lote.circunscripcion ?? "",
+      lote.seccion ?? "",
+      lote.manzana ?? "",
+      lote.parcela ?? "",
+      lote.partidaArba ?? "",
+      lote.superficieM2 ? `${lote.superficieM2} m²` : "",
+      lote.precioEtapa1 ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}` : "",
+      estadoLabels[lote.estado],
+      ...activeCols.map((c) => {
+        const v = getCellValue(lote, c.key);
+        return v === "—" ? "" : v;
+      }),
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Lotes");
+    XLSX.writeFile(wb, "lotes-export.xlsx");
+  };
+
   const allSelected = lotes.length > 0 && selected.size === lotes.length;
   const someSelected = selected.size > 0 && selected.size < lotes.length;
 
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
   }, [someSelected]);
+
+  const activeOptionalCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
 
   return (
     <div className="space-y-5">
@@ -234,6 +398,69 @@ export default function LotesPage() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Column picker */}
+        <div className="relative" ref={colPickerRef}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => setColPickerOpen((o) => !o)}
+          >
+            Columnas
+            {activeOptionalCols.length > 0 && (
+              <span className="ml-1.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 leading-none">
+                {activeOptionalCols.length}
+              </span>
+            )}
+          </Button>
+          {colPickerOpen && (
+            <div className="absolute z-50 top-full mt-1 left-0 bg-white border rounded-lg shadow-lg p-3 min-w-[200px] space-y-1">
+              {OPTIONAL_COLS.map((col, colIndex) => (
+                <label
+                  key={col.key}
+                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleCols[col.key]}
+                    onChange={() => {}}
+                    onClick={(e) => {
+                      const newValue = !visibleCols[col.key];
+                      let next = { ...visibleCols };
+                      if (e.shiftKey && lastColPickerIndexRef.current !== null) {
+                        const from = Math.min(lastColPickerIndexRef.current, colIndex);
+                        const to = Math.max(lastColPickerIndexRef.current, colIndex);
+                        for (let i = from; i <= to; i++) {
+                          const c = OPTIONAL_COLS[i];
+                          if (c) next[c.key] = newValue;
+                        }
+                      } else {
+                        next[col.key] = newValue;
+                      }
+                      lastColPickerIndexRef.current = colIndex;
+                      setVisibleCols(next);
+                      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+                    }}
+                    className="size-4 cursor-pointer accent-primary"
+                  />
+                  {col.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Excel export */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9"
+          onClick={handleExportExcel}
+          disabled={lotes.length === 0}
+        >
+          Exportar Excel
+        </Button>
       </div>
 
       {/* Table */}
@@ -260,7 +487,9 @@ export default function LotesPage() {
               <TableHead>Superficie</TableHead>
               <TableHead>Precio Etapa 1</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Comprador</TableHead>
+              {activeOptionalCols.map((col) => (
+                <TableHead key={col.key}>{col.label}</TableHead>
+              ))}
               <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
@@ -268,7 +497,7 @@ export default function LotesPage() {
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 12 }).map((_, j) => (
+                    {Array.from({ length: 11 + activeOptionalCols.length }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -285,7 +514,8 @@ export default function LotesPage() {
                       <input
                         type="checkbox"
                         checked={selected.has(lote.id)}
-                        onChange={(e) => handleCheckbox(lote.id, index, (e.nativeEvent as MouseEvent).shiftKey)}
+                        onChange={() => {}}
+                        onClick={(e) => handleCheckbox(lote.id, index, e.shiftKey)}
                         aria-label={`Seleccionar lote ${lote.numero}`}
                         className="size-4 cursor-pointer accent-primary"
                       />
@@ -331,9 +561,11 @@ export default function LotesPage() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
-                      {lote.nombreComprador ?? "—"}
-                    </TableCell>
+                    {activeOptionalCols.map((col) => (
+                      <TableCell key={col.key} className="text-sm text-gray-600 max-w-[200px] truncate">
+                        {getCellValue(lote, col.key)}
+                      </TableCell>
+                    ))}
                     <TableCell>
                       <Button asChild variant="ghost" size="sm">
                         <Link href={`/crm/lotes/${lote.id}`}>Ver</Link>
