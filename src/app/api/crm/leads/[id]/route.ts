@@ -5,13 +5,16 @@ import { eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
 
-const updateSchema = z
-  .object({
-    estado: z.enum(["nuevo", "asignado", "a_contactar", "contactado", "sin_respuesta", "closed_won", "closed_lost"]).optional(),
-    notas: z.string().nullable().optional(),
-    asignadoA: z.string().nullable().optional(),
-  })
-  .strict();
+const updateSchema = z.object({
+  estado: z.enum(["nuevo", "asignado", "a_contactar", "contactado", "sin_respuesta", "closed_won", "closed_lost"]).optional(),
+  notas: z.string().nullable().optional(),
+  asignadoA: z.string().nullable().optional(),
+  nombre: z.string().min(1).optional(),
+  telefono: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  dniCuit: z.string().nullable().optional(),
+  domicilio: z.string().nullable().optional(),
+});
 
 export async function PUT(
   request: Request,

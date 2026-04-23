@@ -63,6 +63,15 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+type LeadOption = {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  email: string;
+  dniCuit: string | null;
+  domicilio: string | null;
+};
+
 export default function LoteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -70,6 +79,8 @@ export default function LoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [leadSearch, setLeadSearch] = useState("");
+  const [leadResults, setLeadResults] = useState<LeadOption[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -175,6 +186,35 @@ export default function LoteDetailPage() {
     }
   }
 
+  async function searchLeads() {
+    if (!leadSearch.trim()) return;
+    const res = await fetch("/api/crm/leads");
+    if (!res.ok) return;
+    const all: LeadOption[] = await res.json();
+    const q = leadSearch.toLowerCase();
+    setLeadResults(
+      all
+        .filter(
+          (l) =>
+            l.nombre.toLowerCase().includes(q) ||
+            l.email.toLowerCase().includes(q) ||
+            (l.telefono ?? "").includes(q)
+        )
+        .slice(0, 8)
+    );
+  }
+
+  function applyLead(lead: LeadOption) {
+    form.setValue("nombreComprador", lead.nombre);
+    form.setValue("telefono", lead.telefono ?? "");
+    form.setValue("emailComprador", lead.email);
+    form.setValue("dniCuit", lead.dniCuit ?? "");
+    form.setValue("domicilioComprador", lead.domicilio ?? "");
+    setLeadResults([]);
+    setLeadSearch("");
+    toast.success(`Datos de "${lead.nombre}" cargados`);
+  }
+
   if (loading || !lote) {
     return (
       <div className="space-y-4">
@@ -274,6 +314,36 @@ export default function LoteDetailPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="mb-5 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+            <p className="text-xs font-medium text-gray-500 mb-2">Cargar datos desde lead existente</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Buscar por nombre, email o teléfono..."
+                value={leadSearch}
+                onChange={(e) => setLeadSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchLeads(); } }}
+                className="text-sm"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={searchLeads}>
+                Buscar
+              </Button>
+            </div>
+            {leadResults.length > 0 && (
+              <div className="mt-2 border rounded-md bg-white divide-y max-h-40 overflow-y-auto">
+                {leadResults.map((lead) => (
+                  <button
+                    key={lead.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex flex-col"
+                    onClick={() => applyLead(lead)}
+                  >
+                    <span className="font-medium">{lead.nombre}</span>
+                    <span className="text-gray-500 text-xs">{lead.email} · {lead.telefono}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               {/* Status */}

@@ -22,7 +22,8 @@
       "Bash(pnpm db:generate)",
       "Bash(pnpm typecheck:*)",
       "Bash(node -e \":*)",
-      "WebFetch(domain:docs.mistral.ai)"
+      "WebFetch(domain:docs.mistral.ai)",
+      "Bash(npx drizzle-kit:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

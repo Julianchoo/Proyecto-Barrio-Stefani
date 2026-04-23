@@ -204,6 +204,8 @@ export const leads = pgTable(
     asignadoA: text("asignado_a").references(() => user.id, {
       onDelete: "set null",
     }),
+    dniCuit: text("dni_cuit"),
+    domicilio: text("domicilio"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

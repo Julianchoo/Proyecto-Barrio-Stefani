@@ -17,8 +17,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pencil } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoLead } from "@/lib/schema";
 
@@ -32,6 +43,8 @@ type LeadRow = {
   notas: string | null;
   asignadoA: string | null;
   asignadoNombre: string | null;
+  dniCuit: string | null;
+  domicilio: string | null;
   createdAt: string;
 };
 
@@ -75,6 +88,9 @@ export default function LeadsPage() {
   const [usuarios, setUsuarios] = useState<UsuarioRow[]>([]);
   const lastCheckedIndexRef = useRef<number | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const [editLead, setEditLead] = useState<LeadRow | null>(null);
+  const [editForm, setEditForm] = useState({ nombre: "", telefono: "", email: "", dniCuit: "", domicilio: "", notas: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -204,9 +220,68 @@ export default function LeadsPage() {
     }
   };
 
+  function openEditDialog(lead: LeadRow) {
+    setEditLead(lead);
+    setEditForm({
+      nombre: lead.nombre,
+      telefono: lead.telefono,
+      email: lead.email,
+      dniCuit: lead.dniCuit ?? "",
+      domicilio: lead.domicilio ?? "",
+      notas: lead.notas ?? "",
+    });
+  }
+
+  async function handleEditSave() {
+    if (!editLead) return;
+    setEditSaving(true);
+    // Only send changed fields
+    const changed: Record<string, string | null> = {};
+    if (editForm.nombre !== editLead.nombre) changed.nombre = editForm.nombre;
+    if (editForm.telefono !== editLead.telefono) changed.telefono = editForm.telefono;
+    if (editForm.email !== editLead.email) changed.email = editForm.email;
+    if (editForm.dniCuit !== (editLead.dniCuit ?? "")) changed.dniCuit = editForm.dniCuit || null;
+    if (editForm.domicilio !== (editLead.domicilio ?? "")) changed.domicilio = editForm.domicilio || null;
+    if (editForm.notas !== (editLead.notas ?? "")) changed.notas = editForm.notas || null;
+
+    if (Object.keys(changed).length === 0) {
+      setEditLead(null);
+      setEditSaving(false);
+      return;
+    }
+
+    const res = await fetch(`/api/crm/leads/${editLead.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changed),
+    });
+    if (res.ok) {
+      setLeads((ls) =>
+        ls.map((l) =>
+          l.id === editLead.id
+            ? {
+                ...l,
+                nombre: editForm.nombre,
+                telefono: editForm.telefono,
+                email: editForm.email,
+                dniCuit: editForm.dniCuit || null,
+                domicilio: editForm.domicilio || null,
+                notas: editForm.notas || null,
+              }
+            : l
+        )
+      );
+      toast.success("Lead actualizado");
+      setEditLead(null);
+    } else {
+      toast.error("Error al actualizar el lead");
+    }
+    setEditSaving(false);
+  }
+
   const allSelected = leads.length > 0 && selected.size === leads.length;
   const someSelected = selected.size > 0 && selected.size < leads.length;
-  const colCount = isAdmin ? 8 : 7;
+  const colCount = isAdmin ? 9 : 8;
 
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
@@ -260,6 +335,7 @@ export default function LeadsPage() {
               <TableHead>Estado</TableHead>
               <TableHead>Asignado a</TableHead>
               <TableHead>Fecha</TableHead>
+              <TableHead className="w-16">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -350,6 +426,16 @@ export default function LeadsPage() {
                     <TableCell className="text-xs text-gray-500 whitespace-nowrap">
                       {new Date(lead.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(lead)}
+                        aria-label={`Editar ${lead.nombre}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
           </TableBody>
@@ -360,6 +446,47 @@ export default function LeadsPage() {
           </p>
         )}
       </div>
+
+      {/* Edit lead dialog */}
+      <Dialog open={editLead !== null} onOpenChange={(open) => { if (!open) setEditLead(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-nombre">Nombre</Label>
+              <Input id="edit-nombre" value={editForm.nombre} onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-telefono">Teléfono</Label>
+              <Input id="edit-telefono" value={editForm.telefono} onChange={(e) => setEditForm((f) => ({ ...f, telefono: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input id="edit-email" type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-dniCuit">DNI / CUIT</Label>
+              <Input id="edit-dniCuit" value={editForm.dniCuit} onChange={(e) => setEditForm((f) => ({ ...f, dniCuit: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-domicilio">Domicilio</Label>
+              <Input id="edit-domicilio" value={editForm.domicilio} onChange={(e) => setEditForm((f) => ({ ...f, domicilio: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-notas">Notas</Label>
+              <Textarea id="edit-notas" rows={3} value={editForm.notas} onChange={(e) => setEditForm((f) => ({ ...f, notas: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditLead(null)}>Cancelar</Button>
+            <Button onClick={handleEditSave} disabled={editSaving}>
+              {editSaving ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
