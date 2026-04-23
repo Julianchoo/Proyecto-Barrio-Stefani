@@ -8,6 +8,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,9 +42,7 @@ const schema = z.object({
   telefono: z.string().nullable().optional(),
   emailComprador: z.string().email().or(z.literal("")).nullable().optional(),
   domicilioComprador: z.string().nullable().optional(),
-  tipoEntrega: z.enum(["saldo", "mes"]).nullable().optional(),
-  mesEntrega: z.string().nullable().optional(),
-  anioEntrega: z.string().nullable().optional(),
+  numeroCuotaEntrega: z.string().nullable().optional(),
   nombreCorredor: z.string().nullable().optional(),
   emailCorredor: z.string().email().or(z.literal("")).nullable().optional(),
   formaPago: z.string().nullable().optional(),
@@ -78,6 +77,7 @@ export default function LoteDetailPage() {
   const [lote, setLote] = useState<Parcela | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [entregaCuota, setEntregaCuota] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leadSearch, setLeadSearch] = useState("");
   const [leadResults, setLeadResults] = useState<LeadOption[]>([]);
@@ -91,6 +91,7 @@ export default function LoteDetailPage() {
       .then((r) => r.json())
       .then((data: Parcela) => {
         setLote(data);
+        setEntregaCuota(data.tipoEntrega === "cuota");
         form.reset({
           estado: data.estado,
           nombreComprador: data.nombreComprador ?? "",
@@ -98,9 +99,7 @@ export default function LoteDetailPage() {
           telefono: data.telefono ?? "",
           emailComprador: data.emailComprador ?? "",
           domicilioComprador: data.domicilioComprador ?? "",
-          tipoEntrega: (data.tipoEntrega as "saldo" | "mes") ?? null,
-          mesEntrega: data.mesEntrega ?? "",
-          anioEntrega: data.anioEntrega ?? "",
+          numeroCuotaEntrega: data.mesEntrega ?? "",
           nombreCorredor: data.nombreCorredor ?? "",
           emailCorredor: data.emailCorredor ?? "",
           formaPago: data.formaPago ?? "",
@@ -124,8 +123,12 @@ export default function LoteDetailPage() {
   async function onSubmit(values: FormValues) {
     const payload: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(values)) {
+      if (k === "numeroCuotaEntrega") continue; // handled separately
       payload[k] = v === "" ? null : v;
     }
+    payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
+    payload.mesEntrega = entregaCuota ? (values.numeroCuotaEntrega || null) : null;
+    payload.anioEntrega = null;
     const res = await fetch(`/api/crm/parcelas/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -409,68 +412,31 @@ export default function LoteDetailPage() {
               </div>
 
               {/* Entrega */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="tipoEntrega"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Entrega</FormLabel>
-                      <Select value={field.value ?? ""} onValueChange={field.onChange}>
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Checkbox
+                    id="entregaCuota"
+                    checked={entregaCuota}
+                    onCheckedChange={(checked: boolean) => setEntregaCuota(checked)}
+                  />
+                  <label htmlFor="entregaCuota" className="text-sm text-gray-700 cursor-pointer">
+                    Entrega contra pago de cuota número específico
+                  </label>
+                </div>
+                {entregaCuota && (
+                  <FormField
+                    control={form.control}
+                    name="numeroCuotaEntrega"
+                    render={({ field }) => (
+                      <FormItem className="max-w-xs">
+                        <FormLabel>Número de cuota</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccioná" />
-                          </SelectTrigger>
+                          <Input placeholder="ej: 12" type="number" min="1" {...field} value={field.value ?? ""} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="saldo">Contra el pago total del saldo</SelectItem>
-                          <SelectItem value="mes">Mes específico</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {form.watch("tipoEntrega") === "mes" && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="mesEntrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mes (número)</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              value={field.value ?? ""}
-                              placeholder="ej: 3"
-                              type="number"
-                              min="1"
-                              max="12"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="anioEntrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Año</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              value={field.value ?? ""}
-                              placeholder="ej: 2027"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
               </div>
 

@@ -74,9 +74,7 @@ const schema = z.object({
   cuotaMensualPalabras: z.string().optional(),
   cuotaMensual: z.string().optional(),
   // Entrega
-  tipoEntrega: z.enum(["saldo", "mes"]).optional(),
-  mesEntrega: z.string().optional(),
-  anioEntrega: z.string().optional(),
+  numeroCuotaEntrega: z.string().optional(),
   // Apoderado vendedora (managed by local state, not Zod)
   nombreApoderado: z.string().optional(),
   dniApoderado: z.string().optional(),
@@ -122,9 +120,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       cantidadCuotas: parcela.cantidadCuotas ?? (parcela.cuotas48 ? "48" : ""),
       cuotaMensualPalabras: parcela.cuotaMensualPalabras ?? "",
       cuotaMensual: parcela.cuotaMensual ?? (parcela.cuotas48 ? String(parcela.cuotas48) : ""),
-      tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
-      mesEntrega: parcela.mesEntrega ?? "",
-      anioEntrega: parcela.anioEntrega ?? "",
+      numeroCuotaEntrega: "",
       nombreApoderado: "",
       dniApoderado: "",
       nombreCoComprador: "",
@@ -136,6 +132,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   });
 
   const [showApoderado, setShowApoderado] = useState(false);
+  const [entregaCuota, setEntregaCuota] = useState(false);
   const [showCoComprador, setShowCoComprador] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -167,9 +164,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       cantidadCuotas: parcela.cantidadCuotas ?? (parcela.cuotas48 ? "48" : ""),
       cuotaMensualPalabras: parcela.cuotaMensualPalabras ?? "",
       cuotaMensual: parcela.cuotaMensual ?? (parcela.cuotas48 ? String(parcela.cuotas48) : ""),
-      tipoEntrega: (parcela.tipoEntrega as "saldo" | "mes") ?? "saldo",
-      mesEntrega: parcela.mesEntrega ?? "",
-      anioEntrega: parcela.anioEntrega ?? "",
+      numeroCuotaEntrega: "",
       nombreApoderado: "",
       dniApoderado: "",
       nombreCoComprador: "",
@@ -179,6 +174,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       porcentajeCoComprador: "50",
     });
     setShowApoderado(false);
+    setEntregaCuota(false);
     setShowCoComprador(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -245,7 +241,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       const res = await fetch(`/api/crm/parcelas/${parcela.id}/boleto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, hasApoderado: showApoderado, hasCoComprador: showCoComprador }),
+        body: JSON.stringify({ ...values, hasApoderado: showApoderado, hasCoComprador: showCoComprador, entregaCuota, numeroCuotaEntrega: values.numeroCuotaEntrega ?? "" }),
       });
 
       if (!res.ok) {
@@ -578,68 +574,31 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
               </div>
 
               {/* Entrega */}
-              <div className="grid sm:grid-cols-2 gap-3 mt-3">
-                <FormField
-                  control={form.control}
-                  name="tipoEntrega"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Entrega</FormLabel>
-                      <Select value={field.value ?? "saldo"} onValueChange={field.onChange}>
+              <div className="mt-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Checkbox
+                    id="entregaCuota"
+                    checked={entregaCuota}
+                    onCheckedChange={(checked) => setEntregaCuota(!!checked)}
+                  />
+                  <label htmlFor="entregaCuota" className="text-sm text-gray-700 cursor-pointer">
+                    Entrega contra pago de cuota número específico
+                  </label>
+                </div>
+                {entregaCuota && (
+                  <FormField
+                    control={form.control}
+                    name="numeroCuotaEntrega"
+                    render={({ field }) => (
+                      <FormItem className="max-w-xs">
+                        <FormLabel>Número de cuota</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <Input placeholder="ej: 12" type="number" min="1" {...field} value={field.value ?? ""} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="saldo">Contra el pago total del saldo</SelectItem>
-                          <SelectItem value="mes">Mes específico</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {form.watch("tipoEntrega") === "mes" && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="mesEntrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mes (número)</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="ej: 3"
-                              type="number"
-                              min="1"
-                              max="12"
-                              {...field}
-                              value={field.value ?? ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="anioEntrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Año</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="ej: 2027"
-                              {...field}
-                              value={field.value ?? ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
               </div>
             </section>
