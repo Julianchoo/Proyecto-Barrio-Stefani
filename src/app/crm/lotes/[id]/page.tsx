@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, ImageUp, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -296,30 +296,38 @@ export default function LoteDetailPage() {
 
       {/* Editable form */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <CardTitle className="text-base">Datos de reserva / comprador</CardTitle>
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleOcrUpload}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isOcrLoading}
-            >
-              {isOcrLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <ImageUp className="h-4 w-4 mr-1" />
-              )}
-              {isOcrLoading ? "Procesando..." : "Subir reserva"}
-            </Button>
+        <CardHeader className="pb-4">
+          <div className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Datos de reserva / comprador</CardTitle>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleOcrUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isOcrLoading}
+              >
+                {isOcrLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <ImageUp className="h-4 w-4 mr-1" />
+                )}
+                {isOcrLoading ? "Procesando..." : "Subir reserva"}
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              La extracción de datos por OCR puede contener errores. Revisá los campos antes de guardar.
+            </span>
           </div>
         </CardHeader>
         <CardContent>
