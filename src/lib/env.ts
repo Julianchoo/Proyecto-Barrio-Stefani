@@ -24,6 +24,11 @@ const serverEnvSchema = z.object({
   // Storage
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
 
+  // Daily email report (cron)
+  GMAIL_USER: z.string().email().optional(),
+  GMAIL_APP_PASSWORD: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
+
   // App
   NODE_ENV: z
     .enum(["development", "production", "test"])

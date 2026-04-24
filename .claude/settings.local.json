@@ -24,7 +24,10 @@
       "Bash(node -e \":*)",
       "WebFetch(domain:docs.mistral.ai)",
       "Bash(npx drizzle-kit:*)",
-      "Bash(node -e \"console.log\\(require\\(''docxtemplater/package.json''\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\(''docxtemplater/package.json''\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
+      "Bash(pnpm run *)",
+      "Bash(git commit -m ' *)"
     ]
   },
   "enableAllProjectMcpServers": true,
