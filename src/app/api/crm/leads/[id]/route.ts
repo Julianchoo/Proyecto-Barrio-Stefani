@@ -38,6 +38,17 @@ export async function PUT(
       return NextResponse.json({ error: "Sin permisos para asignar leads" }, { status: 403 });
     }
 
+    // Comercials can only edit their own leads
+    if (authResult.role !== "admin") {
+      const [current] = await db.select().from(leads).where(eq(leads.id, leadId));
+      if (!current) {
+        return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+      }
+      if (current.asignadoA !== authResult.id) {
+        return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
+      }
+    }
+
     const [updated] = await db
       .update(leads)
       .set(data)

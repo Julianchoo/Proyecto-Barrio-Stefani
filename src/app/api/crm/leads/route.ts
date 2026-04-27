@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { leads, user } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoLead } from "@/lib/schema";
 import { z } from "zod";
@@ -23,46 +23,32 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const estado = searchParams.get("estado") as EstadoLead | null;
 
-  const rows = estado
-    ? await db
-        .select({
-          id: leads.id,
-          nombre: leads.nombre,
-          telefono: leads.telefono,
-          email: leads.email,
-          mensaje: leads.mensaje,
-          estado: leads.estado,
-          notas: leads.notas,
-          asignadoA: leads.asignadoA,
-          dniCuit: leads.dniCuit,
-          domicilio: leads.domicilio,
-          asignadoNombre: user.name,
-          createdAt: leads.createdAt,
-          updatedAt: leads.updatedAt,
-        })
-        .from(leads)
-        .leftJoin(user, eq(leads.asignadoA, user.id))
-        .where(eq(leads.estado, estado))
-        .orderBy(leads.createdAt)
-    : await db
-        .select({
-          id: leads.id,
-          nombre: leads.nombre,
-          telefono: leads.telefono,
-          email: leads.email,
-          mensaje: leads.mensaje,
-          estado: leads.estado,
-          notas: leads.notas,
-          asignadoA: leads.asignadoA,
-          dniCuit: leads.dniCuit,
-          domicilio: leads.domicilio,
-          asignadoNombre: user.name,
-          createdAt: leads.createdAt,
-          updatedAt: leads.updatedAt,
-        })
-        .from(leads)
-        .leftJoin(user, eq(leads.asignadoA, user.id))
-        .orderBy(leads.createdAt);
+  const selectedFields = {
+    id: leads.id,
+    nombre: leads.nombre,
+    telefono: leads.telefono,
+    email: leads.email,
+    mensaje: leads.mensaje,
+    estado: leads.estado,
+    notas: leads.notas,
+    asignadoA: leads.asignadoA,
+    dniCuit: leads.dniCuit,
+    domicilio: leads.domicilio,
+    asignadoNombre: user.name,
+    createdAt: leads.createdAt,
+    updatedAt: leads.updatedAt,
+  };
+
+  const conditions = [];
+  if (estado) conditions.push(eq(leads.estado, estado));
+  if (authResult.role !== "admin") conditions.push(eq(leads.asignadoA, authResult.id));
+
+  const rows = await db
+    .select(selectedFields)
+    .from(leads)
+    .leftJoin(user, eq(leads.asignadoA, user.id))
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(leads.createdAt);
 
   return NextResponse.json(rows);
 }
@@ -81,7 +67,7 @@ export async function POST(request: Request) {
 
   const [created] = await db
     .insert(leads)
-    .values({ nombre, telefono, email, mensaje: mensaje ?? null, dniCuit: dniCuit ?? null, domicilio: domicilio ?? null, notas: notas ?? null })
+    .values({ nombre, telefono, email, mensaje: mensaje ?? null, dniCuit: dniCuit ?? null, domicilio: domicilio ?? null, notas: notas ?? null, asignadoA: authResult.id, estado: "asignado" })
     .returning();
 
   return NextResponse.json(created, { status: 201 });

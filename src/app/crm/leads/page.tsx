@@ -78,6 +78,7 @@ const estadoLabels: Record<EstadoLead, string> = {
 export default function LeadsPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
+  const canEditLead = (lead: LeadRow) => isAdmin || lead.asignadoA === session?.user?.id;
 
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -405,29 +406,35 @@ export default function LeadsPage() {
                       {lead.mensaje ?? "—"}
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={lead.estado}
-                        onValueChange={(v) =>
-                          handleEstadoChange(lead.id, v as EstadoLead)
-                        }
-                      >
-                        <SelectTrigger className="h-7 w-36 text-xs border-0 p-0 shadow-none focus:ring-0">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[lead.estado]}`}
-                          >
-                            {estadoLabels[lead.estado]}
-                          </span>
-                        </SelectTrigger>
-                        <SelectContent position="popper">
-                          {(Object.keys(estadoLabels) as EstadoLead[]).map(
-                            (e) => (
-                              <SelectItem key={e} value={e}>
-                                {estadoLabels[e]}
-                              </SelectItem>
-                            )
-                          )}
-                        </SelectContent>
-                      </Select>
+                      {canEditLead(lead) ? (
+                        <Select
+                          value={lead.estado}
+                          onValueChange={(v) =>
+                            handleEstadoChange(lead.id, v as EstadoLead)
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-36 text-xs border-0 p-0 shadow-none focus:ring-0">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[lead.estado]}`}
+                            >
+                              {estadoLabels[lead.estado]}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            {(Object.keys(estadoLabels) as EstadoLead[]).map(
+                              (e) => (
+                                <SelectItem key={e} value={e}>
+                                  {estadoLabels[e]}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[lead.estado]}`}>
+                          {estadoLabels[lead.estado]}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {isAdmin ? (
@@ -461,14 +468,16 @@ export default function LeadsPage() {
                       {new Date(lead.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(lead)}
-                        aria-label={`Editar ${lead.nombre}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      {canEditLead(lead) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(lead)}
+                          aria-label={`Editar ${lead.nombre}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
