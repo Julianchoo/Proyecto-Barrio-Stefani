@@ -43,6 +43,13 @@
       "when": 1776949548885,
       "tag": "0005_loose_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777294040040,
+      "tag": "0006_curious_loa",
+      "breakpoints": true
     }
   ]
 }

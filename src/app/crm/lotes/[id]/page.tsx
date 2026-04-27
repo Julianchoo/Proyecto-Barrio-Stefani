@@ -48,6 +48,7 @@ const schema = z.object({
   formaPago: z.string().nullable().optional(),
   fechaReserva: z.string().nullable().optional(),
   fechaVencimiento: z.string().nullable().optional(),
+  fechaFirma: z.string().nullable().optional(),
   observaciones: z.string().nullable().optional(),
   precioTotalPalabras: z.string().nullable().optional(),
   precioTotalNum: z.string().nullable().optional(),
@@ -106,6 +107,7 @@ export default function LoteDetailPage() {
       formaPago: data.formaPago ?? "",
       fechaReserva: data.fechaReserva ?? "",
       fechaVencimiento: data.fechaVencimiento ?? "",
+      fechaFirma: data.fechaFirma ?? "",
       observaciones: data.observaciones ?? "",
       precioTotalPalabras: data.precioTotalPalabras ?? "",
       precioTotalNum: data.precioTotalNum ?? "",
@@ -402,6 +404,7 @@ export default function LoteDetailPage() {
                   { name: "emailCorredor" as const, label: "Email corredor" },
                   { name: "fechaReserva" as const, label: "Fecha reserva" },
                   { name: "fechaVencimiento" as const, label: "Fecha vencimiento" },
+                  { name: "fechaFirma" as const, label: "Fecha de firma" },
                 ].map(({ name, label }) => (
                   <FormField
                     key={name}

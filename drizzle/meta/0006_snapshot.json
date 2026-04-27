@@ -1,0 +1,922 @@
+{
+  "id": "d5c3afb7-20cc-416d-ab26-b4e10edaeaf5",
+  "prevId": "7daebcca-37cd-4d30-867f-c1c4fe17aebb",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.account": {
+      "name": "account",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token_expires_at": {
+          "name": "refresh_token_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "account_user_id_idx": {
+          "name": "account_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_provider_account_idx": {
+          "name": "account_provider_account_idx",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "account_user_id_user_id_fk": {
+          "name": "account_user_id_user_id_fk",
+          "tableFrom": "account",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.leads": {
+      "name": "leads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "telefono": {
+          "name": "telefono",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mensaje": {
+          "name": "mensaje",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado": {
+          "name": "estado",
+          "type": "estado_lead",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'nuevo'"
+        },
+        "notas": {
+          "name": "notas",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asignado_a": {
+          "name": "asignado_a",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dni_cuit": {
+          "name": "dni_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "domicilio": {
+          "name": "domicilio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "leads_estado_idx": {
+          "name": "leads_estado_idx",
+          "columns": [
+            {
+              "expression": "estado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "leads_asignado_a_user_id_fk": {
+          "name": "leads_asignado_a_user_id_fk",
+          "tableFrom": "leads",
+          "tableTo": "user",
+          "columnsFrom": [
+            "asignado_a"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.parcelas": {
+      "name": "parcelas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "numero": {
+          "name": "numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "circunscripcion": {
+          "name": "circunscripcion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "seccion": {
+          "name": "seccion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "manzana": {
+          "name": "manzana",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcela": {
+          "name": "parcela",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "partida_arba": {
+          "name": "partida_arba",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "partida_municipal": {
+          "name": "partida_municipal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "escritura": {
+          "name": "escritura",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "matricula_folio": {
+          "name": "matricula_folio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "certificado_catastral": {
+          "name": "certificado_catastral",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valuacion_fiscal": {
+          "name": "valuacion_fiscal",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vf_al_acto": {
+          "name": "vf_al_acto",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superficie_m2": {
+          "name": "superficie_m2",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado": {
+          "name": "estado",
+          "type": "estado_parcela",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'disponible'"
+        },
+        "precio_etapa1": {
+          "name": "precio_etapa1",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valor_m2": {
+          "name": "valor_m2",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anticipo_pct": {
+          "name": "anticipo_pct",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tasa_mensual": {
+          "name": "tasa_mensual",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anticipo_usd": {
+          "name": "anticipo_usd",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saldo_usd": {
+          "name": "saldo_usd",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cuotas_48": {
+          "name": "cuotas_48",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cuotas_60": {
+          "name": "cuotas_60",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nota": {
+          "name": "nota",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nombre_comprador": {
+          "name": "nombre_comprador",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dni_cuit": {
+          "name": "dni_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefono": {
+          "name": "telefono",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_comprador": {
+          "name": "email_comprador",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "domicilio_comprador": {
+          "name": "domicilio_comprador",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo_entrega": {
+          "name": "tipo_entrega",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mes_entrega": {
+          "name": "mes_entrega",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anio_entrega": {
+          "name": "anio_entrega",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nombre_corredor": {
+          "name": "nombre_corredor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_corredor": {
+          "name": "email_corredor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "forma_pago": {
+          "name": "forma_pago",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fecha_reserva": {
+          "name": "fecha_reserva",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fecha_vencimiento": {
+          "name": "fecha_vencimiento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fecha_firma": {
+          "name": "fecha_firma",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modificado_por": {
+          "name": "modificado_por",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observaciones": {
+          "name": "observaciones",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "precio_total_palabras": {
+          "name": "precio_total_palabras",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "precio_total_num": {
+          "name": "precio_total_num",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anticipo_palabras": {
+          "name": "anticipo_palabras",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anticipo_num": {
+          "name": "anticipo_num",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saldo_palabras": {
+          "name": "saldo_palabras",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saldo_num": {
+          "name": "saldo_num",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cantidad_cuotas": {
+          "name": "cantidad_cuotas",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cuota_mensual_palabras": {
+          "name": "cuota_mensual_palabras",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cuota_mensual": {
+          "name": "cuota_mensual",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "parcelas_estado_idx": {
+          "name": "parcelas_estado_idx",
+          "columns": [
+            {
+              "expression": "estado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "parcelas_manzana_idx": {
+          "name": "parcelas_manzana_idx",
+          "columns": [
+            {
+              "expression": "manzana",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.session": {
+      "name": "session",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "session_user_id_idx": {
+          "name": "session_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "session_token_idx": {
+          "name": "session_token_idx",
+          "columns": [
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "session_user_id_user_id_fk": {
+          "name": "session_user_id_user_id_fk",
+          "tableFrom": "session",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "session_token_unique": {
+          "name": "session_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user": {
+      "name": "user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_verified": {
+          "name": "email_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'comercial'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "user_email_idx": {
+          "name": "user_email_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "user_email_unique": {
+          "name": "user_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.verification": {
+      "name": "verification",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.estado_lead": {
+      "name": "estado_lead",
+      "schema": "public",
+      "values": [
+        "nuevo",
+        "asignado",
+        "a_contactar",
+        "contactado",
+        "sin_respuesta",
+        "closed_won",
+        "closed_lost"
+      ]
+    },
+    "public.estado_parcela": {
+      "name": "estado_parcela",
+      "schema": "public",
+      "values": [
+        "disponible",
+        "no_disponible",
+        "reservado",
+        "vendido"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "admin",
+        "comercial"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

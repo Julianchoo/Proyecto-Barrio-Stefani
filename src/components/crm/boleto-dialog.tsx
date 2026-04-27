@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,6 +39,23 @@ const MESES = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 
+function parseFechaFirma(fechaFirma: string | null | undefined) {
+  if (fechaFirma) {
+    const [y, m, d] = fechaFirma.split("-");
+    return {
+      dia: String(parseInt(d ?? "1")),
+      mes: MESES[parseInt(m ?? "1") - 1] ?? "enero",
+      anio: y ?? String(new Date().getFullYear()),
+    };
+  }
+  const today = new Date();
+  return {
+    dia: String(today.getDate()),
+    mes: MESES[today.getMonth()] ?? "enero",
+    anio: String(today.getFullYear()),
+  };
+}
+
 const ESTADOS_CIVILES = [
   "soltero/a",
   "casado/a",
@@ -48,6 +65,7 @@ const ESTADOS_CIVILES = [
 ];
 
 const schema = z.object({
+  fechaFirma: z.string().optional(),
   dia: z.string().min(1, "Requerido"),
   mes: z.string().min(1, "Requerido"),
   anio: z.string().min(4, "Requerido"),
@@ -98,9 +116,8 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      dia: String(new Date().getDate()),
-      mes: MESES[new Date().getMonth()] ?? "enero",
-      anio: String(new Date().getFullYear()),
+      fechaFirma: parcela.fechaFirma ?? "",
+      ...parseFechaFirma(parcela.fechaFirma),
       nombreComprador: parcela.nombreComprador ?? "",
       dniComprador: parcela.dniCuit ?? "",
       nacionalidad: "argentina/o",
@@ -131,6 +148,19 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
     },
   });
 
+  const syncFechaFirma = useCallback((iso: string) => {
+    if (!iso) return;
+    const parsed = parseFechaFirma(iso);
+    form.setValue("dia", parsed.dia);
+    form.setValue("mes", parsed.mes);
+    form.setValue("anio", parsed.anio);
+  }, [form]);
+
+  const watchedFechaFirma = form.watch("fechaFirma");
+  useEffect(() => {
+    if (watchedFechaFirma) syncFechaFirma(watchedFechaFirma);
+  }, [watchedFechaFirma, syncFechaFirma]);
+
   const [showApoderado, setShowApoderado] = useState(false);
   const [tipoPago, setTipoPago] = useState<"contado" | "financiado">(
     parcela.formaPago === "contado" ? "contado" : "financiado"
@@ -143,11 +173,9 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   // Reset form with current parcela data every time the dialog opens
   useEffect(() => {
     if (!open) return;
-    const today = new Date();
     form.reset({
-      dia: String(today.getDate()),
-      mes: MESES[today.getMonth()] ?? "enero",
-      anio: String(today.getFullYear()),
+      fechaFirma: parcela.fechaFirma ?? "",
+      ...parseFechaFirma(parcela.fechaFirma),
       nombreComprador: parcela.nombreComprador ?? "",
       dniComprador: parcela.dniCuit ?? "",
       nacionalidad: "argentina/o",
@@ -362,7 +390,27 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
 
             <Separator />
 
-            {/* ── Fecha ── */}
+            {/* ── Fecha de firma ── */}
+            <section>
+              <p className="text-sm font-semibold text-gray-700 mb-3">Fecha de firma</p>
+              <FormField
+                control={form.control}
+                name="fechaFirma"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de firma</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </section>
+
+            <Separator />
+
+            {/* ── Fecha del boleto (generada automáticamente desde fecha de firma) ── */}
             <section>
               <p className="text-sm font-semibold text-gray-700 mb-3">Fecha del boleto</p>
               <div className="grid grid-cols-3 gap-3">

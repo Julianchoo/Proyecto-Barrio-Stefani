@@ -165,6 +165,7 @@ export const parcelas = pgTable(
     formaPago: text("forma_pago"),
     fechaReserva: date("fecha_reserva"),
     fechaVencimiento: date("fecha_vencimiento"),
+    fechaFirma: date("fecha_firma"),
     modificadoPor: text("modificado_por"),
     observaciones: text("observaciones"),
 
