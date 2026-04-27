@@ -85,6 +85,24 @@ export async function PUT(
     const body = await request.json();
     const data = updateSchema.parse(body);
 
+    // Fetch current parcela to check reservation ownership
+    const [current] = await db.select().from(parcelas).where(eq(parcelas.id, parcelaId));
+    if (!current) {
+      return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
+    }
+
+    // Block comercials from editing a lote reserved by someone else
+    if (
+      current.estado === "reservado" &&
+      authResult.role !== "admin" &&
+      current.reservadoPor !== authResult.email
+    ) {
+      return NextResponse.json(
+        { error: "Este lote fue reservado por otro comercial" },
+        { status: 403 }
+      );
+    }
+
     // Filter allowed fields based on role
     let updateData: Record<string, unknown> = {};
     if (authResult.role === "admin") {
@@ -98,6 +116,13 @@ export async function PUT(
     }
 
     updateData.modificadoPor = authResult.email;
+
+    // Manage reservadoPor automatically — never set by the client
+    if (data.estado === "reservado" && !current.reservadoPor) {
+      updateData.reservadoPor = authResult.email;
+    } else if (data.estado && data.estado !== "reservado") {
+      updateData.reservadoPor = null;
+    }
 
     const [updated] = await db
       .update(parcelas)

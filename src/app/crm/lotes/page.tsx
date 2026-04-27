@@ -22,6 +22,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Lock } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
 import type { Parcela, EstadoParcela } from "@/lib/schema";
 
 const estadoColors: Record<EstadoParcela, string> = {
@@ -149,6 +151,7 @@ function loadVisibleCols(): Record<ColKey, boolean> {
 }
 
 export default function LotesPage() {
+  const { data: session } = useSession();
   const [lotes, setLotes] = useState<Parcela[]>([]);
   const [loading, setLoading] = useState(true);
   const [manzanas, setManzanas] = useState<string[]>([]);
@@ -544,10 +547,17 @@ export default function LotesPage() {
                         }
                       >
                         <SelectTrigger className="h-7 w-36 text-xs border-0 p-0 shadow-none focus:ring-0">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[lote.estado]}`}
-                          >
-                            {estadoLabels[lote.estado]}
+                          <span className="flex items-center gap-1">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[lote.estado]}`}
+                            >
+                              {estadoLabels[lote.estado]}
+                            </span>
+                            {lote.estado === "reservado" &&
+                              session?.user?.role !== "admin" &&
+                              lote.reservadoPor !== session?.user?.email && (
+                                <Lock className="h-3 w-3 text-amber-600" />
+                              )}
                           </span>
                         </SelectTrigger>
                         <SelectContent position="popper">

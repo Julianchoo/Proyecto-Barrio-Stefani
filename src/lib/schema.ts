@@ -167,6 +167,7 @@ export const parcelas = pgTable(
     fechaVencimiento: date("fecha_vencimiento"),
     fechaFirma: date("fecha_firma"),
     modificadoPor: text("modificado_por"),
+    reservadoPor: text("reservado_por"),
     observaciones: text("observaciones"),
 
     // Datos de precio / financiación (opcionales, en letras y números)

@@ -50,6 +50,13 @@
       "when": 1777294040040,
       "tag": "0006_curious_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777296164149,
+      "tag": "0007_smiling_nitro",
+      "breakpoints": true
     }
   ]
 }

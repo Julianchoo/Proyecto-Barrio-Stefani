@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { AlertCircle, ArrowLeft, ImageUp, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, ImageUp, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/form";
 import type { Parcela } from "@/lib/schema";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
+import { useSession } from "@/lib/auth-client";
 
 const schema = z.object({
   estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]),
@@ -75,6 +76,7 @@ type LeadOption = {
 export default function LoteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { data: session } = useSession();
   const [lote, setLote] = useState<Parcela | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
@@ -235,6 +237,11 @@ export default function LoteDetailPage() {
     );
   }
 
+  const isLocked =
+    lote.estado === "reservado" &&
+    session?.user?.role !== "admin" &&
+    lote.reservadoPor !== session?.user?.email;
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
@@ -255,6 +262,17 @@ export default function LoteDetailPage() {
         </div>
         <BoletoDialog parcela={lote} />
       </div>
+
+      {lote.estado === "reservado" &&
+        session?.user?.role !== "admin" &&
+        lote.reservadoPor !== session?.user?.email && (
+          <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              Este lote fue reservado por <strong>{lote.reservadoPor}</strong>. Solo ese comercial o un administrador puede modificarlo.
+            </span>
+          </div>
+        )}
 
       {/* Read-only property data */}
       <Card>
@@ -364,6 +382,7 @@ export default function LoteDetailPage() {
             )}
           </div>
           <Form {...form}>
+            <fieldset disabled={isLocked}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               {/* Status */}
               <FormField
@@ -564,12 +583,13 @@ export default function LoteDetailPage() {
 
               <Button
                 type="submit"
-                disabled={form.formState.isSubmitting}
+                disabled={form.formState.isSubmitting || isLocked}
                 className="bg-green-700 hover:bg-green-800 text-white"
               >
                 {form.formState.isSubmitting ? "Guardando..." : "Guardar cambios"}
               </Button>
             </form>
+            </fieldset>
           </Form>
         </CardContent>
       </Card>
