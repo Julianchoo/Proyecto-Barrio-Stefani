@@ -27,7 +27,10 @@
       "Bash(node -e \"console.log\\(require\\(''docxtemplater/package.json''\\).version\\)\")",
       "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
       "Bash(pnpm run *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'docs: add email report technical documentation *)",
+      "Bash(grep -E \"\\\\.\\(js|ts|docx\\)$\")"
     ]
   },
   "enableAllProjectMcpServers": true,
