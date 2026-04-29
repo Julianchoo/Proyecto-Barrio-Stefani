@@ -66,6 +66,24 @@ function formatUsd(value: string | number | null | undefined): string {
   });
 }
 
+function yearToSpanish(year: string): string {
+  const map: Record<string, string> = {
+    "2024": "dos mil veinticuatro",
+    "2025": "dos mil veinticinco",
+    "2026": "dos mil veintiséis",
+    "2027": "dos mil veintisiete",
+    "2028": "dos mil veintiocho",
+    "2029": "dos mil veintinueve",
+    "2030": "dos mil treinta",
+    "2031": "dos mil treinta y uno",
+    "2032": "dos mil treinta y dos",
+    "2033": "dos mil treinta y tres",
+    "2034": "dos mil treinta y cuatro",
+    "2035": "dos mil treinta y cinco",
+  };
+  return map[year] ?? year;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -111,7 +129,7 @@ export async function POST(
     // Date
     dia: form.dia,
     mes: form.mes,
-    anio: form.anio,
+    anioLetras: yearToSpanish(form.anio),
     // Buyer (from form, pre-filled with DB values but overrideable)
     nombreComprador: form.nombreComprador || parcela.nombreComprador || "",
     dniComprador: form.dniComprador || parcela.dniCuit || "",
@@ -127,7 +145,6 @@ export async function POST(
     lote: String(parcela.numero ?? ""),
     manzana: parcela.manzana ?? "",
     medidas: form.medidas || (parcela.superficieM2 ? `${parcela.superficieM2} m²` : ""),
-    manzanaCatastral: parcela.manzana ?? "",
     parcelaCatastral: parcela.parcela ?? "",
     partida: parcela.partidaArba ?? "",
     matricula: parcela.matriculaFolio ?? "",
@@ -135,7 +152,6 @@ export async function POST(
     escritura: parcela.escritura ?? "",
     fechaEscritura: "",
     folio: "",
-    fechaInscripcion: "",
     matriculaSegunda: parcela.matriculaFolio ?? "",
     // Precio
     precioTotalPalabras: form.precioTotalPalabras || "",
@@ -147,33 +163,19 @@ export async function POST(
     cantidadCuotas: form.cantidadCuotas || "",
     cuotaMensualPalabras: form.cuotaMensualPalabras || "",
     cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
-    tieneCuotas: form.tipoPago === "financiado",
-    sinCuotas: form.tipoPago === "contado",
-    // Entrega
-    entregaAlSaldo: !(form.entregaCuota ?? false),
-    entregaCuota: form.entregaCuota ?? false,
-    numeroCuotaEntrega: form.numeroCuotaEntrega ?? "",
-    // Apoderado
-    hasApoderado: form.hasApoderado ?? false,
-    nombreApoderado: form.nombreApoderado ?? "",
-    dniApoderado: form.dniApoderado ?? "",
-    // Co-buyer
-    hasCoComprador: form.hasCoComprador ?? false,
-    nombreCoComprador: form.nombreCoComprador ?? "",
-    dniCoComprador: form.dniCoComprador ?? "",
-    cuitCoComprador: form.cuitCoComprador ?? "",
-    estadoCivilCoComprador: form.estadoCivilCoComprador ?? "",
-    porcentajeCoComprador: form.porcentajeCoComprador ?? "50",
   };
 
-  // Load and fill template
-  const templatePath = path.join(process.cwd(), "src", "templates", "boleto-template.docx");
+  // Select template based on payment type
+  const templateName = form.tipoPago === "contado"
+    ? "boleto-template-contado.docx"
+    : "boleto-template-cuotas.docx";
+  const templatePath = path.join(process.cwd(), "src", "templates", templateName);
   let templateBuf: Buffer;
   try {
     templateBuf = fs.readFileSync(templatePath);
   } catch {
     return NextResponse.json(
-      { error: "Template no encontrado. Ejecutar: node scripts/build-boleto-template.js" },
+      { error: `Template no encontrado: ${templateName}` },
       { status: 500 }
     );
   }

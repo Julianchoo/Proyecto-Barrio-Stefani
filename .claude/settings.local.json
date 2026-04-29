@@ -30,7 +30,10 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(git commit -m 'docs: add email report technical documentation *)",
-      "Bash(grep -E \"\\\\.\\(js|ts|docx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(js|ts|docx\\)$\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import docx; print\\('ok'\\)\")",
+      "Bash(pip install *)"
     ]
   },
   "enableAllProjectMcpServers": true,
