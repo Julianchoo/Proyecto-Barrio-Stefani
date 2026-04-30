@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { and, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { parcelas } from "@/lib/schema";
-import { eq, ilike, or, and, gte, lte, sql } from "drizzle-orm";
+import { parcelas, reservas } from "@/lib/schema";
+import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoParcela } from "@/lib/schema";
 
@@ -43,19 +44,19 @@ export async function GET(request: Request) {
       or(
         ilike(parcelas.manzana, `%${search}%`),
         ilike(parcelas.parcela, `%${search}%`),
-        ilike(parcelas.nombreComprador, `%${search}%`)
+        ilike(reservas.nombreComprador, `%${search}%`)
       )
     );
   }
 
-  const rows =
-    conditions.length > 0
-      ? await db
-          .select()
-          .from(parcelas)
-          .where(conditions.length === 1 ? conditions[0] : and(...conditions))
-          .orderBy(parcelas.numero)
-      : await db.select().from(parcelas).orderBy(parcelas.numero);
+  const rows = await db
+    .select({ parcela: parcelas, reserva: reservas })
+    .from(parcelas)
+    .leftJoin(reservas, activeReservaJoin())
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(parcelas.numero);
 
-  return NextResponse.json(rows);
+  return NextResponse.json(
+    rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva))
+  );
 }

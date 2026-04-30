@@ -32,17 +32,27 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import type { Parcela } from "@/lib/schema";
+import type { ParcelaConReserva } from "@/lib/schema";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
 import { useSession } from "@/lib/auth-client";
 
 const schema = z.object({
   estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]),
+  leadId: z.number().nullable().optional(),
   nombreComprador: z.string().nullable().optional(),
   dniCuit: z.string().nullable().optional(),
   telefono: z.string().nullable().optional(),
   emailComprador: z.string().email().or(z.literal("")).nullable().optional(),
   domicilioComprador: z.string().nullable().optional(),
+  nacionalidad: z.string().nullable().optional(),
+  fechaNacimiento: z.string().nullable().optional(),
+  estadoCivil: z.string().nullable().optional(),
+  cuitComprador: z.string().nullable().optional(),
+  nombreCoComprador: z.string().nullable().optional(),
+  dniCoComprador: z.string().nullable().optional(),
+  cuitCoComprador: z.string().nullable().optional(),
+  estadoCivilCoComprador: z.string().nullable().optional(),
+  porcentajeCoComprador: z.string().nullable().optional(),
   numeroCuotaEntrega: z.string().nullable().optional(),
   nombreCorredor: z.string().nullable().optional(),
   emailCorredor: z.string().email().or(z.literal("")).nullable().optional(),
@@ -77,7 +87,7 @@ export default function LoteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: session } = useSession();
-  const [lote, setLote] = useState<Parcela | null>(null);
+  const [lote, setLote] = useState<ParcelaConReserva | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [entregaCuota, setEntregaCuota] = useState(false);
@@ -92,17 +102,27 @@ export default function LoteDetailPage() {
 
   async function fetchLote() {
     const r = await fetch(`/api/crm/parcelas/${id}`);
-    const data: Parcela = await r.json();
+    const data: ParcelaConReserva = await r.json();
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
     setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
     form.reset({
       estado: data.estado,
+      leadId: data.leadId ?? null,
       nombreComprador: data.nombreComprador ?? "",
       dniCuit: data.dniCuit ?? "",
       telefono: data.telefono ?? "",
       emailComprador: data.emailComprador ?? "",
       domicilioComprador: data.domicilioComprador ?? "",
+      nacionalidad: data.nacionalidad ?? "",
+      fechaNacimiento: data.fechaNacimiento ?? "",
+      estadoCivil: data.estadoCivil ?? "",
+      cuitComprador: data.cuitComprador ?? "",
+      nombreCoComprador: data.nombreCoComprador ?? "",
+      dniCoComprador: data.dniCoComprador ?? "",
+      cuitCoComprador: data.cuitCoComprador ?? "",
+      estadoCivilCoComprador: data.estadoCivilCoComprador ?? "",
+      porcentajeCoComprador: data.porcentajeCoComprador ?? "",
       numeroCuotaEntrega: data.mesEntrega ?? "",
       nombreCorredor: data.nombreCorredor ?? "",
       emailCorredor: data.emailCorredor ?? "",
@@ -169,9 +189,19 @@ export default function LoteDetailPage() {
       const data = await res.json();
       const fieldMap: Array<[keyof FormValues, string | null]> = [
         ["nombreComprador", data.nombreComprador],
-        ["dniCuit", data.dniCuit],
+        ["dniCuit", data.dniCuit ?? data.dniComprador],
         ["telefono", data.telefono],
+        ["emailComprador", data.emailComprador],
         ["domicilioComprador", data.domicilioComprador],
+        ["nacionalidad", data.nacionalidad],
+        ["fechaNacimiento", data.fechaNacimiento],
+        ["estadoCivil", data.estadoCivil],
+        ["cuitComprador", data.cuitComprador],
+        ["nombreCoComprador", data.nombreCoComprador],
+        ["dniCoComprador", data.dniCoComprador],
+        ["cuitCoComprador", data.cuitCoComprador],
+        ["estadoCivilCoComprador", data.estadoCivilCoComprador],
+        ["porcentajeCoComprador", data.porcentajeCoComprador],
         ["fechaReserva", data.fechaReserva],
         ["fechaVencimiento", data.fechaVencimiento],
         ["formaPago", data.formaPago],
@@ -218,6 +248,7 @@ export default function LoteDetailPage() {
   }
 
   function applyLead(lead: LeadOption) {
+    form.setValue("leadId", lead.id);
     form.setValue("nombreComprador", lead.nombre);
     form.setValue("telefono", lead.telefono ?? "");
     form.setValue("emailComprador", lead.email);
@@ -419,6 +450,10 @@ export default function LoteDetailPage() {
                   { name: "telefono" as const, label: "Teléfono" },
                   { name: "emailComprador" as const, label: "Email comprador" },
                   { name: "domicilioComprador" as const, label: "Domicilio comprador" },
+                  { name: "nacionalidad" as const, label: "Nacionalidad" },
+                  { name: "fechaNacimiento" as const, label: "Fecha de nacimiento" },
+                  { name: "estadoCivil" as const, label: "Estado civil" },
+                  { name: "cuitComprador" as const, label: "CUIT comprador" },
                   { name: "nombreCorredor" as const, label: "Nombre corredor" },
                   { name: "emailCorredor" as const, label: "Email corredor" },
                   { name: "fechaReserva" as const, label: "Fecha reserva" },
@@ -467,6 +502,34 @@ export default function LoteDetailPage() {
                     </SelectContent>
                   </Select>
                 </FormItem>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-3">Co-comprador</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { name: "nombreCoComprador" as const, label: "Nombre co-comprador" },
+                    { name: "dniCoComprador" as const, label: "DNI co-comprador" },
+                    { name: "cuitCoComprador" as const, label: "CUIT co-comprador" },
+                    { name: "estadoCivilCoComprador" as const, label: "Estado civil co-comprador" },
+                    { name: "porcentajeCoComprador" as const, label: "Porcentaje co-comprador" },
+                  ].map(({ name, label }) => (
+                    <FormField
+                      key={name}
+                      control={form.control}
+                      name={name}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{label}</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Entrega */}

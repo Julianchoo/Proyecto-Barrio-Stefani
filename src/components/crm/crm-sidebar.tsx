@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  CalendarDays,
   MapPin,
   Users,
   UserCog,
@@ -20,6 +21,7 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { href: "/crm", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/crm/lotes", icon: MapPin, label: "Lotes" },
+  { href: "/crm/reservas", icon: CalendarDays, label: "Reservas" },
   { href: "/crm/leads", icon: Users, label: "Leads" },
 ];
 

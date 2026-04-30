@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
-import { parcelas, leads } from "@/lib/schema";
-import type { Parcela, Lead } from "@/lib/schema";
+import { parcelas, leads, reservas } from "@/lib/schema";
+import type { Lead, ParcelaConReserva } from "@/lib/schema";
 import { eq, gte, and, sql } from "drizzle-orm";
+import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 
 export type ParcelasSummary = Record<string, number>;
 
@@ -17,16 +18,20 @@ export async function getParcelasSummary(): Promise<ParcelasSummary> {
   return Object.fromEntries(rows.map((r) => [r.estado, r.count]));
 }
 
-export async function getRecentReservations(): Promise<Parcela[]> {
+export async function getRecentReservations(): Promise<ParcelaConReserva[]> {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const dateStr = sevenDaysAgo.toISOString().substring(0, 10);
 
   return db
-    .select()
+    .select({ parcela: parcelas, reserva: reservas })
     .from(parcelas)
-    .where(and(eq(parcelas.estado, "reservado"), gte(parcelas.fechaReserva, dateStr)))
-    .orderBy(parcelas.fechaReserva);
+    .innerJoin(reservas, activeReservaJoin())
+    .where(and(eq(parcelas.estado, "reservado"), gte(reservas.fechaReserva, dateStr)))
+    .orderBy(reservas.fechaReserva)
+    .then((rows) =>
+      rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva))
+    );
 }
 
 export async function getTodayLeads(): Promise<Lead[]> {
@@ -40,4 +45,4 @@ export async function getTodayLeads(): Promise<Lead[]> {
     .orderBy(leads.createdAt);
 }
 
-export type { Parcela, Lead };
+export type { ParcelaConReserva as Parcela, Lead };

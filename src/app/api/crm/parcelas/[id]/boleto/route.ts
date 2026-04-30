@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parcelas } from "@/lib/schema";
+import { parcelas, reservas } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
+import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import path from "path";
 import fs from "fs";
 const PizZip = require("pizzip"); // eslint-disable-line @typescript-eslint/no-require-imports
@@ -114,15 +115,17 @@ export async function POST(
 
   const form: BoletoData = parsed.data;
 
-  // Fetch parcela from DB
-  const [parcela] = await db
-    .select()
+  const [row] = await db
+    .select({ parcela: parcelas, reserva: reservas })
     .from(parcelas)
+    .leftJoin(reservas, activeReservaJoin())
     .where(eq(parcelas.id, parcelaId));
 
-  if (!parcela) {
+  if (!row) {
     return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
   }
+
+  const parcela = flattenParcelaReserva(row.parcela, row.reserva);
 
   // Build template data
   const data: Record<string, string | boolean> = {

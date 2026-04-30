@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import type { Parcela } from "@/lib/schema";
+import type { ParcelaConReserva } from "@/lib/schema";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -107,7 +107,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 interface BoletoDialogProps {
-  parcela: Parcela;
+  parcela: ParcelaConReserva;
 }
 
 export function BoletoDialog({ parcela }: BoletoDialogProps) {
@@ -120,10 +120,10 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       ...parseFechaFirma(parcela.fechaFirma),
       nombreComprador: parcela.nombreComprador ?? "",
       dniComprador: parcela.dniCuit ?? "",
-      nacionalidad: "argentina/o",
-      fechaNacimiento: "",
-      estadoCivil: "",
-      cuitComprador: "",
+      nacionalidad: parcela.nacionalidad ?? "argentina/o",
+      fechaNacimiento: parcela.fechaNacimiento ?? "",
+      estadoCivil: parcela.estadoCivil ?? "",
+      cuitComprador: parcela.cuitComprador ?? "",
       domicilioComprador: parcela.domicilioComprador ?? "",
       calleInmueble: "",
       limites: "",
@@ -140,11 +140,11 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       numeroCuotaEntrega: parcela.tipoEntrega === "cuota" ? (parcela.mesEntrega ?? "") : "",
       nombreApoderado: "",
       dniApoderado: "",
-      nombreCoComprador: "",
-      dniCoComprador: "",
-      cuitCoComprador: "",
-      estadoCivilCoComprador: "",
-      porcentajeCoComprador: "50",
+      nombreCoComprador: parcela.nombreCoComprador ?? "",
+      dniCoComprador: parcela.dniCoComprador ?? "",
+      cuitCoComprador: parcela.cuitCoComprador ?? "",
+      estadoCivilCoComprador: parcela.estadoCivilCoComprador ?? "",
+      porcentajeCoComprador: parcela.porcentajeCoComprador ?? "50",
     },
   });
 
@@ -178,10 +178,10 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       ...parseFechaFirma(parcela.fechaFirma),
       nombreComprador: parcela.nombreComprador ?? "",
       dniComprador: parcela.dniCuit ?? "",
-      nacionalidad: "argentina/o",
-      fechaNacimiento: "",
-      estadoCivil: "",
-      cuitComprador: "",
+      nacionalidad: parcela.nacionalidad ?? "argentina/o",
+      fechaNacimiento: parcela.fechaNacimiento ?? "",
+      estadoCivil: parcela.estadoCivil ?? "",
+      cuitComprador: parcela.cuitComprador ?? "",
       domicilioComprador: parcela.domicilioComprador ?? "",
       calleInmueble: "",
       limites: "",
@@ -198,16 +198,16 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       numeroCuotaEntrega: parcela.tipoEntrega === "cuota" ? (parcela.mesEntrega ?? "") : "",
       nombreApoderado: "",
       dniApoderado: "",
-      nombreCoComprador: "",
-      dniCoComprador: "",
-      cuitCoComprador: "",
-      estadoCivilCoComprador: "",
-      porcentajeCoComprador: "50",
+      nombreCoComprador: parcela.nombreCoComprador ?? "",
+      dniCoComprador: parcela.dniCoComprador ?? "",
+      cuitCoComprador: parcela.cuitCoComprador ?? "",
+      estadoCivilCoComprador: parcela.estadoCivilCoComprador ?? "",
+      porcentajeCoComprador: parcela.porcentajeCoComprador ?? "50",
     });
     setShowApoderado(false);
     setTipoPago(parcela.formaPago === "contado" ? "contado" : "financiado");
     setEntregaCuota(parcela.tipoEntrega === "cuota");
-    setShowCoComprador(false);
+    setShowCoComprador(Boolean(parcela.nombreCoComprador));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {

@@ -1,10 +1,14 @@
 import {
+  sql,
+} from "drizzle-orm";
+import {
   pgTable,
   pgEnum,
   text,
   timestamp,
   boolean,
   index,
+  uniqueIndex,
   serial,
   numeric,
   integer,
@@ -30,6 +34,13 @@ export const estadoLeadEnum = pgEnum("estado_lead", [
   "sin_respuesta",
   "closed_won",
   "closed_lost",
+]);
+
+export const estadoReservaEnum = pgEnum("estado_reserva", [
+  "activa",
+  "cancelada",
+  "vencida",
+  "realizada",
 ]);
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "comercial"]);
@@ -217,10 +228,122 @@ export const leads = pgTable(
   (table) => [index("leads_estado_idx").on(table.estado)]
 );
 
+export const reservas = pgTable(
+  "reservas",
+  {
+    id: serial("id").primaryKey(),
+    parcelaId: integer("parcela_id")
+      .notNull()
+      .references(() => parcelas.id, { onDelete: "cascade" }),
+    leadId: integer("lead_id").references(() => leads.id, {
+      onDelete: "set null",
+    }),
+    estado: estadoReservaEnum("estado").default("activa").notNull(),
+
+    nombreComprador: text("nombre_comprador"),
+    dniCuit: text("dni_cuit"),
+    telefono: text("telefono"),
+    emailComprador: text("email_comprador"),
+    domicilioComprador: text("domicilio_comprador"),
+    nacionalidad: text("nacionalidad"),
+    fechaNacimiento: date("fecha_nacimiento"),
+    estadoCivil: text("estado_civil"),
+    cuitComprador: text("cuit_comprador"),
+
+    nombreCoComprador: text("nombre_co_comprador"),
+    dniCoComprador: text("dni_co_comprador"),
+    cuitCoComprador: text("cuit_co_comprador"),
+    estadoCivilCoComprador: text("estado_civil_co_comprador"),
+    porcentajeCoComprador: text("porcentaje_co_comprador"),
+
+    tipoEntrega: text("tipo_entrega"),
+    mesEntrega: text("mes_entrega"),
+    anioEntrega: text("anio_entrega"),
+    nombreCorredor: text("nombre_corredor"),
+    emailCorredor: text("email_corredor"),
+    formaPago: text("forma_pago"),
+    fechaReserva: date("fecha_reserva"),
+    fechaVencimiento: date("fecha_vencimiento"),
+    fechaFirma: date("fecha_firma"),
+    modificadoPor: text("modificado_por"),
+    reservadoPor: text("reservado_por"),
+    observaciones: text("observaciones"),
+
+    precioTotalPalabras: text("precio_total_palabras"),
+    precioTotalNum: text("precio_total_num"),
+    anticipoPalabras: text("anticipo_palabras"),
+    anticipoNum: text("anticipo_num"),
+    saldoPalabras: text("saldo_palabras"),
+    saldoNum: text("saldo_num"),
+    cantidadCuotas: text("cantidad_cuotas"),
+    cuotaMensualPalabras: text("cuota_mensual_palabras"),
+    cuotaMensual: text("cuota_mensual"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("reservas_parcela_idx").on(table.parcelaId),
+    index("reservas_lead_idx").on(table.leadId),
+    uniqueIndex("reservas_active_parcela_idx")
+      .on(table.parcelaId)
+      .where(sql`${table.estado} = 'activa'`),
+  ]
+);
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type User = typeof user.$inferSelect;
 export type Parcela = typeof parcelas.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
+export type Reserva = typeof reservas.$inferSelect;
 export type EstadoParcela = (typeof estadoParcelaEnum.enumValues)[number];
 export type EstadoLead = (typeof estadoLeadEnum.enumValues)[number];
+export type EstadoReserva = (typeof estadoReservaEnum.enumValues)[number];
+export type ParcelaConReserva = Parcela &
+  Partial<
+    Pick<
+      Reserva,
+      | "leadId"
+      | "nombreComprador"
+      | "dniCuit"
+      | "telefono"
+      | "emailComprador"
+      | "domicilioComprador"
+      | "nacionalidad"
+      | "fechaNacimiento"
+      | "estadoCivil"
+      | "cuitComprador"
+      | "nombreCoComprador"
+      | "dniCoComprador"
+      | "cuitCoComprador"
+      | "estadoCivilCoComprador"
+      | "porcentajeCoComprador"
+      | "tipoEntrega"
+      | "mesEntrega"
+      | "anioEntrega"
+      | "nombreCorredor"
+      | "emailCorredor"
+      | "formaPago"
+      | "fechaReserva"
+      | "fechaVencimiento"
+      | "fechaFirma"
+      | "modificadoPor"
+      | "reservadoPor"
+      | "observaciones"
+      | "precioTotalPalabras"
+      | "precioTotalNum"
+      | "anticipoPalabras"
+      | "anticipoNum"
+      | "saldoPalabras"
+      | "saldoNum"
+      | "cantidadCuotas"
+      | "cuotaMensualPalabras"
+      | "cuotaMensual"
+    >
+  > & {
+    reservaId: number | null;
+  };

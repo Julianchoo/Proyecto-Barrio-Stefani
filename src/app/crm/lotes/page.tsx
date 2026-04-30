@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Lock } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
-import type { Parcela, EstadoParcela } from "@/lib/schema";
+import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
 const estadoColors: Record<EstadoParcela, string> = {
   disponible: "bg-green-100 text-green-700",
@@ -86,7 +86,7 @@ const OPTIONAL_COLS: { key: ColKey; label: string }[] = [
   { key: "observaciones", label: "Observaciones" },
 ];
 
-function formatEntrega(lote: Parcela): string {
+function formatEntrega(lote: ParcelaConReserva): string {
   if (!lote.tipoEntrega) return "—";
   if (lote.tipoEntrega === "cuota") {
     return lote.mesEntrega ? `Contra cuota N° ${lote.mesEntrega}` : "Contra cuota";
@@ -94,7 +94,7 @@ function formatEntrega(lote: Parcela): string {
   return "Contra saldo";
 }
 
-function getCellValue(lote: Parcela, key: ColKey): string {
+function getCellValue(lote: ParcelaConReserva, key: ColKey): string {
   switch (key) {
     case "comprador": return lote.nombreComprador ?? "—";
     case "dniCuit": return lote.dniCuit ?? "—";
@@ -152,7 +152,7 @@ function loadVisibleCols(): Record<ColKey, boolean> {
 
 export default function LotesPage() {
   const { data: session } = useSession();
-  const [lotes, setLotes] = useState<Parcela[]>([]);
+  const [lotes, setLotes] = useState<ParcelaConReserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [manzanas, setManzanas] = useState<string[]>([]);
   const [search, setSearch] = useState("");

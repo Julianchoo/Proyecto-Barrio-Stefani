@@ -1,0 +1,139 @@
+import { NextResponse } from "next/server";
+import { and, eq, ne } from "drizzle-orm";
+import { z } from "zod";
+import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { db } from "@/lib/db";
+import { parcelas, reservas } from "@/lib/schema";
+
+const updateSchema = z
+  .object({
+    estado: z.enum(["activa", "cancelada", "vencida", "realizada"]),
+  })
+  .strict();
+
+function loteEstadoForReserva(estado: z.infer<typeof updateSchema>["estado"]) {
+  if (estado === "activa") return "reservado";
+  if (estado === "realizada") return "vendido";
+  return "disponible";
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireApiAuth();
+  if (isErrorResponse(authResult)) return authResult;
+
+  const { id } = await params;
+  const reservaId = parseInt(id);
+  if (isNaN(reservaId)) {
+    return NextResponse.json({ error: "ID invalido" }, { status: 400 });
+  }
+
+  try {
+    const body = await request.json();
+    const data = updateSchema.parse(body);
+
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ reserva: reservas, parcela: parcelas })
+        .from(reservas)
+        .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+        .where(eq(reservas.id, reservaId));
+
+      if (!current) return { kind: "not-found" as const };
+
+      const { reserva } = current;
+
+      if (data.estado === "activa") {
+        const [otherActive] = await tx
+          .select({ id: reservas.id })
+          .from(reservas)
+          .where(
+            and(
+              eq(reservas.parcelaId, reserva.parcelaId),
+              eq(reservas.estado, "activa"),
+              ne(reservas.id, reserva.id)
+            )
+          )
+          .limit(1);
+
+        if (otherActive) return { kind: "active-conflict" as const };
+      }
+
+      await tx
+        .update(reservas)
+        .set({
+          estado: data.estado,
+          modificadoPor: authResult.email,
+          updatedAt: new Date(),
+        })
+        .where(eq(reservas.id, reserva.id));
+
+      const shouldSyncLote =
+        data.estado === "activa" ||
+        data.estado === "realizada" ||
+        reserva.estado === "activa";
+
+      if (shouldSyncLote) {
+        await tx
+          .update(parcelas)
+          .set({ estado: loteEstadoForReserva(data.estado) })
+          .where(eq(parcelas.id, reserva.parcelaId));
+      }
+
+      const [updated] = await tx
+        .select({
+          id: reservas.id,
+          parcelaId: reservas.parcelaId,
+          leadId: reservas.leadId,
+          estado: reservas.estado,
+          nombreComprador: reservas.nombreComprador,
+          dniCuit: reservas.dniCuit,
+          telefono: reservas.telefono,
+          emailComprador: reservas.emailComprador,
+          reservadoPor: reservas.reservadoPor,
+          fechaReserva: reservas.fechaReserva,
+          fechaVencimiento: reservas.fechaVencimiento,
+          fechaFirma: reservas.fechaFirma,
+          formaPago: reservas.formaPago,
+          precioTotalNum: reservas.precioTotalNum,
+          observaciones: reservas.observaciones,
+          createdAt: reservas.createdAt,
+          updatedAt: reservas.updatedAt,
+          loteNumero: parcelas.numero,
+          manzana: parcelas.manzana,
+          parcela: parcelas.parcela,
+          loteEstado: parcelas.estado,
+        })
+        .from(reservas)
+        .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+        .where(eq(reservas.id, reserva.id));
+
+      return { kind: "ok" as const, data: updated };
+    });
+
+    if (result.kind === "not-found") {
+      return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+    }
+    if (result.kind === "active-conflict") {
+      return NextResponse.json(
+        { error: "Este lote ya tiene una reserva activa" },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(result.data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Datos invalidos", details: error.issues },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+}
