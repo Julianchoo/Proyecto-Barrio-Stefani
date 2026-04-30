@@ -218,6 +218,11 @@ export default function LotesPage() {
   }, [fetchLotes]);
 
   const handleEstadoChange = async (id: number, estado: EstadoParcela) => {
+    const lote = lotes.find((l) => l.id === id);
+    if (lote && !canEditLote(lote)) {
+      toast.error("Este lote fue reservado por otro comercial");
+      return;
+    }
     const prev = lotes;
     setLotes((ls) => ls.map((l) => (l.id === id ? { ...l, estado } : l)));
     const res = await fetch(`/api/crm/parcelas/${id}`, {
@@ -232,6 +237,11 @@ export default function LotesPage() {
   };
 
   const handleCheckbox = (id: number, index: number, shiftKey: boolean) => {
+    const target = lotes.find((lote) => lote.id === id);
+    if (target && !canEditLote(target)) {
+      toast.error("Este lote fue reservado por otro comercial");
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (shiftKey && lastCheckedIndexRef.current !== null) {
@@ -241,6 +251,7 @@ export default function LotesPage() {
         for (let i = from; i <= to; i++) {
           const lote = lotes[i];
           if (!lote) continue;
+          if (!canEditLote(lote)) continue;
           if (isSelecting) next.add(lote.id);
           else next.delete(lote.id);
         }
@@ -255,7 +266,7 @@ export default function LotesPage() {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelected(new Set(lotes.map((l) => l.id)));
+      setSelected(new Set(lotes.filter(canEditLote).map((l) => l.id)));
     } else {
       setSelected(new Set());
     }
@@ -345,6 +356,14 @@ export default function LotesPage() {
   }, [someSelected]);
 
   const activeOptionalCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
+
+  function canEditLote(lote: ParcelaConReserva) {
+    return (
+      lote.estado !== "reservado" ||
+      session?.user?.role === "admin" ||
+      lote.reservadoPor === session?.user?.email
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -507,7 +526,9 @@ export default function LotesPage() {
                     ))}
                   </TableRow>
                 ))
-              : lotes.map((lote, index) => (
+              : lotes.map((lote, index) => {
+                  const isLoteLocked = !canEditLote(lote);
+                  return (
                   <TableRow
                     key={lote.id}
                     data-state={selected.has(lote.id) ? "selected" : undefined}
@@ -519,6 +540,7 @@ export default function LotesPage() {
                         checked={selected.has(lote.id)}
                         onChange={() => {}}
                         onClick={(e) => handleCheckbox(lote.id, index, e.shiftKey)}
+                        disabled={isLoteLocked}
                         aria-label={`Seleccionar lote ${lote.numero}`}
                         className="size-4 cursor-pointer accent-primary"
                       />
@@ -542,6 +564,7 @@ export default function LotesPage() {
                     <TableCell>
                       <Select
                         value={lote.estado}
+                        disabled={isLoteLocked}
                         onValueChange={(v) =>
                           handleEstadoChange(lote.id, v as EstadoParcela)
                         }
@@ -553,9 +576,7 @@ export default function LotesPage() {
                             >
                               {estadoLabels[lote.estado]}
                             </span>
-                            {lote.estado === "reservado" &&
-                              session?.user?.role !== "admin" &&
-                              lote.reservadoPor !== session?.user?.email && (
+                            {isLoteLocked && (
                                 <Lock className="h-3 w-3 text-amber-600" />
                               )}
                           </span>
@@ -582,7 +603,7 @@ export default function LotesPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
           </TableBody>
         </Table>
         {!loading && lotes.length === 0 && (

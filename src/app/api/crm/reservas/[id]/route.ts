@@ -45,6 +45,13 @@ export async function PATCH(
 
       const { reserva } = current;
 
+      if (
+        authResult.role !== "admin" &&
+        reserva.reservadoPor !== authResult.email
+      ) {
+        return { kind: "forbidden" as const };
+      }
+
       if (data.estado === "activa") {
         const [otherActive] = await tx
           .select({ id: reservas.id })
@@ -115,6 +122,12 @@ export async function PATCH(
 
     if (result.kind === "not-found") {
       return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+    }
+    if (result.kind === "forbidden") {
+      return NextResponse.json(
+        { error: "Solo el comercial que tomó la reserva o un administrador puede modificarla" },
+        { status: 403 }
+      );
     }
     if (result.kind === "active-conflict") {
       return NextResponse.json(

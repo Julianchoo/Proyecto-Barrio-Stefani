@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, List, Search } from "lucide-react";
+import { CalendarDays, List, Lock, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, EstadoReserva } from "@/lib/schema";
 
 type ReservaRow = {
@@ -53,7 +54,6 @@ type CalendarEvent = {
   date: string;
   label: string;
   reserva: ReservaRow;
-  tone: "reserva" | "vencimiento" | "firma";
 };
 
 const estadoLabels: Record<EstadoReserva, string> = {
@@ -68,12 +68,6 @@ const estadoColors: Record<EstadoReserva, string> = {
   cancelada: "bg-gray-100 text-gray-700",
   vencida: "bg-amber-100 text-amber-700",
   realizada: "bg-blue-100 text-blue-700",
-};
-
-const eventColors: Record<CalendarEvent["tone"], string> = {
-  reserva: "bg-green-100 text-green-800",
-  vencimiento: "bg-amber-100 text-amber-800",
-  firma: "bg-blue-100 text-blue-800",
 };
 
 const monthNames = [
@@ -117,42 +111,17 @@ function parseMonthKey(monthKey: string) {
 }
 
 function buildEvents(reservas: ReservaRow[]): CalendarEvent[] {
-  return reservas.flatMap((reserva) => {
+  return reservas.flatMap((reserva): CalendarEvent[] => {
     const comprador = reserva.nombreComprador ?? "Sin comprador";
-    const base = `Lote ${reserva.loteNumero} - ${comprador}`;
-    const events: CalendarEvent[] = [];
-    const fechaReserva = normalizeDateKey(reserva.fechaReserva);
-    const fechaVencimiento = normalizeDateKey(reserva.fechaVencimiento);
     const fechaFirma = normalizeDateKey(reserva.fechaFirma);
-
-    if (fechaReserva) {
-      events.push({
-        key: `${reserva.id}-reserva`,
-        date: fechaReserva,
-        label: base,
-        reserva,
-        tone: "reserva",
-      });
-    }
-    if (fechaVencimiento) {
-      events.push({
-        key: `${reserva.id}-vencimiento`,
-        date: fechaVencimiento,
-        label: `Vence - ${base}`,
-        reserva,
-        tone: "vencimiento",
-      });
-    }
-    if (fechaFirma) {
-      events.push({
+    return fechaFirma
+      ? [{
         key: `${reserva.id}-firma`,
         date: fechaFirma,
-        label: `Firma - ${base}`,
+        label: `Lote ${reserva.loteNumero} - ${comprador}`,
         reserva,
-        tone: "firma",
-      });
-    }
-    return events;
+      }]
+      : [];
   });
 }
 
@@ -181,6 +150,7 @@ function buildCalendarDays(monthKey: string) {
 }
 
 export default function ReservasPage() {
+  const { data: session } = useSession();
   const [reservas, setReservas] = useState<ReservaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterEstado, setFilterEstado] = useState<string>("all");
@@ -220,12 +190,6 @@ export default function ReservasPage() {
   const calendarDays = useMemo(() => buildCalendarDays(monthKey), [monthKey]);
   const activeMonth = parseMonthKey(monthKey);
   const monthLabel = `${monthNames[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
-  const undatedReservas = reservas.filter(
-    (reserva) =>
-      !normalizeDateKey(reserva.fechaReserva) &&
-      !normalizeDateKey(reserva.fechaVencimiento) &&
-      !normalizeDateKey(reserva.fechaFirma)
-  );
 
   function moveMonth(delta: number) {
     const next = parseMonthKey(monthKey);
@@ -235,6 +199,10 @@ export default function ReservasPage() {
 
   async function handleEstadoChange(reserva: ReservaRow, estado: EstadoReserva) {
     if (reserva.estado === estado) return;
+    if (!canEditReserva(reserva)) {
+      toast.error("Solo el comercial que tomó la reserva o un administrador puede modificarla");
+      return;
+    }
     setUpdatingId(reserva.id);
     try {
       const res = await fetch(`/api/crm/reservas/${reserva.id}`, {
@@ -260,6 +228,13 @@ export default function ReservasPage() {
     } finally {
       setUpdatingId(null);
     }
+  }
+
+  function canEditReserva(reserva: ReservaRow) {
+    return (
+      session?.user?.role === "admin" ||
+      reserva.reservadoPor === session?.user?.email
+    );
   }
 
   return (
@@ -361,6 +336,7 @@ export default function ReservasPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {canEditReserva(reserva) ? (
                         <Select
                           value={reserva.estado}
                           onValueChange={(value) =>
@@ -381,6 +357,14 @@ export default function ReservasPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[reserva.estado]}`}>
+                              {estadoLabels[reserva.estado]}
+                            </span>
+                            <Lock className="h-3 w-3 text-amber-600" />
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{formatDate(reserva.fechaReserva)}</TableCell>
                       <TableCell>{formatDate(reserva.fechaVencimiento)}</TableCell>
@@ -446,7 +430,7 @@ export default function ReservasPage() {
                         <Link
                           key={event.key}
                           href={`/crm/lotes/${event.reserva.parcelaId}`}
-                          className={`block truncate rounded px-1.5 py-1 text-xs ${eventColors[event.tone]}`}
+                          className={`block truncate rounded px-1.5 py-1 text-xs ${estadoColors[event.reserva.estado]}`}
                           title={event.label}
                         >
                           {event.label}
@@ -464,19 +448,10 @@ export default function ReservasPage() {
             </div>
           </div>
 
-          {undatedReservas.length > 0 && (
-            <div className="rounded-lg border bg-white px-4 py-3">
-              <h3 className="mb-2 text-sm font-semibold text-gray-900">Sin fecha</h3>
-              <div className="flex flex-wrap gap-2">
-                {undatedReservas.map((reserva) => (
-                  <Button key={reserva.id} asChild variant="outline" size="sm">
-                    <Link href={`/crm/lotes/${reserva.parcelaId}`}>
-                      Lote {reserva.loteNumero} - {reserva.nombreComprador ?? "Sin comprador"}
-                    </Link>
-                  </Button>
-                ))}
-              </div>
-            </div>
+          {!loading && events.length === 0 && (
+            <p className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-gray-500">
+              No hay reservas con fecha de firma en este filtro
+            </p>
           )}
         </div>
       )}
