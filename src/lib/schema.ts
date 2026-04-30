@@ -58,6 +58,7 @@ export const user = pgTable(
     role: text("role", { enum: ["admin", "comercial"] })
       .default("comercial")
       .notNull(),
+    mustChangePassword: boolean("must_change_password").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

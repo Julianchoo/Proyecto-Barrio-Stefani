@@ -13,6 +13,11 @@ export const auth = betterAuth({
         defaultValue: "comercial",
         input: false,
       },
+      mustChangePassword: {
+        type: "boolean",
+        defaultValue: false,
+        input: false,
+      },
     },
   },
   emailAndPassword: {

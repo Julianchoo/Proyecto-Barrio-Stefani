@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { signIn, useSession } from "@/lib/auth-client"
+import { getSession, signIn, useSession } from "@/lib/auth-client"
 
 export function SignInButton() {
   const { data: session, isPending: sessionPending } = useSession()
@@ -39,7 +39,11 @@ export function SignInButton() {
       if (result.error) {
         setError(result.error.message || "Failed to sign in")
       } else {
-        router.push("/crm")
+        const currentSession = await getSession()
+        const mustChangePassword = (
+          currentSession.data?.user as { mustChangePassword?: boolean } | undefined
+        )?.mustChangePassword
+        router.push(mustChangePassword ? "/cambiar-password" : "/crm")
         router.refresh()
       }
     } catch {

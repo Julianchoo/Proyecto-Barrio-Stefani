@@ -1,21 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { PlusCircle, Eye, EyeOff, Pencil, KeyRound, Copy } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { PlusCircle, Eye, EyeOff, Pencil } from "lucide-react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +15,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Form,
   FormControl,
   FormField,
@@ -38,13 +22,30 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type UserRow = {
   id: string;
   name: string;
   email: string;
   role: string;
+  mustChangePassword: boolean;
   createdAt: string;
 };
 
@@ -72,6 +73,8 @@ export default function UsuariosPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [temporaryPasswordOpen, setTemporaryPasswordOpen] = useState(false);
 
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
@@ -139,6 +142,33 @@ export default function UsuariosPage() {
       const data = await res.json();
       toast.error(data.error ?? "Error al actualizar usuario");
     }
+  }
+
+  async function resetPassword(u: UserRow) {
+    const confirmed = window.confirm(
+      `Blanquear la contraseña de ${u.email}? Se generará una contraseña temporal.`
+    );
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/crm/usuarios/${u.id}/blanquear-password`, {
+      method: "POST",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setTemporaryPassword(data.temporaryPassword);
+      setTemporaryPasswordOpen(true);
+      toast.success("Contraseña blanqueada");
+      fetchUsers();
+    } else {
+      const data = await res.json();
+      toast.error(data.error ?? "No se pudo blanquear la contraseña");
+    }
+  }
+
+  async function copyTemporaryPassword() {
+    await navigator.clipboard.writeText(temporaryPassword);
+    toast.success("Contraseña copiada");
   }
 
   return (
@@ -289,20 +319,36 @@ export default function UsuariosPage() {
                       >
                         {u.role}
                       </span>
+                      {u.mustChangePassword && (
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                          debe cambiar contraseña
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">
                       {new Date(u.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEditDialog(u)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Editar</span>
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditDialog(u)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Editar</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => resetPassword(u)}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                          <span className="sr-only">Blanquear contraseña</span>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -379,6 +425,27 @@ export default function UsuariosPage() {
               </Button>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={temporaryPasswordOpen} onOpenChange={setTemporaryPasswordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contraseña temporal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Compartí esta contraseña con el usuario. Al ingresar, se le pedirá
+              que cargue una nueva.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input value={temporaryPassword} readOnly />
+              <Button type="button" size="icon" onClick={copyTemporaryPassword}>
+                <Copy className="h-4 w-4" />
+                <span className="sr-only">Copiar</span>
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

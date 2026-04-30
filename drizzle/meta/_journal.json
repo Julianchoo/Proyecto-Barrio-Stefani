@@ -71,6 +71,13 @@
       "when": 1777572384897,
       "tag": "0009_lazy_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777574437560,
+      "tag": "0010_ambitious_old_lace",
+      "breakpoints": true
     }
   ]
 }

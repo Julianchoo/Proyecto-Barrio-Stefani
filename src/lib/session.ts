@@ -22,6 +22,10 @@ export async function requireAuth() {
     redirect("/");
   }
 
+  if ((session.user as { mustChangePassword?: boolean }).mustChangePassword) {
+    redirect("/cambiar-password");
+  }
+
   return session;
 }
 
