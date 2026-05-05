@@ -287,7 +287,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Boleto_Lote${parcela.numero}_Manzana${parcela.manzana}.docx`;
+      a.download = `Boleto_Lote${parcela.parcela}_Manzana${parcela.manzana}.docx`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -310,7 +310,7 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-start justify-between gap-4">
           <DialogTitle>
-            Generar Boleto — Lote {parcela.numero} · Manzana {parcela.manzana}
+            Generar Boleto — Lote {parcela.parcela} · Manzana {parcela.manzana}
           </DialogTitle>
           <div className="shrink-0">
             <input

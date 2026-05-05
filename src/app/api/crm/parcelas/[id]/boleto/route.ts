@@ -145,7 +145,7 @@ export async function POST(
     calleInmueble: form.calleInmueble || "",
     limites: form.limites || "",
     tituloPlano: form.tituloPlano || "Título",
-    lote: String(parcela.numero ?? ""),
+    lote: parcela.parcela ?? "",
     manzana: parcela.manzana ?? "",
     medidas: form.medidas || (parcela.superficieM2 ? `${parcela.superficieM2} m²` : ""),
     parcelaCatastral: parcela.parcela ?? "",
@@ -194,7 +194,7 @@ export async function POST(
 
     const buf: Buffer = doc.getZip().generate({ type: "nodebuffer" }) as Buffer;
 
-    const filename = `Boleto_Lote${parcela.numero}_Manzana${parcela.manzana}.docx`;
+    const filename = `Boleto_Lote${parcela.parcela}_Manzana${parcela.manzana}.docx`;
 
     return new Response(new Uint8Array(buf), {
       status: 200,
