@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, List, Lock, Search } from "lucide-react";
+import { CalendarDays, List, Lock, Mail, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,12 +115,14 @@ function buildEvents(reservas: ReservaRow[]): CalendarEvent[] {
     const comprador = reserva.nombreComprador ?? "Sin comprador";
     const fechaFirma = normalizeDateKey(reserva.fechaFirma);
     return fechaFirma
-      ? [{
-        key: `${reserva.id}-firma`,
-        date: fechaFirma,
-        label: `Lote ${reserva.loteNumero} - ${comprador}`,
-        reserva,
-      }]
+      ? [
+          {
+            key: `${reserva.id}-firma`,
+            date: fechaFirma,
+            label: `Lote ${reserva.loteNumero} - ${comprador}`,
+            reserva,
+          },
+        ]
       : [];
   });
 }
@@ -158,6 +160,7 @@ export default function ReservasPage() {
   const [view, setView] = useState<"lista" | "calendario">("lista");
   const [monthKey, setMonthKey] = useState(getMonthKey(new Date()));
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [sendingSummary, setSendingSummary] = useState(false);
 
   const fetchReservas = useCallback(async () => {
     const params = new URLSearchParams();
@@ -217,7 +220,7 @@ export default function ReservasPage() {
         return;
       }
 
-      const data = await res.json().catch(() => null) as { error?: string } | null;
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (res.status === 409) {
         toast.error(data?.error ?? "Este lote ya tiene una reserva activa");
       } else {
@@ -230,11 +233,38 @@ export default function ReservasPage() {
     }
   }
 
+  async function handleSendSummary() {
+    setSendingSummary(true);
+    try {
+      const res = await fetch("/api/crm/reservas/enviar-resumen", {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => null)) as {
+        count?: number;
+        error?: string;
+        skipped?: boolean;
+      } | null;
+
+      if (!res.ok) {
+        toast.error(data?.error ?? "No se pudo enviar el resumen");
+        return;
+      }
+
+      if (data?.skipped) {
+        toast.info("No hay firmas previstas para la semana siguiente");
+        return;
+      }
+
+      toast.success(`Resumen enviado${data?.count ? ` (${data.count})` : ""}`);
+    } catch {
+      toast.error("No se pudo enviar el resumen");
+    } finally {
+      setSendingSummary(false);
+    }
+  }
+
   function canEditReserva(reserva: ReservaRow) {
-    return (
-      session?.user?.role === "admin" ||
-      reserva.reservadoPor === session?.user?.email
-    );
+    return session?.user?.role === "admin" || reserva.reservadoPor === session?.user?.email;
   }
 
   return (
@@ -242,35 +272,45 @@ export default function ReservasPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Reservas</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Reservas por lote y estado
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Reservas por lote y estado</p>
         </div>
-        <div className="inline-flex rounded-md border bg-white p-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button
             type="button"
-            variant={view === "lista" ? "default" : "ghost"}
+            variant="outline"
             size="sm"
-            onClick={() => setView("lista")}
+            onClick={handleSendSummary}
+            disabled={sendingSummary}
           >
-            <List className="h-4 w-4 mr-1" />
-            Lista
+            <Mail className="mr-1 h-4 w-4" />
+            {sendingSummary ? "Enviando..." : "Enviar resumen"}
           </Button>
-          <Button
-            type="button"
-            variant={view === "calendario" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setView("calendario")}
-          >
-            <CalendarDays className="h-4 w-4 mr-1" />
-            Calendario
-          </Button>
+          <div className="inline-flex rounded-md border bg-white p-1">
+            <Button
+              type="button"
+              variant={view === "lista" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("lista")}
+            >
+              <List className="mr-1 h-4 w-4" />
+              Lista
+            </Button>
+            <Button
+              type="button"
+              variant={view === "calendario" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("calendario")}
+            >
+              <CalendarDays className="mr-1 h-4 w-4" />
+              Calendario
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             placeholder="Buscar comprador, DNI, lote..."
             value={search}
@@ -293,7 +333,7 @@ export default function ReservasPage() {
       </div>
 
       {view === "lista" ? (
-        <div className="rounded-lg border bg-white overflow-x-auto">
+        <div className="overflow-x-auto rounded-lg border bg-white">
           <Table>
             <TableHeader>
               <TableRow>
@@ -337,29 +377,33 @@ export default function ReservasPage() {
                       </TableCell>
                       <TableCell>
                         {canEditReserva(reserva) ? (
-                        <Select
-                          value={reserva.estado}
-                          onValueChange={(value) =>
-                            handleEstadoChange(reserva, value as EstadoReserva)
-                          }
-                          disabled={updatingId === reserva.id}
-                        >
-                          <SelectTrigger className="h-7 w-32 border-0 p-0 shadow-none focus:ring-0">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[reserva.estado]}`}>
-                              {estadoLabels[reserva.estado]}
-                            </span>
-                          </SelectTrigger>
-                          <SelectContent position="popper">
-                            {(Object.keys(estadoLabels) as EstadoReserva[]).map((estado) => (
-                              <SelectItem key={estado} value={estado}>
-                                {estadoLabels[estado]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <Select
+                            value={reserva.estado}
+                            onValueChange={(value) =>
+                              handleEstadoChange(reserva, value as EstadoReserva)
+                            }
+                            disabled={updatingId === reserva.id}
+                          >
+                            <SelectTrigger className="h-7 w-32 border-0 p-0 shadow-none focus:ring-0">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
+                              >
+                                {estadoLabels[reserva.estado]}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent position="popper">
+                              {(Object.keys(estadoLabels) as EstadoReserva[]).map((estado) => (
+                                <SelectItem key={estado} value={estado}>
+                                  {estadoLabels[estado]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColors[reserva.estado]}`}>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
+                            >
                               {estadoLabels[reserva.estado]}
                             </span>
                             <Lock className="h-3 w-3 text-amber-600" />
@@ -385,9 +429,7 @@ export default function ReservasPage() {
             </TableBody>
           </Table>
           {!loading && reservas.length === 0 && (
-            <p className="text-center text-sm text-gray-500 py-8">
-              No se encontraron reservas
-            </p>
+            <p className="py-8 text-center text-sm text-gray-500">No se encontraron reservas</p>
           )}
         </div>
       ) : (
@@ -396,15 +438,13 @@ export default function ReservasPage() {
             <Button type="button" variant="outline" size="sm" onClick={() => moveMonth(-1)}>
               Anterior
             </Button>
-            <h2 className="text-base font-semibold capitalize text-gray-900">
-              {monthLabel}
-            </h2>
+            <h2 className="text-base font-semibold text-gray-900 capitalize">{monthLabel}</h2>
             <Button type="button" variant="outline" size="sm" onClick={() => moveMonth(1)}>
               Siguiente
             </Button>
           </div>
 
-          <div className="rounded-lg border bg-white overflow-hidden">
+          <div className="overflow-hidden rounded-lg border bg-white">
             <div className="grid grid-cols-7 border-b bg-gray-50">
               {weekdayNames.map((day) => (
                 <div key={day} className="px-2 py-2 text-xs font-medium text-gray-500">
@@ -414,16 +454,14 @@ export default function ReservasPage() {
             </div>
             <div className="grid grid-cols-7">
               {calendarDays.map((day, index) => {
-                const dayEvents = day.date ? eventsByDate.get(day.date) ?? [] : [];
+                const dayEvents = day.date ? (eventsByDate.get(day.date) ?? []) : [];
                 return (
                   <div
                     key={`${day.date ?? "empty"}-${index}`}
-                    className="min-h-32 border-b border-r p-2 last:border-r-0"
+                    className="min-h-32 border-r border-b p-2 last:border-r-0"
                   >
                     {day.day && (
-                      <div className="mb-2 text-xs font-medium text-gray-500">
-                        {day.day}
-                      </div>
+                      <div className="mb-2 text-xs font-medium text-gray-500">{day.day}</div>
                     )}
                     <div className="space-y-1">
                       {dayEvents.slice(0, 3).map((event) => (
@@ -437,9 +475,7 @@ export default function ReservasPage() {
                         </Link>
                       ))}
                       {dayEvents.length > 3 && (
-                        <div className="text-xs text-gray-500">
-                          +{dayEvents.length - 3} mas
-                        </div>
+                        <div className="text-xs text-gray-500">+{dayEvents.length - 3} mas</div>
                       )}
                     </div>
                   </div>
