@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -138,6 +138,10 @@ const DEFAULT_COLS: Record<ColKey, boolean> = {
 
 const STORAGE_KEY = "lotes-visible-cols";
 
+function formatUsd(value: number): string {
+  return `USD ${Math.round(value).toLocaleString("es-AR")}`;
+}
+
 function loadVisibleCols(): Record<ColKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -163,6 +167,12 @@ export default function LotesPage() {
   const [bulkEstado, setBulkEstado] = useState<EstadoParcela | "">("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(DEFAULT_COLS);
+  const [calculator, setCalculator] = useState({
+    precio: 25000,
+    anticipo: 5000,
+    tasa: 1,
+    plazo: 48,
+  });
 
   // Load persisted columns on mount
   useEffect(() => {
@@ -357,6 +367,34 @@ export default function LotesPage() {
 
   const activeOptionalCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
 
+  const calculatorResult = useMemo(() => {
+    const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
+    const plazo = Math.max(calculator.plazo, 1);
+    const totalFinanciado = saldo * (1 + (calculator.tasa / 100) * plazo);
+
+    return {
+      cuotaMensual: totalFinanciado / plazo,
+      totalFinanciado,
+      precioTotalNominal: calculator.anticipo + totalFinanciado,
+    };
+  }, [calculator]);
+
+  function updateCalculatorValue(
+    key: keyof typeof calculator,
+    value: number
+  ) {
+    setCalculator((current) => {
+      const next = { ...current, [key]: Math.max(value, key === "plazo" ? 1 : 0) };
+      if (key === "precio" && next.anticipo > value) {
+        next.anticipo = value;
+      }
+      if (key === "anticipo" && value > current.precio) {
+        next.anticipo = current.precio;
+      }
+      return next;
+    });
+  }
+
   function canEditLote(lote: ParcelaConReserva) {
     return (
       lote.estado !== "reservado" ||
@@ -372,6 +410,98 @@ export default function LotesPage() {
         <p className="text-sm text-gray-500 mt-1">
           Gestión de parcelas del barrio
         </p>
+      </div>
+
+      <div className="rounded-lg border bg-white p-4 space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">
+            Calculadora de cuota
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Interes nominal: saldo x (1 + tasa mensual x plazo) / plazo.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-4">
+          {[
+            {
+              key: "precio" as const,
+              label: "Precio",
+              min: 0,
+              max: 100000,
+              step: 500,
+              suffix: "USD",
+            },
+            {
+              key: "anticipo" as const,
+              label: "Anticipo",
+              min: 0,
+              max: calculator.precio,
+              step: 500,
+              suffix: "USD",
+            },
+            {
+              key: "tasa" as const,
+              label: "Tasa mensual",
+              min: 0,
+              max: 5,
+              step: 0.1,
+              suffix: "%",
+            },
+            {
+              key: "plazo" as const,
+              label: "Plazo",
+              min: 1,
+              max: 120,
+              step: 1,
+              suffix: "meses",
+            },
+          ].map((item) => (
+            <label key={item.key} className="space-y-2">
+              <span className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium text-gray-700">{item.label}</span>
+                <span className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={item.min}
+                    max={item.max}
+                    step={item.step}
+                    value={calculator[item.key]}
+                    onChange={(e) => {
+                      updateCalculatorValue(item.key, Number(e.target.value));
+                    }}
+                    className="h-8 w-28 text-right"
+                  />
+                  <span className="w-10 text-left text-gray-500">
+                    {item.suffix}
+                  </span>
+                </span>
+              </span>
+              <input
+                type="range"
+                min={item.min}
+                max={item.max}
+                step={item.step}
+                value={Math.min(calculator[item.key], item.max)}
+                onChange={(e) => {
+                  updateCalculatorValue(item.key, Number(e.target.value));
+                }}
+                className="w-full accent-green-700"
+              />
+            </label>
+          ))}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
+            ["Plazo total financiado", formatUsd(calculatorResult.totalFinanciado)],
+            ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-md border bg-gray-50 px-3 py-2">
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className="text-lg font-semibold text-gray-900">{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Filters */}
