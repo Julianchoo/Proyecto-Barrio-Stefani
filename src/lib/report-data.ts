@@ -1,10 +1,11 @@
+import { eq, gte, lte, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { parcelas, leads, reservas } from "@/lib/schema";
 import type { Lead, ParcelaConReserva } from "@/lib/schema";
-import { eq, gte, and, sql } from "drizzle-orm";
-import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 
 export type ParcelasSummary = Record<string, number>;
+export type SigningWeekRange = { start: string; end: string };
 
 export async function getParcelasSummary(): Promise<ParcelasSummary> {
   const rows = await db
@@ -29,20 +30,60 @@ export async function getRecentReservations(): Promise<ParcelaConReserva[]> {
     .innerJoin(reservas, activeReservaJoin())
     .where(and(eq(parcelas.estado, "reservado"), gte(reservas.fechaReserva, dateStr)))
     .orderBy(reservas.fechaReserva)
-    .then((rows) =>
-      rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva))
-    );
+    .then((rows) => rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva)));
+}
+
+function toDateKey(date: Date): string {
+  return date.toISOString().substring(0, 10);
+}
+
+export function getNextSigningWeekRange(now = new Date()): SigningWeekRange {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  const today = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = today.getUTCDay();
+  const daysUntilNextMonday = (8 - dayOfWeek) % 7 || 7;
+
+  const start = new Date(today);
+  start.setUTCDate(today.getUTCDate() + daysUntilNextMonday);
+
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+
+  return { start: toDateKey(start), end: toDateKey(end) };
+}
+
+export async function getUpcomingSignings(
+  range = getNextSigningWeekRange()
+): Promise<ParcelaConReserva[]> {
+  return db
+    .select({ parcela: parcelas, reserva: reservas })
+    .from(parcelas)
+    .innerJoin(reservas, eq(reservas.parcelaId, parcelas.id))
+    .where(
+      and(
+        eq(reservas.estado, "activa"),
+        gte(reservas.fechaFirma, range.start),
+        lte(reservas.fechaFirma, range.end)
+      )
+    )
+    .orderBy(reservas.fechaFirma, parcelas.manzana, parcelas.numero)
+    .then((rows) => rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva)));
 }
 
 export async function getTodayLeads(): Promise<Lead[]> {
   const startOfToday = new Date();
   startOfToday.setUTCHours(0, 0, 0, 0);
 
-  return db
-    .select()
-    .from(leads)
-    .where(gte(leads.createdAt, startOfToday))
-    .orderBy(leads.createdAt);
+  return db.select().from(leads).where(gte(leads.createdAt, startOfToday)).orderBy(leads.createdAt);
 }
 
 export type { ParcelaConReserva as Parcela, Lead };
