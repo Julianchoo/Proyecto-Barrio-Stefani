@@ -89,6 +89,8 @@ const updateSchema = z
     precioEtapa1: z.string().nullable().optional(),
     valorM2: z.string().nullable().optional(),
     superficieM2: z.string().nullable().optional(),
+    metrosFrente: z.string().nullable().optional(),
+    metrosFondo: z.string().nullable().optional(),
     nota: z.string().nullable().optional(),
   })
   .strict();
@@ -97,8 +99,14 @@ const PARCELA_ADMIN_FIELDS = [
   "precioEtapa1",
   "valorM2",
   "superficieM2",
+  "metrosFrente",
+  "metrosFondo",
   "nota",
 ] as const;
+
+function hasReservaValue(data: Record<string, unknown>) {
+  return Object.values(data).some((value) => value !== null && value !== "");
+}
 
 export async function PUT(
   request: Request,
@@ -153,7 +161,9 @@ export async function PUT(
       }
 
       const reservaData = pickReservaData(allowedData);
-      const shouldTouchReserva = hasReservaData(reservaData);
+      const shouldTouchReserva = activeReserva
+        ? hasReservaData(reservaData)
+        : hasReservaValue(reservaData);
 
       if (data.estado && data.estado !== "reservado") {
         parcelaData.estado = data.estado;

@@ -70,6 +70,9 @@ const schema = z.object({
   cantidadCuotas: z.string().nullable().optional(),
   cuotaMensualPalabras: z.string().nullable().optional(),
   cuotaMensual: z.string().nullable().optional(),
+  superficieM2: z.string().nullable().optional(),
+  metrosFrente: z.string().nullable().optional(),
+  metrosFondo: z.string().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -140,6 +143,9 @@ export default function LoteDetailPage() {
       cantidadCuotas: data.cantidadCuotas ?? "",
       cuotaMensualPalabras: data.cuotaMensualPalabras ?? "",
       cuotaMensual: data.cuotaMensual ?? "",
+      superficieM2: data.superficieM2 ?? "",
+      metrosFrente: data.metrosFrente ?? "",
+      metrosFondo: data.metrosFondo ?? "",
     });
     setLoading(false);
   }
@@ -155,9 +161,27 @@ export default function LoteDetailPage() {
       if (k === "numeroCuotaEntrega") continue; // handled separately
       payload[k] = v === "" ? null : v;
     }
-    payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
-    payload.mesEntrega = entregaCuota ? (values.numeroCuotaEntrega || null) : null;
-    payload.anioEntrega = null;
+    const hasReservaInput =
+      values.estado === "reservado" ||
+      entregaCuota ||
+      Object.entries(values).some(
+        ([key, value]) =>
+          ![
+            "estado",
+            "numeroCuotaEntrega",
+            "superficieM2",
+            "metrosFrente",
+            "metrosFondo",
+          ].includes(key) &&
+          value !== null &&
+          value !== undefined &&
+          value !== ""
+      );
+    if (hasReservaInput) {
+      payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
+      payload.mesEntrega = entregaCuota ? (values.numeroCuotaEntrega || null) : null;
+      payload.anioEntrega = null;
+    }
     const res = await fetch(`/api/crm/parcelas/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -315,6 +339,8 @@ export default function LoteDetailPage() {
             ["Circunscripción", lote.circunscripcion ?? "—"],
             ["Sección", lote.seccion ?? "—"],
             ["Superficie", lote.superficieM2 ? `${lote.superficieM2} m²` : "—"],
+            ["Frente", lote.metrosFrente ? `${lote.metrosFrente} m` : "—"],
+            ["Fondo", lote.metrosFondo ? `${lote.metrosFondo} m` : "—"],
             ["Valor m²", lote.valorM2 ? `USD ${Number(lote.valorM2).toLocaleString("es-AR")}` : "—"],
             ["Partida ARBA", lote.partidaArba ?? "—"],
             ["Partida Municipal", lote.partidaMunicipal ?? "—"],
@@ -415,6 +441,40 @@ export default function LoteDetailPage() {
           <Form {...form}>
             <fieldset disabled={isLocked}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              {session?.user?.role === "admin" && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-3">Datos del lote</p>
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    {[
+                      { name: "superficieM2" as const, label: "Superficie (m²)" },
+                      { name: "metrosFrente" as const, label: "Frente (m)" },
+                      { name: "metrosFondo" as const, label: "Fondo (m)" },
+                    ].map(({ name, label }) => (
+                      <FormField
+                        key={name}
+                        control={form.control}
+                        name={name}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{label}</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value ?? ""}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Status */}
               <FormField
                 control={form.control}

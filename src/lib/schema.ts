@@ -150,6 +150,8 @@ export const parcelas = pgTable(
     valuacionFiscal: numeric("valuacion_fiscal"),
     vfAlActo: numeric("vf_al_acto"),
     superficieM2: numeric("superficie_m2"),
+    metrosFrente: numeric("metros_frente"),
+    metrosFondo: numeric("metros_fondo"),
 
     // Estado y pricing
     estado: estadoParcelaEnum("estado").default("disponible").notNull(),

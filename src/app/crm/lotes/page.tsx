@@ -331,6 +331,8 @@ export default function LotesPage() {
       "Parcela",
       "Partida ARBA",
       "Superficie",
+      "Frente",
+      "Fondo",
       "Precio Etapa 1",
       "Estado",
       ...activeCols.map((c) => c.label),
@@ -344,6 +346,8 @@ export default function LotesPage() {
       lote.parcela ?? "",
       lote.partidaArba ?? "",
       lote.superficieM2 ? `${lote.superficieM2} m²` : "",
+      lote.metrosFrente ? `${lote.metrosFrente} m` : "",
+      lote.metrosFondo ? `${lote.metrosFondo} m` : "",
       lote.precioEtapa1 ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}` : "",
       estadoLabels[lote.estado],
       ...activeCols.map((c) => {
@@ -370,10 +374,12 @@ export default function LotesPage() {
   const calculatorResult = useMemo(() => {
     const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
     const plazo = Math.max(calculator.plazo, 1);
-    const totalFinanciado = saldo * (1 + (calculator.tasa / 100) * plazo);
+    const totalFinanciadoSinRedondeo = saldo * (1 + (calculator.tasa / 100) * plazo);
+    const cuotaMensual = Math.round(totalFinanciadoSinRedondeo / plazo);
+    const totalFinanciado = cuotaMensual * plazo;
 
     return {
-      cuotaMensual: totalFinanciado / plazo,
+      cuotaMensual,
       totalFinanciado,
       precioTotalNominal: calculator.anticipo + totalFinanciado,
     };
@@ -637,6 +643,8 @@ export default function LotesPage() {
               <TableHead>Parcela</TableHead>
               <TableHead>Partida ARBA</TableHead>
               <TableHead>Superficie</TableHead>
+              <TableHead>Frente</TableHead>
+              <TableHead>Fondo</TableHead>
               <TableHead>Precio Etapa 1</TableHead>
               <TableHead>Estado</TableHead>
               {activeOptionalCols.map((col) => (
@@ -649,7 +657,7 @@ export default function LotesPage() {
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 11 + activeOptionalCols.length }).map((_, j) => (
+                    {Array.from({ length: 13 + activeOptionalCols.length }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -685,6 +693,12 @@ export default function LotesPage() {
                     <TableCell>{lote.partidaArba ?? "—"}</TableCell>
                     <TableCell>
                       {lote.superficieM2 ? `${lote.superficieM2} m²` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {lote.metrosFrente ? `${lote.metrosFrente} m` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {lote.metrosFondo ? `${lote.metrosFondo} m` : "—"}
                     </TableCell>
                     <TableCell>
                       {lote.precioEtapa1
