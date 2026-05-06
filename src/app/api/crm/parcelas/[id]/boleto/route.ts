@@ -157,6 +157,8 @@ export async function POST(
   }
 
   const parcela = flattenParcelaReserva(row.parcela, row.reserva);
+  const numeroCuotaEntrega = form.numeroCuotaEntrega.trim();
+  const entregaCuota = form.entregaCuota && Boolean(numeroCuotaEntrega);
 
   // Build template data
   const data: Record<string, string | boolean> = {
@@ -198,6 +200,9 @@ export async function POST(
     cantidadCuotas: form.cantidadCuotas || "",
     cuotaMensualPalabras: form.cuotaMensualPalabras || "",
     cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
+    entregaCuota,
+    entregaAlSaldo: !entregaCuota,
+    numeroCuotaEntrega,
   };
 
   // Select template based on payment type
