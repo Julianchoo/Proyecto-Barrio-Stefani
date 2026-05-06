@@ -85,6 +85,37 @@ function yearToSpanish(year: string): string {
   return map[year] ?? year;
 }
 
+function formatBirthDate(value: string): string {
+  const trimmed = value.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const localMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const match = isoMatch ?? localMatch;
+
+  if (!match) return trimmed;
+
+  const day = isoMatch ? Number(match[3]) : Number(match[1]);
+  const month = Number(match[2]);
+  const year = isoMatch ? match[1] : match[3];
+  const monthNames = [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+  ];
+
+  if (day < 1 || day > 31 || month < 1 || month > 12) return trimmed;
+
+  return `${day} de ${monthNames[month - 1]} de ${year}`;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -138,6 +169,7 @@ export async function POST(
     dniComprador: form.dniComprador || parcela.dniCuit || "",
     nacionalidad: form.nacionalidad,
     fechaNacimiento: form.fechaNacimiento,
+    fechaNacimientoLetras: formatBirthDate(form.fechaNacimiento),
     estadoCivil: form.estadoCivil,
     cuitComprador: form.cuitComprador,
     domicilioComprador: form.domicilioComprador,
