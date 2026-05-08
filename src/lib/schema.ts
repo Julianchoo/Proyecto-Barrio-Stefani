@@ -152,6 +152,9 @@ export const parcelas = pgTable(
     superficieM2: numeric("superficie_m2"),
     metrosFrente: numeric("metros_frente"),
     metrosFondo: numeric("metros_fondo"),
+    calleFrente: text("calle_frente"),
+    calleLindera1: text("calle_lindera_1"),
+    calleLindera2: text("calle_lindera_2"),
 
     // Estado y pricing
     estado: estadoParcelaEnum("estado").default("disponible").notNull(),

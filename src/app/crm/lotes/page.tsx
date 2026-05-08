@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock } from "lucide-react";
+import { Lock, Pencil } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
@@ -742,8 +742,19 @@ export default function LotesPage() {
                       </TableCell>
                     ))}
                     <TableCell>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/crm/lotes/${lote.id}`}>Ver</Link>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size={session?.user?.role === "admin" ? "icon" : "sm"}
+                        title={session?.user?.role === "admin" ? "Editar lote" : "Ver lote"}
+                      >
+                        <Link href={`/crm/lotes/${lote.id}`}>
+                          {session?.user?.role === "admin" ? (
+                            <Pencil className="h-4 w-4" />
+                          ) : (
+                            "Ver"
+                          )}
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
