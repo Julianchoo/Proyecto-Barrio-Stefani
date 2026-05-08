@@ -137,6 +137,10 @@ type LeadOption = {
   email: string;
   dniCuit: string | null;
   domicilio: string | null;
+  nacionalidad: string | null;
+  fechaNacimiento: string | null;
+  estadoCivil: string | null;
+  cuitComprador: string | null;
 };
 
 const editableLoteFields = [
@@ -472,6 +476,10 @@ export default function LoteDetailPage() {
     form.setValue("emailComprador", lead.email);
     form.setValue("dniCuit", lead.dniCuit ?? "");
     form.setValue("domicilioComprador", lead.domicilio ?? "");
+    form.setValue("nacionalidad", lead.nacionalidad ?? "");
+    form.setValue("fechaNacimiento", lead.fechaNacimiento ?? "");
+    form.setValue("estadoCivil", lead.estadoCivil ?? "");
+    form.setValue("cuitComprador", lead.cuitComprador ?? "");
     setLeadResults([]);
     setLeadSearch("");
     toast.success(`Datos de "${lead.nombre}" cargados`);

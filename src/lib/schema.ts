@@ -225,6 +225,10 @@ export const leads = pgTable(
     }),
     dniCuit: text("dni_cuit"),
     domicilio: text("domicilio"),
+    nacionalidad: text("nacionalidad"),
+    fechaNacimiento: date("fecha_nacimiento"),
+    estadoCivil: text("estado_civil"),
+    cuitComprador: text("cuit_comprador"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

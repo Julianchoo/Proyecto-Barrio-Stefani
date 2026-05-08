@@ -14,6 +14,10 @@ const updateSchema = z.object({
   email: z.string().email().optional(),
   dniCuit: z.string().nullable().optional(),
   domicilio: z.string().nullable().optional(),
+  nacionalidad: z.string().nullable().optional(),
+  fechaNacimiento: z.string().nullable().optional(),
+  estadoCivil: z.string().nullable().optional(),
+  cuitComprador: z.string().nullable().optional(),
 });
 
 export async function PUT(

@@ -13,6 +13,10 @@ const createLeadSchema = z.object({
   mensaje: z.string().optional().nullable(),
   dniCuit: z.string().optional().nullable(),
   domicilio: z.string().optional().nullable(),
+  nacionalidad: z.string().optional().nullable(),
+  fechaNacimiento: z.string().optional().nullable(),
+  estadoCivil: z.string().optional().nullable(),
+  cuitComprador: z.string().optional().nullable(),
   notas: z.string().optional().nullable(),
 });
 
@@ -34,6 +38,10 @@ export async function GET(request: Request) {
     asignadoA: leads.asignadoA,
     dniCuit: leads.dniCuit,
     domicilio: leads.domicilio,
+    nacionalidad: leads.nacionalidad,
+    fechaNacimiento: leads.fechaNacimiento,
+    estadoCivil: leads.estadoCivil,
+    cuitComprador: leads.cuitComprador,
     asignadoNombre: user.name,
     createdAt: leads.createdAt,
     updatedAt: leads.updatedAt,
@@ -63,11 +71,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
 
-  const { nombre, telefono, email, mensaje, dniCuit, domicilio, notas } = parsed.data;
+  const {
+    nombre,
+    telefono,
+    email,
+    mensaje,
+    dniCuit,
+    domicilio,
+    nacionalidad,
+    fechaNacimiento,
+    estadoCivil,
+    cuitComprador,
+    notas,
+  } = parsed.data;
 
   const [created] = await db
     .insert(leads)
-    .values({ nombre, telefono, email, mensaje: mensaje ?? null, dniCuit: dniCuit ?? null, domicilio: domicilio ?? null, notas: notas ?? null, asignadoA: authResult.id, estado: "asignado" })
+    .values({
+      nombre,
+      telefono,
+      email,
+      mensaje: mensaje ?? null,
+      dniCuit: dniCuit ?? null,
+      domicilio: domicilio ?? null,
+      nacionalidad: nacionalidad ?? null,
+      fechaNacimiento: fechaNacimiento ?? null,
+      estadoCivil: estadoCivil ?? null,
+      cuitComprador: cuitComprador ?? null,
+      notas: notas ?? null,
+      asignadoA: authResult.id,
+      estado: "asignado",
+    })
     .returning();
 
   return NextResponse.json(created, { status: 201 });

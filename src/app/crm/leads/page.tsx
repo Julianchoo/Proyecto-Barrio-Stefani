@@ -45,6 +45,10 @@ type LeadRow = {
   asignadoNombre: string | null;
   dniCuit: string | null;
   domicilio: string | null;
+  nacionalidad: string | null;
+  fechaNacimiento: string | null;
+  estadoCivil: string | null;
+  cuitComprador: string | null;
   createdAt: string;
 };
 
@@ -90,10 +94,33 @@ export default function LeadsPage() {
   const lastCheckedIndexRef = useRef<number | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const [editLead, setEditLead] = useState<LeadRow | null>(null);
-  const [editForm, setEditForm] = useState({ nombre: "", telefono: "", email: "", dniCuit: "", domicilio: "", notas: "" });
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    telefono: "",
+    email: "",
+    dniCuit: "",
+    domicilio: "",
+    nacionalidad: "",
+    fechaNacimiento: "",
+    estadoCivil: "",
+    cuitComprador: "",
+    notas: "",
+  });
   const [editSaving, setEditSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ nombre: "", telefono: "", email: "", mensaje: "", dniCuit: "", domicilio: "", notas: "" });
+  const [createForm, setCreateForm] = useState({
+    nombre: "",
+    telefono: "",
+    email: "",
+    mensaje: "",
+    dniCuit: "",
+    domicilio: "",
+    nacionalidad: "",
+    fechaNacimiento: "",
+    estadoCivil: "",
+    cuitComprador: "",
+    notas: "",
+  });
   const [createSaving, setCreateSaving] = useState(false);
 
   useEffect(() => {
@@ -232,6 +259,10 @@ export default function LeadsPage() {
       email: lead.email,
       dniCuit: lead.dniCuit ?? "",
       domicilio: lead.domicilio ?? "",
+      nacionalidad: lead.nacionalidad ?? "",
+      fechaNacimiento: lead.fechaNacimiento ?? "",
+      estadoCivil: lead.estadoCivil ?? "",
+      cuitComprador: lead.cuitComprador ?? "",
       notas: lead.notas ?? "",
     });
   }
@@ -246,6 +277,10 @@ export default function LeadsPage() {
     if (editForm.email !== editLead.email) changed.email = editForm.email;
     if (editForm.dniCuit !== (editLead.dniCuit ?? "")) changed.dniCuit = editForm.dniCuit || null;
     if (editForm.domicilio !== (editLead.domicilio ?? "")) changed.domicilio = editForm.domicilio || null;
+    if (editForm.nacionalidad !== (editLead.nacionalidad ?? "")) changed.nacionalidad = editForm.nacionalidad || null;
+    if (editForm.fechaNacimiento !== (editLead.fechaNacimiento ?? "")) changed.fechaNacimiento = editForm.fechaNacimiento || null;
+    if (editForm.estadoCivil !== (editLead.estadoCivil ?? "")) changed.estadoCivil = editForm.estadoCivil || null;
+    if (editForm.cuitComprador !== (editLead.cuitComprador ?? "")) changed.cuitComprador = editForm.cuitComprador || null;
     if (editForm.notas !== (editLead.notas ?? "")) changed.notas = editForm.notas || null;
 
     if (Object.keys(changed).length === 0) {
@@ -270,6 +305,10 @@ export default function LeadsPage() {
                 email: editForm.email,
                 dniCuit: editForm.dniCuit || null,
                 domicilio: editForm.domicilio || null,
+                nacionalidad: editForm.nacionalidad || null,
+                fechaNacimiento: editForm.fechaNacimiento || null,
+                estadoCivil: editForm.estadoCivil || null,
+                cuitComprador: editForm.cuitComprador || null,
                 notas: editForm.notas || null,
               }
             : l
@@ -296,13 +335,29 @@ export default function LeadsPage() {
         mensaje: createForm.mensaje || null,
         dniCuit: createForm.dniCuit || null,
         domicilio: createForm.domicilio || null,
+        nacionalidad: createForm.nacionalidad || null,
+        fechaNacimiento: createForm.fechaNacimiento || null,
+        estadoCivil: createForm.estadoCivil || null,
+        cuitComprador: createForm.cuitComprador || null,
         notas: createForm.notas || null,
       }),
     });
     if (res.ok) {
       toast.success("Lead creado");
       setCreateOpen(false);
-      setCreateForm({ nombre: "", telefono: "", email: "", mensaje: "", dniCuit: "", domicilio: "", notas: "" });
+      setCreateForm({
+        nombre: "",
+        telefono: "",
+        email: "",
+        mensaje: "",
+        dniCuit: "",
+        domicilio: "",
+        nacionalidad: "",
+        fechaNacimiento: "",
+        estadoCivil: "",
+        cuitComprador: "",
+        notas: "",
+      });
       fetchLeads();
     } else {
       toast.error("Error al crear el lead");
@@ -518,6 +573,22 @@ export default function LeadsPage() {
               <Input id="create-domicilio" value={createForm.domicilio} onChange={(e) => setCreateForm((f) => ({ ...f, domicilio: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="create-nacionalidad">Nacionalidad</Label>
+              <Input id="create-nacionalidad" value={createForm.nacionalidad} onChange={(e) => setCreateForm((f) => ({ ...f, nacionalidad: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-fechaNacimiento">Fecha de nacimiento</Label>
+              <Input id="create-fechaNacimiento" type="date" value={createForm.fechaNacimiento} onChange={(e) => setCreateForm((f) => ({ ...f, fechaNacimiento: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-estadoCivil">Estado civil</Label>
+              <Input id="create-estadoCivil" value={createForm.estadoCivil} onChange={(e) => setCreateForm((f) => ({ ...f, estadoCivil: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-cuitComprador">CUIT comprador</Label>
+              <Input id="create-cuitComprador" value={createForm.cuitComprador} onChange={(e) => setCreateForm((f) => ({ ...f, cuitComprador: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="create-mensaje">Mensaje</Label>
               <Textarea id="create-mensaje" rows={2} value={createForm.mensaje} onChange={(e) => setCreateForm((f) => ({ ...f, mensaje: e.target.value }))} />
             </div>
@@ -561,6 +632,22 @@ export default function LeadsPage() {
             <div className="space-y-1.5">
               <Label htmlFor="edit-domicilio">Domicilio</Label>
               <Input id="edit-domicilio" value={editForm.domicilio} onChange={(e) => setEditForm((f) => ({ ...f, domicilio: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-nacionalidad">Nacionalidad</Label>
+              <Input id="edit-nacionalidad" value={editForm.nacionalidad} onChange={(e) => setEditForm((f) => ({ ...f, nacionalidad: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-fechaNacimiento">Fecha de nacimiento</Label>
+              <Input id="edit-fechaNacimiento" type="date" value={editForm.fechaNacimiento} onChange={(e) => setEditForm((f) => ({ ...f, fechaNacimiento: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-estadoCivil">Estado civil</Label>
+              <Input id="edit-estadoCivil" value={editForm.estadoCivil} onChange={(e) => setEditForm((f) => ({ ...f, estadoCivil: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-cuitComprador">CUIT comprador</Label>
+              <Input id="edit-cuitComprador" value={editForm.cuitComprador} onChange={(e) => setEditForm((f) => ({ ...f, cuitComprador: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-notas">Notas</Label>
