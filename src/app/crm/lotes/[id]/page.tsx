@@ -36,6 +36,7 @@ import { useSession } from "@/lib/auth-client";
 import { amountToSpanishWords } from "@/lib/number-words";
 import type { ParcelaConReserva } from "@/lib/schema";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
+import { ReservaDialog } from "@/components/crm/reserva-dialog";
 
 const schema = z.object({
   estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]),
@@ -649,7 +650,10 @@ export default function LoteDetailPage() {
             Manzana {lote.manzana} · Parcela {lote.parcela}
           </p>
         </div>
-        <BoletoDialog parcela={lote} />
+        <div className="flex items-center gap-2">
+          <ReservaDialog parcela={lote} disabled={isLocked} />
+          <BoletoDialog parcela={lote} />
+        </div>
       </div>
 
       {lote.estado === "reservado" &&

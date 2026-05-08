@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, List, Lock, Mail, Search } from "lucide-react";
+import { CalendarDays, FileText, List, Lock, Mail, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ReservaDialog } from "@/components/crm/reserva-dialog";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, EstadoReserva } from "@/lib/schema";
 
@@ -392,7 +393,7 @@ export default function ReservasPage() {
                 <TableHead>Firma</TableHead>
                 <TableHead>Precio</TableHead>
                 <TableHead>Reservado por</TableHead>
-                <TableHead className="w-16" />
+                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -486,9 +487,26 @@ export default function ReservasPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/crm/lotes/${reserva.parcelaId}`}>Ver</Link>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <ReservaDialog
+                            parcelaId={reserva.parcelaId}
+                            disabled={!canEditReserva(reserva)}
+                            trigger={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={!canEditReserva(reserva)}
+                              >
+                                <FileText className="mr-1 h-4 w-4" />
+                                Reserva
+                              </Button>
+                            }
+                          />
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/crm/lotes/${reserva.parcelaId}`}>Ver</Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
