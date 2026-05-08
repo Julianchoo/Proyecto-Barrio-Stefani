@@ -424,7 +424,7 @@ export default function LotesPage() {
             Calculadora de cuota
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            Interes nominal: saldo x (1 + tasa mensual x plazo) / plazo.
+            Cuota mensual: saldo x (1 + tasa mensual x plazo) / plazo.
           </p>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
