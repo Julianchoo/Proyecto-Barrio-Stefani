@@ -547,7 +547,7 @@ export default function LeadsPage() {
 
       {/* Create lead dialog */}
       <Dialog open={createOpen} onOpenChange={(open) => { if (!open) setCreateOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nuevo lead</DialogTitle>
           </DialogHeader>
@@ -608,7 +608,7 @@ export default function LeadsPage() {
 
       {/* Edit lead dialog */}
       <Dialog open={editLead !== null} onOpenChange={(open) => { if (!open) setEditLead(null); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Editar lead</DialogTitle>
           </DialogHeader>
