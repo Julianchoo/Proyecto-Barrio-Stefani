@@ -173,8 +173,8 @@ export default function LotesPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(DEFAULT_COLS);
   const [calculator, setCalculator] = useState({
-    precio: 25000,
-    anticipo: 7500,
+    precio: 15000,
+    anticipo: 4500,
     tasa: 1,
     plazo: 48,
   });

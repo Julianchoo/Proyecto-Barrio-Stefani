@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -188,6 +188,15 @@ function calculateInstallment(saldo: number, tasaMensual: number, plazo: number)
   return Math.round((saldo * (1 + (tasaMensual / 100) * plazo)) / plazo);
 }
 
+function formatUsd(value: number) {
+  return `USD ${Math.round(value).toLocaleString("es-AR")}`;
+}
+
+function formatDeliveryInstallment(value: number) {
+  if (value <= 0) return "Con el anticipo";
+  return `Cuota ${value}`;
+}
+
 export default function LoteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -197,6 +206,13 @@ export default function LoteDetailPage() {
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [entregaCuota, setEntregaCuota] = useState(false);
   const [tipoPago, setTipoPago] = useState<"contado" | "financiado">("financiado");
+  const [calculatorSaving, setCalculatorSaving] = useState(false);
+  const [calculator, setCalculator] = useState({
+    precio: 15000,
+    anticipo: 4500,
+    tasa: 1,
+    plazo: 48,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leadSearch, setLeadSearch] = useState("");
   const [leadResults, setLeadResults] = useState<LeadOption[]>([]);
@@ -208,6 +224,26 @@ export default function LoteDetailPage() {
   const superficieM2 = useWatch({ control: form.control, name: "superficieM2" });
   const anticipoPct = useWatch({ control: form.control, name: "anticipoPct" });
   const tasaMensual = useWatch({ control: form.control, name: "tasaMensual" });
+  const calculatorResult = useMemo(() => {
+    const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
+    const plazo = Math.max(calculator.plazo, 1);
+    const cuotaMensual = calculateInstallment(saldo, calculator.tasa, plazo);
+    const totalFinanciado = cuotaMensual * plazo;
+    const precioTotalNominal = calculator.anticipo + totalFinanciado;
+    const umbralEntrega = precioTotalNominal * 0.5;
+    const cuotaEntrega =
+      calculator.anticipo >= umbralEntrega || cuotaMensual <= 0
+        ? 0
+        : Math.ceil((umbralEntrega - calculator.anticipo) / cuotaMensual);
+
+    return {
+      saldo,
+      cuotaMensual,
+      totalFinanciado,
+      precioTotalNominal,
+      cuotaEntrega: Math.min(cuotaEntrega, plazo),
+    };
+  }, [calculator]);
 
   useEffect(() => {
     if (session?.user?.role !== "admin") return;
@@ -248,6 +284,20 @@ export default function LoteDetailPage() {
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
     setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
+    const reservaAnticipo = parseNumber(data.anticipoNum);
+    const reservaSaldo = parseNumber(data.saldoNum);
+    const precioBase =
+      reservaAnticipo !== null && reservaSaldo !== null
+        ? reservaAnticipo + reservaSaldo
+        : parseNumber(data.precioEtapa1) ?? 15000;
+    const anticipoBase =
+      reservaAnticipo ?? parseNumber(data.anticipoUsd) ?? Math.round(precioBase * 0.3);
+    setCalculator({
+      precio: precioBase,
+      anticipo: Math.min(anticipoBase, precioBase),
+      tasa: parseNumber(data.tasaMensual) ?? 1,
+      plazo: parseNumber(data.cantidadCuotas) ?? (data.cuotas48 ? 48 : 48),
+    });
     form.reset({
       estado: data.estado,
       leadId: data.leadId ?? null,
@@ -331,6 +381,88 @@ export default function LoteDetailPage() {
         form.setValue(wordsField, words, { shouldDirty: true });
       }
     }
+  }
+
+  function updateCalculatorValue(
+    key: keyof typeof calculator,
+    value: number
+  ) {
+    setCalculator((current) => {
+      const next = {
+        ...current,
+        [key]: Math.max(value, key === "plazo" ? 1 : 0),
+      };
+      if (key === "precio" && next.anticipo > value) {
+        next.anticipo = value;
+      }
+      if (key === "anticipo" && value > current.precio) {
+        next.anticipo = current.precio;
+      }
+      return next;
+    });
+  }
+
+  async function applyCalculatorToReserva() {
+    setCalculatorSaving(true);
+    const precioTotalNum = String(Math.round(calculatorResult.precioTotalNominal));
+    const anticipoNum = String(Math.round(calculator.anticipo));
+    const saldoNum = String(Math.round(calculatorResult.saldo));
+    const cantidadCuotas = String(Math.max(calculator.plazo, 1));
+    const cuotaMensual = String(Math.round(calculatorResult.cuotaMensual));
+    const useCuotaEntrega = calculatorResult.cuotaEntrega > 0;
+
+    const nextValues: Partial<FormValues> = {
+      estado: "reservado",
+      formaPago: "financiado",
+      precioTotalNum,
+      precioTotalPalabras: amountToSpanishWords(precioTotalNum),
+      anticipoNum,
+      anticipoPalabras: amountToSpanishWords(anticipoNum),
+      saldoNum,
+      saldoPalabras: amountToSpanishWords(saldoNum),
+      cantidadCuotas,
+      cuotaMensual,
+      cuotaMensualPalabras: amountToSpanishWords(cuotaMensual),
+      numeroCuotaEntrega: useCuotaEntrega ? String(calculatorResult.cuotaEntrega) : "",
+    };
+
+    for (const [key, value] of Object.entries(nextValues) as Array<
+      [keyof FormValues, string | null | undefined]
+    >) {
+      form.setValue(key, value ?? "", { shouldDirty: true });
+    }
+    setTipoPago("financiado");
+    setEntregaCuota(useCuotaEntrega);
+
+    const payload = {
+      estado: "reservado",
+      formaPago: "financiado",
+      precioTotalNum,
+      precioTotalPalabras: nextValues.precioTotalPalabras,
+      anticipoNum,
+      anticipoPalabras: nextValues.anticipoPalabras,
+      saldoNum,
+      saldoPalabras: nextValues.saldoPalabras,
+      cantidadCuotas,
+      cuotaMensual,
+      cuotaMensualPalabras: nextValues.cuotaMensualPalabras,
+      tipoEntrega: useCuotaEntrega ? "cuota" : "saldo",
+      mesEntrega: useCuotaEntrega ? String(calculatorResult.cuotaEntrega) : null,
+      anioEntrega: null,
+    };
+
+    const res = await fetch(`/api/crm/parcelas/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      toast.success("Cálculo aplicado a la reserva");
+      await fetchLote();
+    } else {
+      toast.error("No se pudo aplicar el cálculo");
+    }
+    setCalculatorSaving(false);
   }
 
   async function onSubmit(values: FormValues) {
@@ -500,7 +632,7 @@ export default function LoteDetailPage() {
     lote.reservadoPor !== session?.user?.email;
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -531,6 +663,8 @@ export default function LoteDetailPage() {
           </div>
         )}
 
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6 min-w-0">
       {/* Read-only property data */}
       <Card>
         <CardHeader>
@@ -648,6 +782,22 @@ export default function LoteDetailPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="xl:hidden">
+        <CardHeader>
+          <CardTitle className="text-base">Calculadora de financiación</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CalculatorContent
+            calculator={calculator}
+            calculatorResult={calculatorResult}
+            disabled={isLocked || calculatorSaving}
+            saving={calculatorSaving}
+            onChange={updateCalculatorValue}
+            onApply={applyCalculatorToReserva}
+          />
         </CardContent>
       </Card>
 
@@ -967,6 +1117,152 @@ export default function LoteDetailPage() {
           </Form>
         </CardContent>
       </Card>
+        </div>
+        <aside className="hidden xl:sticky xl:top-6 xl:block xl:self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Calculadora de financiación</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CalculatorContent
+                calculator={calculator}
+                calculatorResult={calculatorResult}
+                disabled={isLocked || calculatorSaving}
+                saving={calculatorSaving}
+                onChange={updateCalculatorValue}
+                onApply={applyCalculatorToReserva}
+              />
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+type CalculatorState = {
+  precio: number;
+  anticipo: number;
+  tasa: number;
+  plazo: number;
+};
+
+type CalculatorResult = {
+  saldo: number;
+  cuotaMensual: number;
+  totalFinanciado: number;
+  precioTotalNominal: number;
+  cuotaEntrega: number;
+};
+
+function CalculatorContent({
+  calculator,
+  calculatorResult,
+  disabled,
+  saving,
+  onChange,
+  onApply,
+}: {
+  calculator: CalculatorState;
+  calculatorResult: CalculatorResult;
+  disabled: boolean;
+  saving: boolean;
+  onChange: (key: keyof CalculatorState, value: number) => void;
+  onApply: () => void;
+}) {
+  const fields = [
+    {
+      key: "precio" as const,
+      label: "Precio",
+      min: 0,
+      max: 100000,
+      step: 500,
+      suffix: "USD",
+    },
+    {
+      key: "anticipo" as const,
+      label: "Anticipo",
+      min: 0,
+      max: calculator.precio,
+      step: 500,
+      suffix: "USD",
+    },
+    {
+      key: "tasa" as const,
+      label: "Tasa mensual",
+      min: 0,
+      max: 5,
+      step: 0.1,
+      suffix: "%",
+    },
+    {
+      key: "plazo" as const,
+      label: "Plazo",
+      min: 1,
+      max: 120,
+      step: 1,
+      suffix: "meses",
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3">
+        {fields.map((item) => (
+          <label key={item.key} className="block space-y-2">
+            <span className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-gray-700">{item.label}</span>
+              <span className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={item.min}
+                  max={item.max}
+                  step={item.step}
+                  value={calculator[item.key]}
+                  onChange={(e) => onChange(item.key, Number(e.target.value))}
+                  className="h-8 w-28 text-right"
+                />
+                <span className="w-10 text-left text-xs text-gray-500">
+                  {item.suffix}
+                </span>
+              </span>
+            </span>
+            <input
+              type="range"
+              min={item.min}
+              max={item.max}
+              step={item.step}
+              value={Math.min(calculator[item.key], item.max)}
+              onChange={(e) => onChange(item.key, Number(e.target.value))}
+              className="w-full accent-green-700"
+            />
+          </label>
+        ))}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        {[
+          ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
+          ["Saldo", formatUsd(calculatorResult.saldo)],
+          ["Total financiado", formatUsd(calculatorResult.totalFinanciado)],
+          ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
+          ["Entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-md border bg-gray-50 px-3 py-2">
+            <p className="text-xs text-gray-500">{label}</p>
+            <p className="text-base font-semibold text-gray-900">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        type="button"
+        onClick={onApply}
+        disabled={disabled}
+        className="w-full bg-green-700 hover:bg-green-800 text-white"
+      >
+        {saving ? "Aplicando..." : "Aplicar a reserva"}
+      </Button>
     </div>
   );
 }
