@@ -349,7 +349,10 @@ export default function LoteDetailPage() {
           value !== undefined &&
           value !== ""
       );
-    if (hasReservaInput) {
+    const explicitNonReservedStateChange =
+      lote !== null && values.estado !== lote.estado && values.estado !== "reservado";
+    if (hasReservaInput && !explicitNonReservedStateChange) {
+      payload.estado = "reservado";
       payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
       payload.mesEntrega = entregaCuota ? (values.numeroCuotaEntrega || null) : null;
       payload.anioEntrega = null;
