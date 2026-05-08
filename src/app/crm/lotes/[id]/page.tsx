@@ -347,8 +347,12 @@ export default function LoteDetailPage() {
             ["Escritura", lote.escritura ?? "—"],
             ["Matrícula / Folio", lote.matriculaFolio ?? "—"],
             ["Cert. Catastral", lote.certificadoCatastral ?? "—"],
-            ["Valuación Fiscal", lote.valuacionFiscal ? `$ ${Number(lote.valuacionFiscal).toLocaleString("es-AR")}` : "—"],
-            ["VF al Acto", lote.vfAlActo ? `$ ${Number(lote.vfAlActo).toLocaleString("es-AR")}` : "—"],
+            ...(session?.user?.role === "admin"
+              ? [
+                  ["Valuación Fiscal", lote.valuacionFiscal ? `$ ${Number(lote.valuacionFiscal).toLocaleString("es-AR")}` : "—"],
+                  ["VF al Acto", lote.vfAlActo ? `$ ${Number(lote.vfAlActo).toLocaleString("es-AR")}` : "—"],
+                ]
+              : []),
             ["Precio Etapa 1", lote.precioEtapa1 ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}` : "—"],
             ["Anticipo", lote.anticipoPct ? `${lote.anticipoPct}%` : "—"],
             ["Anticipo USD", lote.anticipoUsd ? `USD ${Number(lote.anticipoUsd).toLocaleString("es-AR")}` : "—"],
