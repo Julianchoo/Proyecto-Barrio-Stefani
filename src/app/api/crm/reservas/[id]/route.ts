@@ -3,11 +3,15 @@ import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { db } from "@/lib/db";
-import { parcelas, reservas } from "@/lib/schema";
+import { parcelas, reservas, user } from "@/lib/schema";
 
 const updateSchema = z
   .object({
-    estado: z.enum(["activa", "cancelada", "vencida", "realizada"]),
+    estado: z.enum(["activa", "cancelada", "vencida", "realizada"]).optional(),
+    reservadoPor: z.string().email().optional(),
+  })
+  .refine((data) => data.estado || data.reservadoPor, {
+    message: "Debe indicar un cambio",
   })
   .strict();
 
@@ -52,7 +56,23 @@ export async function PATCH(
         return { kind: "forbidden" as const };
       }
 
-      if (data.estado === "activa") {
+      if (data.reservadoPor && authResult.role !== "admin") {
+        return { kind: "forbidden" as const };
+      }
+
+      if (data.reservadoPor) {
+        const [targetUser] = await tx
+          .select({ id: user.id })
+          .from(user)
+          .where(and(eq(user.email, data.reservadoPor), eq(user.role, "comercial")))
+          .limit(1);
+
+        if (!targetUser) return { kind: "invalid-comercial" as const };
+      }
+
+      const nextEstado = data.estado ?? reserva.estado;
+
+      if (nextEstado === "activa") {
         const [otherActive] = await tx
           .select({ id: reservas.id })
           .from(reservas)
@@ -71,21 +91,22 @@ export async function PATCH(
       await tx
         .update(reservas)
         .set({
-          estado: data.estado,
+          ...(data.estado ? { estado: data.estado } : {}),
+          ...(data.reservadoPor ? { reservadoPor: data.reservadoPor } : {}),
           modificadoPor: authResult.email,
           updatedAt: new Date(),
         })
         .where(eq(reservas.id, reserva.id));
 
       const shouldSyncLote =
-        data.estado === "activa" ||
-        data.estado === "realizada" ||
-        reserva.estado === "activa";
+        nextEstado === "activa" ||
+        nextEstado === "realizada" ||
+        (Boolean(data.estado) && reserva.estado === "activa");
 
       if (shouldSyncLote) {
         await tx
           .update(parcelas)
-          .set({ estado: loteEstadoForReserva(data.estado) })
+          .set({ estado: loteEstadoForReserva(nextEstado) })
           .where(eq(parcelas.id, reserva.parcelaId));
       }
 
@@ -133,6 +154,12 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Este lote ya tiene una reserva activa" },
         { status: 409 }
+      );
+    }
+    if (result.kind === "invalid-comercial") {
+      return NextResponse.json(
+        { error: "El comercial seleccionado no existe" },
+        { status: 400 }
       );
     }
 

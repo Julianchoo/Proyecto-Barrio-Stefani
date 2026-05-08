@@ -49,6 +49,13 @@ type ReservaRow = {
   loteEstado: EstadoParcela;
 };
 
+type UsuarioRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "comercial";
+};
+
 type CalendarEvent = {
   key: string;
   date: string;
@@ -161,6 +168,7 @@ export default function ReservasPage() {
   const [monthKey, setMonthKey] = useState(getMonthKey(new Date()));
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [sendingSummary, setSendingSummary] = useState(false);
+  const [usuarios, setUsuarios] = useState<UsuarioRow[]>([]);
 
   const fetchReservas = useCallback(async () => {
     const params = new URLSearchParams();
@@ -178,6 +186,16 @@ export default function ReservasPage() {
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, [fetchReservas]);
+
+  useEffect(() => {
+    if (session?.user?.role !== "admin") return;
+    fetch("/api/crm/usuarios")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: UsuarioRow[]) => {
+        setUsuarios(data.filter((usuario) => usuario.role === "comercial"));
+      })
+      .catch(() => setUsuarios([]));
+  }, [session?.user?.role]);
 
   const events = useMemo(() => buildEvents(reservas), [reservas]);
   const eventsByDate = useMemo(() => {
@@ -228,6 +246,35 @@ export default function ReservasPage() {
       }
     } catch {
       toast.error("No se pudo actualizar la reserva");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleComercialChange(reserva: ReservaRow, reservadoPor: string) {
+    if (reserva.reservadoPor === reservadoPor) return;
+    if (session?.user?.role !== "admin") {
+      toast.error("Solo un administrador puede reasignar reservas");
+      return;
+    }
+    setUpdatingId(reserva.id);
+    try {
+      const res = await fetch(`/api/crm/reservas/${reserva.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservadoPor }),
+      });
+
+      if (res.ok) {
+        toast.success("Reserva reasignada");
+        await fetchReservas();
+        return;
+      }
+
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "No se pudo reasignar la reserva");
+    } catch {
+      toast.error("No se pudo reasignar la reserva");
     } finally {
       setUpdatingId(null);
     }
@@ -417,7 +464,26 @@ export default function ReservasPage() {
                         {reserva.precioTotalNum ? `USD ${reserva.precioTotalNum}` : "-"}
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">
-                        {reserva.reservadoPor ?? "-"}
+                        {session?.user?.role === "admin" ? (
+                          <Select
+                            value={reserva.reservadoPor ?? ""}
+                            onValueChange={(value) => handleComercialChange(reserva, value)}
+                            disabled={updatingId === reserva.id || usuarios.length === 0}
+                          >
+                            <SelectTrigger className="h-8 w-56">
+                              <SelectValue placeholder="Sin comercial" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {usuarios.map((usuario) => (
+                                <SelectItem key={usuario.id} value={usuario.email}>
+                                  {usuario.name || usuario.email}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          reserva.reservadoPor ?? "-"
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button asChild variant="ghost" size="sm">

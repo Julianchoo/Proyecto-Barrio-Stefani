@@ -8,6 +8,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getSession, signIn, useSession } from "@/lib/auth-client"
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === "object" && error && "message" in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === "string" && message) return message
+  }
+  return "No se pudo iniciar sesion"
+}
+
 export function SignInButton() {
   const { data: session, isPending: sessionPending } = useSession()
   const router = useRouter()
@@ -30,14 +39,22 @@ export function SignInButton() {
     setIsPending(true)
 
     try {
-      const result = await signIn.email({
-        email,
-        password,
-        callbackURL: "/crm",
-      })
+      let authError = ""
+      const result = await signIn.email(
+        {
+          email,
+          password,
+          callbackURL: "/crm",
+        },
+        {
+          onError: (ctx) => {
+            authError = ctx.error.message || "No se pudo iniciar sesion"
+          },
+        }
+      )
 
-      if (result.error) {
-        setError(result.error.message || "Failed to sign in")
+      if (authError || result.error) {
+        setError(authError || result.error?.message || "No se pudo iniciar sesion")
       } else {
         const currentSession = await getSession()
         const mustChangePassword = (
@@ -46,8 +63,8 @@ export function SignInButton() {
         router.push(mustChangePassword ? "/cambiar-password" : "/crm")
         router.refresh()
       }
-    } catch {
-      setError("An unexpected error occurred")
+    } catch (error) {
+      setError(getErrorMessage(error))
     } finally {
       setIsPending(false)
     }
