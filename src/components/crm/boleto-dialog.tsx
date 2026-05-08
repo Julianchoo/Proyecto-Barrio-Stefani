@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { amountToSpanishWords } from "@/lib/number-words";
 import type { ParcelaConReserva } from "@/lib/schema";
 
 const MESES = [
@@ -209,6 +210,22 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
     setEntregaCuota(parcela.tipoEntrega === "cuota");
     setShowCoComprador(Boolean(parcela.nombreCoComprador));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function fillAmountWords() {
+    const mappings: Array<[keyof FormValues, keyof FormValues]> = [
+      ["precioTotalNum", "precioTotalPalabras"],
+      ["anticipoNum", "anticipoPalabras"],
+      ["saldoNum", "saldoPalabras"],
+      ["cuotaMensual", "cuotaMensualPalabras"],
+    ];
+
+    for (const [numberField, wordsField] of mappings) {
+      const words = amountToSpanishWords(form.getValues(numberField));
+      if (words) {
+        form.setValue(wordsField, words, { shouldDirty: true });
+      }
+    }
+  }
 
   async function handleOcrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -596,7 +613,12 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
 
             {/* ── Precio ── */}
             <section>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Precio (USD)</p>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-gray-700">Precio (USD)</p>
+                <Button type="button" variant="outline" size="sm" onClick={fillAmountWords}>
+                  Completar letras
+                </Button>
+              </div>
 
               {/* Tipo de pago */}
               <div className="mb-3">

@@ -142,6 +142,11 @@ function formatUsd(value: number): string {
   return `USD ${Math.round(value).toLocaleString("es-AR")}`;
 }
 
+function formatDeliveryInstallment(value: number): string {
+  if (value === 0) return "Con el anticipo";
+  return `Despues de cuota ${value}`;
+}
+
 function loadVisibleCols(): Record<ColKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -169,7 +174,7 @@ export default function LotesPage() {
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(DEFAULT_COLS);
   const [calculator, setCalculator] = useState({
     precio: 25000,
-    anticipo: 5000,
+    anticipo: 7500,
     tasa: 1,
     plazo: 48,
   });
@@ -377,11 +382,17 @@ export default function LotesPage() {
     const totalFinanciadoSinRedondeo = saldo * (1 + (calculator.tasa / 100) * plazo);
     const cuotaMensual = Math.round(totalFinanciadoSinRedondeo / plazo);
     const totalFinanciado = cuotaMensual * plazo;
+    const precioTotalNominal = calculator.anticipo + totalFinanciado;
+    const umbralEntrega = precioTotalNominal * 0.5;
+    const cuotaEntrega = calculator.anticipo >= umbralEntrega
+      ? 0
+      : Math.ceil((umbralEntrega - calculator.anticipo) / cuotaMensual);
 
     return {
       cuotaMensual,
       totalFinanciado,
-      precioTotalNominal: calculator.anticipo + totalFinanciado,
+      precioTotalNominal,
+      cuotaEntrega: Math.min(cuotaEntrega, plazo),
     };
   }, [calculator]);
 
@@ -496,11 +507,12 @@ export default function LotesPage() {
             </label>
           ))}
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           {[
             ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
             ["Plazo total financiado", formatUsd(calculatorResult.totalFinanciado)],
             ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
+            ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
           ].map(([label, value]) => (
             <div key={label} className="rounded-md border bg-gray-50 px-3 py-2">
               <p className="text-xs text-gray-500">{label}</p>

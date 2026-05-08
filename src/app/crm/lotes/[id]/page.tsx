@@ -32,9 +32,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { useSession } from "@/lib/auth-client";
+import { amountToSpanishWords } from "@/lib/number-words";
 import type { ParcelaConReserva } from "@/lib/schema";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
-import { useSession } from "@/lib/auth-client";
 
 const schema = z.object({
   estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]),
@@ -311,6 +312,22 @@ export default function LoteDetailPage() {
     fetchLote();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  function fillAmountWords() {
+    const mappings: Array<[keyof FormValues, keyof FormValues]> = [
+      ["precioTotalNum", "precioTotalPalabras"],
+      ["anticipoNum", "anticipoPalabras"],
+      ["saldoNum", "saldoPalabras"],
+      ["cuotaMensual", "cuotaMensualPalabras"],
+    ];
+
+    for (const [numberField, wordsField] of mappings) {
+      const words = amountToSpanishWords(form.getValues(numberField));
+      if (words) {
+        form.setValue(wordsField, words, { shouldDirty: true });
+      }
+    }
+  }
 
   async function onSubmit(values: FormValues) {
     const payload: Record<string, unknown> = {};
@@ -841,7 +858,12 @@ export default function LoteDetailPage() {
 
               {/* Precio */}
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Precio (USD)</p>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-gray-700">Precio (USD)</p>
+                  <Button type="button" variant="outline" size="sm" onClick={fillAmountWords}>
+                    Completar letras
+                  </Button>
+                </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   {[
                     { name: "precioTotalPalabras" as const, label: "Precio total (en letras)", placeholder: "VEINTICINCO MIL" },
