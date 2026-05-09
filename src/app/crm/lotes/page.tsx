@@ -59,6 +59,7 @@ type ColKey =
   | "entrega"
   | "fechaReserva"
   | "fechaVencimiento"
+  | "precioEtapa1"
   | "precioTotal"
   | "anticipo"
   | "saldo"
@@ -78,6 +79,7 @@ const OPTIONAL_COLS: { key: ColKey; label: string }[] = [
   { key: "entrega", label: "Entrega posesión" },
   { key: "fechaReserva", label: "Fecha reserva" },
   { key: "fechaVencimiento", label: "Fecha vencimiento" },
+  { key: "precioEtapa1", label: "Precio etapa 1" },
   { key: "precioTotal", label: "Precio total" },
   { key: "anticipo", label: "Anticipo" },
   { key: "saldo", label: "Saldo" },
@@ -107,6 +109,7 @@ function getCellValue(lote: ParcelaConReserva, key: ColKey): string {
     case "entrega": return formatEntrega(lote);
     case "fechaReserva": return lote.fechaReserva ?? "—";
     case "fechaVencimiento": return lote.fechaVencimiento ?? "—";
+    case "precioEtapa1": return formatMoneyString(lote.precioEtapa1);
     case "precioTotal": return lote.precioTotalNum ? `USD ${lote.precioTotalNum}` : "—";
     case "anticipo": return lote.anticipoNum ? `USD ${lote.anticipoNum}` : "—";
     case "saldo": return lote.saldoNum ? `USD ${lote.saldoNum}` : "—";
@@ -128,6 +131,7 @@ const DEFAULT_COLS: Record<ColKey, boolean> = {
   entrega: false,
   fechaReserva: false,
   fechaVencimiento: false,
+  precioEtapa1: false,
   precioTotal: false,
   anticipo: false,
   saldo: false,
@@ -140,6 +144,28 @@ const STORAGE_KEY = "lotes-visible-cols";
 
 function formatUsd(value: number): string {
   return `USD ${Math.round(value).toLocaleString("es-AR")}`;
+}
+
+function formatMoneyString(value: string | null | undefined): string {
+  if (!value) return "—";
+  return `USD ${Number(value).toLocaleString("es-AR")}`;
+}
+
+function parseNumeric(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function calculateValorM2Value(precioBase: string | null, superficieM2: string | null) {
+  const precio = parseNumeric(precioBase);
+  const superficie = parseNumeric(superficieM2);
+  if (precio === null || superficie === null || superficie <= 0) return null;
+  return Number((precio / superficie).toFixed(2)).toString();
+}
+
+function roundToHundreds(value: number): number {
+  return Math.round(value / 100) * 100;
 }
 
 function formatDeliveryInstallment(value: number): string {
@@ -170,6 +196,8 @@ export default function LotesPage() {
   const [filterSuperficie, setFilterSuperficie] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkEstado, setBulkEstado] = useState<EstadoParcela | "">("");
+  const [bulkPriceMode, setBulkPriceMode] = useState<"set" | "increase">("set");
+  const [bulkPriceValue, setBulkPriceValue] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(DEFAULT_COLS);
   const [calculator, setCalculator] = useState({
@@ -325,6 +353,83 @@ export default function LotesPage() {
     }
   };
 
+  const handleBulkPriceUpdate = async () => {
+    if (session?.user?.role !== "admin" || selected.size === 0) return;
+
+    const value = Number(bulkPriceValue);
+    if (!Number.isFinite(value) || value < 0 || (bulkPriceMode === "increase" && value === 0)) {
+      toast.error("Ingresá un valor válido");
+      return;
+    }
+
+    const selectedLotes = lotes.filter((lote) => selected.has(lote.id));
+    const updates = selectedLotes
+      .map((lote) => {
+        if (bulkPriceMode === "set") {
+          return { id: lote.id, precioBase: String(value) };
+        }
+
+        const currentPrice = parseNumeric(lote.precioBase);
+        if (currentPrice === null) return null;
+
+        return {
+          id: lote.id,
+          precioBase: String(roundToHundreds(currentPrice * (1 + value / 100))),
+        };
+      })
+      .filter((update): update is { id: number; precioBase: string } => update !== null);
+
+    if (updates.length === 0) {
+      toast.error("No hay lotes con precio base para actualizar");
+      return;
+    }
+
+    setBulkLoading(true);
+    const ids = new Set(updates.map((update) => update.id));
+    const updateById = new Map(updates.map((update) => [update.id, update.precioBase]));
+    const prev = lotes;
+    setLotes((ls) =>
+      ls.map((lote) => {
+        if (!ids.has(lote.id)) return lote;
+        const precioBase = updateById.get(lote.id) ?? null;
+        return {
+          ...lote,
+          precioBase,
+          valorM2: calculateValorM2Value(precioBase, lote.superficieM2),
+        };
+      })
+    );
+
+    try {
+      const results = await Promise.all(
+        updates.map((update) =>
+          fetch(`/api/crm/parcelas/${update.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ precioBase: update.precioBase }),
+          })
+        )
+      );
+      const failed = results.filter((r) => !r.ok).length;
+      if (failed > 0) {
+        setLotes(prev);
+        toast.error(`${failed} actualizacion(es) de precio fallaron`);
+      } else {
+        const skipped = selectedLotes.length - updates.length;
+        toast.success(
+          `${updates.length} precio(s) actualizados${skipped > 0 ? `; ${skipped} sin precio base` : ""}`
+        );
+        setSelected(new Set());
+        setBulkPriceValue("");
+      }
+    } catch {
+      setLotes(prev);
+      toast.error("Error al actualizar precios");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleExportExcel = () => {
     const activeCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
 
@@ -338,7 +443,7 @@ export default function LotesPage() {
       "Superficie",
       "Frente",
       "Fondo",
-      "Precio Etapa 1",
+      "Precio base",
       "Estado",
       ...activeCols.map((c) => c.label),
     ];
@@ -353,7 +458,7 @@ export default function LotesPage() {
       lote.superficieM2 ? `${lote.superficieM2} m²` : "",
       lote.metrosFrente ? `${lote.metrosFrente} m` : "",
       lote.metrosFondo ? `${lote.metrosFondo} m` : "",
-      lote.precioEtapa1 ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}` : "",
+      lote.precioBase ? `USD ${Number(lote.precioBase).toLocaleString("es-AR")}` : "",
       estadoLabels[lote.estado],
       ...activeCols.map((c) => {
         const v = getCellValue(lote, c.key);
@@ -657,7 +762,7 @@ export default function LotesPage() {
               <TableHead>Superficie</TableHead>
               <TableHead>Frente</TableHead>
               <TableHead>Fondo</TableHead>
-              <TableHead>Precio Etapa 1</TableHead>
+              <TableHead>Precio base</TableHead>
               <TableHead>Estado</TableHead>
               {activeOptionalCols.map((col) => (
                 <TableHead key={col.key}>{col.label}</TableHead>
@@ -713,9 +818,7 @@ export default function LotesPage() {
                       {lote.metrosFondo ? `${lote.metrosFondo} m` : "—"}
                     </TableCell>
                     <TableCell>
-                      {lote.precioEtapa1
-                        ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}`
-                        : "—"}
+                      {formatMoneyString(lote.precioBase)}
                     </TableCell>
                     <TableCell>
                       <Select
@@ -782,7 +885,7 @@ export default function LotesPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-xl">
+        <div className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-xl">
           <span className="text-sm font-medium text-gray-700">
             {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
           </span>
@@ -808,12 +911,46 @@ export default function LotesPage() {
           >
             {bulkLoading ? "Aplicando..." : "Aplicar"}
           </Button>
+          {session?.user?.role === "admin" && (
+            <>
+              <div className="h-8 w-px bg-gray-200" />
+              <Select
+                value={bulkPriceMode}
+                onValueChange={(v) => setBulkPriceMode(v as "set" | "increase")}
+              >
+                <SelectTrigger className="h-8 w-36 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="set">Fijar precio</SelectItem>
+                  <SelectItem value="increase">Aumentar %</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                min="0"
+                step={bulkPriceMode === "set" ? "100" : "0.1"}
+                value={bulkPriceValue}
+                onChange={(e) => setBulkPriceValue(e.target.value)}
+                placeholder={bulkPriceMode === "set" ? "USD" : "%"}
+                className="h-8 w-24 text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={handleBulkPriceUpdate}
+                disabled={!bulkPriceValue || bulkLoading}
+              >
+                {bulkLoading ? "Aplicando..." : "Aplicar precio"}
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
               setSelected(new Set());
               setBulkEstado("");
+              setBulkPriceValue("");
             }}
           >
             Cancelar

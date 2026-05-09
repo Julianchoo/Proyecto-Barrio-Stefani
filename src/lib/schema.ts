@@ -158,6 +158,7 @@ export const parcelas = pgTable(
 
     // Estado y pricing
     estado: estadoParcelaEnum("estado").default("disponible").notNull(),
+    precioBase: numeric("precio_base"),
     precioEtapa1: numeric("precio_etapa1"),
     valorM2: numeric("valor_m2"),
     anticipoPct: numeric("anticipo_pct"),

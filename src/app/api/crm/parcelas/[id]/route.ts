@@ -95,6 +95,7 @@ const updateSchema = z
     escritura: z.string().nullable().optional(),
     matriculaFolio: z.string().nullable().optional(),
     certificadoCatastral: z.string().nullable().optional(),
+    precioBase: z.string().nullable().optional(),
     precioEtapa1: z.string().nullable().optional(),
     valorM2: z.string().nullable().optional(),
     valuacionFiscal: z.string().nullable().optional(),
@@ -125,6 +126,7 @@ const PARCELA_ADMIN_FIELDS = [
   "escritura",
   "matriculaFolio",
   "certificadoCatastral",
+  "precioBase",
   "precioEtapa1",
   "valorM2",
   "valuacionFiscal",
@@ -146,6 +148,19 @@ const PARCELA_ADMIN_FIELDS = [
 
 function hasReservaValue(data: Record<string, unknown>) {
   return Object.values(data).some((value) => value !== null && value !== "");
+}
+
+function numericValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function calculateValorM2(precioBase: unknown, superficieM2: unknown) {
+  const precio = numericValue(precioBase);
+  const superficie = numericValue(superficieM2);
+  if (precio === null || superficie === null || superficie <= 0) return null;
+  return String(Number((precio / superficie).toFixed(2)));
 }
 
 export async function PUT(
@@ -197,6 +212,12 @@ export async function PUT(
       if (authResult.role === "admin") {
         for (const field of PARCELA_ADMIN_FIELDS) {
           if (field in allowedData) parcelaData[field] = allowedData[field];
+        }
+        if ("precioBase" in allowedData) {
+          parcelaData.valorM2 = calculateValorM2(
+            allowedData.precioBase,
+            "superficieM2" in allowedData ? allowedData.superficieM2 : current.superficieM2
+          );
         }
       }
 
