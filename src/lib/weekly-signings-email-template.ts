@@ -1,5 +1,11 @@
 import type { Parcela } from "@/lib/report-data";
 
+type SigningSection = {
+  title: string;
+  range: { start: string; end: string };
+  signings: Parcela[];
+};
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -31,7 +37,7 @@ function fmtDate(value: string): string {
 
 function signingsTable(signings: Parcela[], appUrl: string): string {
   if (signings.length === 0) {
-    return `<p style="margin:0;color:#6b7280;font-size:14px;">No hay lotes con fecha de firma para la semana siguiente.</p>`;
+    return `<p style="margin:0;color:#6b7280;font-size:14px;">No hay lotes con fecha de firma para este periodo.</p>`;
   }
 
   const rows = signings
@@ -71,13 +77,27 @@ function signingsTable(signings: Parcela[], appUrl: string): string {
     </div>`;
 }
 
+function signingSection(section: SigningSection, appUrl: string): string {
+  return `
+    <div style="margin:0 0 28px;">
+      <h2 style="margin:0;color:#111827;font-size:18px;line-height:1.35;">${escapeHtml(section.title)}</h2>
+      <p style="margin:4px 0 14px;color:#6b7280;font-size:14px;">${fmtDate(section.range.start)} al ${fmtDate(section.range.end)} · ${section.signings.length} ${section.signings.length === 1 ? "lote con firma prevista" : "lotes con firma prevista"}.</p>
+      ${signingsTable(section.signings, appUrl)}
+    </div>`;
+}
+
 export function buildWeeklySigningsEmailHtml(data: {
   appUrl: string;
-  range: { start: string; end: string };
-  signings: Parcela[];
+  sections: SigningSection[];
 }): string {
-  const { appUrl, range, signings } = data;
-  const title = `Firmas previstas del ${fmtDate(range.start)} al ${fmtDate(range.end)}`;
+  const { appUrl, sections } = data;
+  const firstSection = sections[0];
+  const lastSection = sections[sections.length - 1];
+  const totalSignings = sections.reduce((total, section) => total + section.signings.length, 0);
+  const title =
+    firstSection && lastSection
+      ? `Firmas previstas del ${fmtDate(firstSection.range.start)} al ${fmtDate(lastSection.range.end)}`
+      : "Firmas previstas";
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -100,8 +120,8 @@ export function buildWeeklySigningsEmailHtml(data: {
           </tr>
           <tr>
             <td style="padding:28px 32px;">
-              <p style="margin:0 0 16px;color:#6b7280;font-size:14px;">${signings.length} ${signings.length === 1 ? "lote con firma prevista" : "lotes con firma prevista"}.</p>
-              ${signingsTable(signings, appUrl)}
+              <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">${totalSignings} ${totalSignings === 1 ? "lote con firma prevista" : "lotes con firma prevista"}.</p>
+              ${sections.map((section) => signingSection(section, appUrl)).join("")}
             </td>
           </tr>
           <tr>

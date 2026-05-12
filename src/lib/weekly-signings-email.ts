@@ -1,5 +1,9 @@
 import { sendEmail } from "@/lib/email";
-import { getNextSigningWeekRange, getUpcomingSignings } from "@/lib/report-data";
+import {
+  getCurrentSigningWeekRange,
+  getNextSigningWeekRange,
+  getUpcomingSignings,
+} from "@/lib/report-data";
 import { buildWeeklySigningsEmailHtml } from "@/lib/weekly-signings-email-template";
 
 const RECIPIENTS = "juliankorn@gmail.com, hugo.guindani@gmail.com";
@@ -10,25 +14,37 @@ function formatDate(value: string) {
 }
 
 export async function sendWeeklySigningsSummary() {
-  const range = getNextSigningWeekRange();
-  const signings = await getUpcomingSignings(range);
+  const currentWeekRange = getCurrentSigningWeekRange();
+  const nextWeekRange = getNextSigningWeekRange();
+  const [currentWeekSignings, nextWeekSignings] = await Promise.all([
+    getUpcomingSignings(currentWeekRange),
+    getUpcomingSignings(nextWeekRange),
+  ]);
+  const count = currentWeekSignings.length + nextWeekSignings.length;
 
-  if (signings.length === 0) {
+  if (count === 0) {
     return {
       ok: true,
       skipped: true,
       reason: "No upcoming signings",
-      range,
+      currentWeekRange,
+      nextWeekRange,
       count: 0,
     };
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://barriostefani.vercel.app";
-  const html = buildWeeklySigningsEmailHtml({ appUrl, range, signings });
+  const html = buildWeeklySigningsEmailHtml({
+    appUrl,
+    sections: [
+      { title: "Firmas de esta semana", range: currentWeekRange, signings: currentWeekSignings },
+      { title: "Firmas de la proxima semana", range: nextWeekRange, signings: nextWeekSignings },
+    ],
+  });
 
   await sendEmail({
     to: RECIPIENTS,
-    subject: `Firmas previstas Barrio Stefani (${formatDate(range.start)} al ${formatDate(range.end)})`,
+    subject: `Firmas previstas Barrio Stefani (${formatDate(currentWeekRange.start)} al ${formatDate(nextWeekRange.end)})`,
     html,
   });
 
@@ -36,7 +52,8 @@ export async function sendWeeklySigningsSummary() {
     ok: true,
     skipped: false,
     sentAt: new Date().toISOString(),
-    range,
-    count: signings.length,
+    currentWeekRange,
+    nextWeekRange,
+    count,
   };
 }

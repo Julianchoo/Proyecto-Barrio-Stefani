@@ -38,6 +38,17 @@ function toDateKey(date: Date): string {
 }
 
 export function getNextSigningWeekRange(now = new Date()): SigningWeekRange {
+  const currentWeek = getCurrentSigningWeekRange(now);
+  const start = new Date(`${currentWeek.start}T00:00:00.000Z`);
+  start.setUTCDate(start.getUTCDate() + 7);
+
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+
+  return { start: toDateKey(start), end: toDateKey(end) };
+}
+
+export function getCurrentSigningWeekRange(now = new Date()): SigningWeekRange {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
     year: "numeric",
@@ -50,10 +61,10 @@ export function getNextSigningWeekRange(now = new Date()): SigningWeekRange {
   const day = Number(parts.find((part) => part.type === "day")?.value);
   const today = new Date(Date.UTC(year, month - 1, day));
   const dayOfWeek = today.getUTCDay();
-  const daysUntilNextMonday = (8 - dayOfWeek) % 7 || 7;
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
 
   const start = new Date(today);
-  start.setUTCDate(today.getUTCDate() + daysUntilNextMonday);
+  start.setUTCDate(today.getUTCDate() - daysSinceMonday);
 
   const end = new Date(start);
   end.setUTCDate(start.getUTCDate() + 6);
