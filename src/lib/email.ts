@@ -1,9 +1,11 @@
 import nodemailer from "nodemailer";
+import type Mail from "nodemailer/lib/mailer";
 
 export async function sendEmail(options: {
   to: string;
   subject: string;
   html: string;
+  attachments?: Mail.Options["attachments"];
 }) {
   const transport = nodemailer.createTransport({
     service: "gmail",
