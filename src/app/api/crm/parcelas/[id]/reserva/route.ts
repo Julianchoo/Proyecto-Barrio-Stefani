@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { parcelas, reservas } from "@/lib/schema";
+import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
@@ -83,9 +83,10 @@ export async function POST(
   }
 
   const [row] = await db
-    .select({ parcela: parcelas, reserva: reservas })
+    .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
     .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(parcelas.id, parcelaId));
 
   if (!row) {
@@ -110,7 +111,7 @@ export async function POST(
   }
 
   const form = parsed.data;
-  const parcela = flattenParcelaReserva(row.parcela, row.reserva);
+  const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
   const anticipoNum = form.anticipoNum || formatMoney(parcela.anticipoNum);
   const reservaNum = form.reservaNum || anticipoNum;
   const precioTotalNum = form.precioTotalNum || formatMoney(parcela.precioTotalNum);

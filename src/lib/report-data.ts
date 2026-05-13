@@ -25,12 +25,13 @@ export async function getRecentReservations(): Promise<ParcelaConReserva[]> {
   const dateStr = sevenDaysAgo.toISOString().substring(0, 10);
 
   return db
-    .select({ parcela: parcelas, reserva: reservas })
+    .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
     .innerJoin(reservas, activeReservaJoin())
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(and(eq(parcelas.estado, "reservado"), gte(reservas.fechaReserva, dateStr)))
     .orderBy(reservas.fechaReserva)
-    .then((rows) => rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva)));
+    .then((rows) => rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva, row.lead)));
 }
 
 function toDateKey(date: Date): string {
@@ -76,9 +77,10 @@ export async function getUpcomingSignings(
   range = getNextSigningWeekRange()
 ): Promise<ParcelaConReserva[]> {
   return db
-    .select({ parcela: parcelas, reserva: reservas })
+    .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
     .innerJoin(reservas, eq(reservas.parcelaId, parcelas.id))
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(
       and(
         eq(reservas.estado, "activa"),
@@ -87,7 +89,7 @@ export async function getUpcomingSignings(
       )
     )
     .orderBy(reservas.fechaFirma, parcelas.manzana, parcelas.numero)
-    .then((rows) => rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva)));
+    .then((rows) => rows.map((row) => flattenParcelaReserva(row.parcela, row.reserva, row.lead)));
 }
 
 export async function getTodayLeads(): Promise<Lead[]> {

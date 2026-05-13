@@ -131,6 +131,18 @@ const LOTE_PARAM_FIELDS = [
   "nota",
 ] as const;
 
+const LEAD_PERSONAL_FIELDS = [
+  "nombreComprador",
+  "dniCuit",
+  "telefono",
+  "emailComprador",
+  "domicilioComprador",
+  "nacionalidad",
+  "fechaNacimiento",
+  "estadoCivil",
+  "cuitComprador",
+] as const;
+
 type LeadOption = {
   id: number;
   nombre: string;
@@ -404,6 +416,12 @@ export default function LoteDetailPage() {
   }
 
   async function applyCalculatorToReserva() {
+    const leadId = form.getValues("leadId");
+    if (!leadId && !lote?.reservaId) {
+      toast.error("Seleccioná un lead antes de reservar el lote");
+      return;
+    }
+
     setCalculatorSaving(true);
     const precioTotalNum = String(Math.round(calculatorResult.precioTotalNominal));
     const anticipoNum = String(Math.round(calculator.anticipo));
@@ -437,6 +455,7 @@ export default function LoteDetailPage() {
 
     const payload = {
       estado: "reservado",
+      leadId,
       formaPago: "financiado",
       precioTotalNum,
       precioTotalPalabras: nextValues.precioTotalPalabras,
@@ -467,9 +486,16 @@ export default function LoteDetailPage() {
   }
 
   async function onSubmit(values: FormValues) {
+    const isReserving = values.estado === "reservado";
+    if (isReserving && !values.leadId && !lote?.reservaId) {
+      toast.error("Seleccioná un lead antes de reservar el lote");
+      return;
+    }
+
     const payload: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(values)) {
       if (k === "numeroCuotaEntrega") continue; // handled separately
+      if ((LEAD_PERSONAL_FIELDS as readonly string[]).includes(k)) continue;
       payload[k] = v === "" ? null : v;
     }
     const hasReservaInput =
@@ -543,15 +569,6 @@ export default function LoteDetailPage() {
       }
       const data = await res.json();
       const fieldMap: Array<[keyof FormValues, string | null]> = [
-        ["nombreComprador", data.nombreComprador],
-        ["dniCuit", data.dniCuit ?? data.dniComprador],
-        ["telefono", data.telefono],
-        ["emailComprador", data.emailComprador],
-        ["domicilioComprador", data.domicilioComprador],
-        ["nacionalidad", data.nacionalidad],
-        ["fechaNacimiento", data.fechaNacimiento],
-        ["estadoCivil", data.estadoCivil],
-        ["cuitComprador", data.cuitComprador],
         ["nombreCoComprador", data.nombreCoComprador],
         ["dniCoComprador", data.dniCoComprador],
         ["cuitCoComprador", data.cuitCoComprador],
@@ -631,6 +648,18 @@ export default function LoteDetailPage() {
     lote.estado === "reservado" &&
     session?.user?.role !== "admin" &&
     lote.reservadoPor !== session?.user?.email;
+  const selectedLeadId = form.watch("leadId");
+  const leadDisplay = [
+    ["Nombre", form.watch("nombreComprador") || "—"],
+    ["DNI / CUIT", form.watch("dniCuit") || "—"],
+    ["Teléfono", form.watch("telefono") || "—"],
+    ["Email", form.watch("emailComprador") || "—"],
+    ["Domicilio", form.watch("domicilioComprador") || "—"],
+    ["Nacionalidad", form.watch("nacionalidad") || "—"],
+    ["Fecha de nacimiento", form.watch("fechaNacimiento") || "—"],
+    ["Estado civil", form.watch("estadoCivil") || "—"],
+    ["CUIT comprador", form.watch("cuitComprador") || "—"],
+  ];
 
   return (
     <div className="space-y-6">
@@ -672,7 +701,7 @@ export default function LoteDetailPage() {
       {/* Read-only property data */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Datos catastrales</CardTitle>
+          <CardTitle className="text-base">Datos del lote</CardTitle>
         </CardHeader>
         <CardContent>
           {session?.user?.role === "admin" ? (
@@ -805,11 +834,69 @@ export default function LoteDetailPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Lead asociado</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {lote.reservaId && !selectedLeadId && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>Esta reserva es histÃ³rica y todavÃ­a no tiene un lead asociado.</span>
+            </div>
+          )}
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+            <p className="mb-2 text-xs font-medium text-gray-500">Seleccionar lead existente</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Buscar por nombre, email o telÃ©fono..."
+                value={leadSearch}
+                onChange={(e) => setLeadSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    searchLeads();
+                  }
+                }}
+                className="text-sm"
+                disabled={isLocked}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={searchLeads} disabled={isLocked}>
+                Buscar
+              </Button>
+            </div>
+            {leadResults.length > 0 && (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-md border bg-white divide-y">
+                {leadResults.map((lead) => (
+                  <button
+                    key={lead.id}
+                    type="button"
+                    className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-gray-50"
+                    onClick={() => applyLead(lead)}
+                  >
+                    <span className="font-medium">{lead.nombre}</span>
+                    <span className="text-xs text-gray-500">{lead.email} Â· {lead.telefono}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+            {leadDisplay.map(([label, value]) => (
+              <div key={label}>
+                <span className="text-gray-500">{label}</span>
+                <p className="font-medium text-gray-900 mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Editable form */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Datos de reserva / comprador</CardTitle>
+            <CardTitle className="text-base">Datos de reserva</CardTitle>
             <div>
               <input
                 ref={fileInputRef}
@@ -842,6 +929,7 @@ export default function LoteDetailPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {false && (
           <div className="mb-5 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50">
             <p className="text-xs font-medium text-gray-500 mb-2">Cargar datos desde lead existente</p>
             <div className="flex gap-2">
@@ -872,6 +960,7 @@ export default function LoteDetailPage() {
               </div>
             )}
           </div>
+          )}
           <Form {...form}>
             <fieldset disabled={isLocked}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -905,15 +994,6 @@ export default function LoteDetailPage() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
-                  { name: "nombreComprador" as const, label: "Nombre comprador" },
-                  { name: "dniCuit" as const, label: "DNI / CUIT" },
-                  { name: "telefono" as const, label: "Teléfono" },
-                  { name: "emailComprador" as const, label: "Email comprador" },
-                  { name: "domicilioComprador" as const, label: "Domicilio comprador" },
-                  { name: "nacionalidad" as const, label: "Nacionalidad" },
-                  { name: "fechaNacimiento" as const, label: "Fecha de nacimiento" },
-                  { name: "estadoCivil" as const, label: "Estado civil" },
-                  { name: "cuitComprador" as const, label: "CUIT comprador" },
                   { name: "nombreCorredor" as const, label: "Nombre corredor" },
                   { name: "emailCorredor" as const, label: "Email corredor" },
                   { name: "fechaReserva" as const, label: "Fecha reserva" },

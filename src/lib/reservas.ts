@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { parcelas, reservas } from "@/lib/schema";
-import type { Parcela, ParcelaConReserva, Reserva } from "@/lib/schema";
+import type { Lead, Parcela, ParcelaConReserva, Reserva } from "@/lib/schema";
 
 export const RESERVA_FIELDS = [
   "leadId",
@@ -86,25 +86,50 @@ export function activeReservaJoin() {
 
 export function flattenParcelaReserva(
   parcela: Parcela,
-  reserva: Reserva | null
+  reserva: Reserva | null,
+  lead?: Lead | null
 ): ParcelaConReserva {
   if (!reserva) {
-    return { ...parcela, ...EMPTY_RESERVA_FIELDS, reservaId: null };
+    return {
+      ...parcela,
+      ...EMPTY_RESERVA_FIELDS,
+      reservaId: null,
+      leadEstado: null,
+      leadAsignadoA: null,
+    };
   }
+
+  const leadData = lead
+    ? {
+        nombreComprador: lead.nombre,
+        dniCuit: lead.dniCuit,
+        telefono: lead.telefono,
+        emailComprador: lead.email,
+        domicilioComprador: lead.domicilio,
+        nacionalidad: lead.nacionalidad,
+        fechaNacimiento: lead.fechaNacimiento,
+        estadoCivil: lead.estadoCivil,
+        cuitComprador: lead.cuitComprador,
+      }
+    : {
+        nombreComprador: reserva.nombreComprador,
+        dniCuit: reserva.dniCuit,
+        telefono: reserva.telefono,
+        emailComprador: reserva.emailComprador,
+        domicilioComprador: reserva.domicilioComprador,
+        nacionalidad: reserva.nacionalidad,
+        fechaNacimiento: reserva.fechaNacimiento,
+        estadoCivil: reserva.estadoCivil,
+        cuitComprador: reserva.cuitComprador,
+      };
 
   return {
     ...parcela,
     reservaId: reserva.id,
     leadId: reserva.leadId,
-    nombreComprador: reserva.nombreComprador,
-    dniCuit: reserva.dniCuit,
-    telefono: reserva.telefono,
-    emailComprador: reserva.emailComprador,
-    domicilioComprador: reserva.domicilioComprador,
-    nacionalidad: reserva.nacionalidad,
-    fechaNacimiento: reserva.fechaNacimiento,
-    estadoCivil: reserva.estadoCivil,
-    cuitComprador: reserva.cuitComprador,
+    ...leadData,
+    leadEstado: lead?.estado ?? null,
+    leadAsignadoA: lead?.asignadoA ?? null,
     nombreCoComprador: reserva.nombreCoComprador,
     dniCoComprador: reserva.dniCoComprador,
     cuitCoComprador: reserva.cuitCoComprador,

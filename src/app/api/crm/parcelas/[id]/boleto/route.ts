@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parcelas, reservas } from "@/lib/schema";
+import { leads, parcelas, reservas } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
@@ -147,16 +147,17 @@ export async function POST(
   const form: BoletoData = parsed.data;
 
   const [row] = await db
-    .select({ parcela: parcelas, reserva: reservas })
+    .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
     .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(parcelas.id, parcelaId));
 
   if (!row) {
     return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
   }
 
-  const parcela = flattenParcelaReserva(row.parcela, row.reserva);
+  const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
   const numeroCuotaEntrega = form.numeroCuotaEntrega.trim();
   const entregaCuota = form.entregaCuota && Boolean(numeroCuotaEntrega);
 

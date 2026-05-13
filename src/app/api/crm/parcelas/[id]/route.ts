@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { parcelas, reservas } from "@/lib/schema";
+import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import {
   activeReservaJoin,
@@ -14,15 +14,6 @@ import {
 const COMERCIAL_FIELDS = [
   "estado",
   "leadId",
-  "nombreComprador",
-  "dniCuit",
-  "telefono",
-  "emailComprador",
-  "domicilioComprador",
-  "nacionalidad",
-  "fechaNacimiento",
-  "estadoCivil",
-  "cuitComprador",
   "nombreCoComprador",
   "dniCoComprador",
   "cuitCoComprador",
@@ -53,15 +44,6 @@ const updateSchema = z
   .object({
     estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]).optional(),
     leadId: z.number().nullable().optional(),
-    nombreComprador: z.string().nullable().optional(),
-    dniCuit: z.string().nullable().optional(),
-    telefono: z.string().nullable().optional(),
-    emailComprador: z.string().email().nullable().optional(),
-    domicilioComprador: z.string().nullable().optional(),
-    nacionalidad: z.string().nullable().optional(),
-    fechaNacimiento: z.string().nullable().optional(),
-    estadoCivil: z.string().nullable().optional(),
-    cuitComprador: z.string().nullable().optional(),
     nombreCoComprador: z.string().nullable().optional(),
     dniCoComprador: z.string().nullable().optional(),
     cuitCoComprador: z.string().nullable().optional(),
@@ -163,6 +145,14 @@ function calculateValorM2(precioBase: unknown, superficieM2: unknown) {
   return String(Number((precio / superficie).toFixed(2)));
 }
 
+function isReservaCreation(
+  data: { estado?: string | undefined },
+  activeReserva: unknown,
+  shouldTouchReserva: boolean
+) {
+  return !activeReserva && (data.estado === "reservado" || shouldTouchReserva);
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -191,9 +181,10 @@ export async function PUT(
 
     const result = await db.transaction(async (tx) => {
       const [currentRow] = await tx
-        .select({ parcela: parcelas, reserva: reservas })
+        .select({ parcela: parcelas, reserva: reservas, lead: leads })
         .from(parcelas)
         .leftJoin(reservas, activeReservaJoin())
+        .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(eq(parcelas.id, parcelaId));
 
       if (!currentRow) return { kind: "not-found" as const };
@@ -225,6 +216,26 @@ export async function PUT(
       const shouldTouchReserva = activeReserva
         ? hasReservaData(reservaData)
         : hasReservaValue(reservaData);
+      const requestedLeadId =
+        "leadId" in reservaData ? (reservaData.leadId as number | null) : activeReserva?.leadId ?? null;
+      const needsLead = isReservaCreation(data, activeReserva, shouldTouchReserva);
+
+      if (needsLead && !requestedLeadId) {
+        return { kind: "missing-lead" as const };
+      }
+
+      if (requestedLeadId) {
+        const leadConditions = [eq(leads.id, requestedLeadId)];
+        if (authResult.role !== "admin") {
+          leadConditions.push(eq(leads.asignadoA, authResult.id));
+        }
+        const [selectedLead] = await tx
+          .select({ id: leads.id })
+          .from(leads)
+          .where(and(...leadConditions));
+
+        if (!selectedLead) return { kind: "invalid-lead" as const };
+      }
 
       if (data.estado && data.estado !== "reservado") {
         parcelaData.estado = data.estado;
@@ -268,15 +279,16 @@ export async function PUT(
       }
 
       const [updatedRow] = await tx
-        .select({ parcela: parcelas, reserva: reservas })
+        .select({ parcela: parcelas, reserva: reservas, lead: leads })
         .from(parcelas)
         .leftJoin(reservas, activeReservaJoin())
+        .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(eq(parcelas.id, parcelaId));
       if (!updatedRow) return { kind: "not-found" as const };
 
       return {
         kind: "ok" as const,
-        data: flattenParcelaReserva(updatedRow.parcela, updatedRow.reserva),
+        data: flattenParcelaReserva(updatedRow.parcela, updatedRow.reserva, updatedRow.lead),
       };
     });
 
@@ -286,6 +298,18 @@ export async function PUT(
     if (result.kind === "forbidden") {
       return NextResponse.json(
         { error: "Este lote fue reservado por otro comercial" },
+        { status: 403 }
+      );
+    }
+    if (result.kind === "missing-lead") {
+      return NextResponse.json(
+        { error: "Seleccioná un lead antes de reservar el lote" },
+        { status: 400 }
+      );
+    }
+    if (result.kind === "invalid-lead") {
+      return NextResponse.json(
+        { error: "El lead seleccionado no existe o no tenés permiso para usarlo" },
         { status: 403 }
       );
     }
@@ -319,14 +343,15 @@ export async function GET(
   }
 
   const [row] = await db
-    .select({ parcela: parcelas, reserva: reservas })
+    .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
     .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(parcelas.id, parcelaId));
 
   if (!row) {
     return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
   }
 
-  return NextResponse.json(flattenParcelaReserva(row.parcela, row.reserva));
+  return NextResponse.json(flattenParcelaReserva(row.parcela, row.reserva, row.lead));
 }
