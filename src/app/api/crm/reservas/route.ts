@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, gte, ilike, lte, or } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { parcelas, reservas } from "@/lib/schema";
 import type { EstadoReserva } from "@/lib/schema";
+
+function isDateKey(value: string | null) {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
 
 export async function GET(request: Request) {
   const authResult = await requireApiAuth();
@@ -12,9 +16,37 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const estado = searchParams.get("estado") as EstadoReserva | null;
   const search = searchParams.get("search");
+  const reservadoPor = searchParams.get("reservadoPor");
+  const formaPago = searchParams.get("formaPago");
+  const fechaReservaDesde = searchParams.get("fechaReservaDesde");
+  const fechaReservaHasta = searchParams.get("fechaReservaHasta");
+  const fechaVencimientoDesde = searchParams.get("fechaVencimientoDesde");
+  const fechaVencimientoHasta = searchParams.get("fechaVencimientoHasta");
+  const fechaFirmaDesde = searchParams.get("fechaFirmaDesde");
+  const fechaFirmaHasta = searchParams.get("fechaFirmaHasta");
 
   const conditions = [];
   if (estado) conditions.push(eq(reservas.estado, estado));
+  if (reservadoPor) conditions.push(eq(reservas.reservadoPor, reservadoPor));
+  if (formaPago) conditions.push(ilike(reservas.formaPago, `%${formaPago}%`));
+  if (isDateKey(fechaReservaDesde)) {
+    conditions.push(gte(reservas.fechaReserva, fechaReservaDesde!));
+  }
+  if (isDateKey(fechaReservaHasta)) {
+    conditions.push(lte(reservas.fechaReserva, fechaReservaHasta!));
+  }
+  if (isDateKey(fechaVencimientoDesde)) {
+    conditions.push(gte(reservas.fechaVencimiento, fechaVencimientoDesde!));
+  }
+  if (isDateKey(fechaVencimientoHasta)) {
+    conditions.push(lte(reservas.fechaVencimiento, fechaVencimientoHasta!));
+  }
+  if (isDateKey(fechaFirmaDesde)) {
+    conditions.push(gte(reservas.fechaFirma, fechaFirmaDesde!));
+  }
+  if (isDateKey(fechaFirmaHasta)) {
+    conditions.push(lte(reservas.fechaFirma, fechaFirmaHasta!));
+  }
   if (search) {
     conditions.push(
       or(

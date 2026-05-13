@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { CalendarDays, FileText, List, Lock, Mail, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -22,6 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { ReservaDialog } from "@/components/crm/reserva-dialog";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, EstadoReserva } from "@/lib/schema";
@@ -62,6 +74,42 @@ type CalendarEvent = {
   date: string;
   label: string;
   reserva: ReservaRow;
+};
+
+type ReservaFilters = {
+  estado: EstadoReserva | "all";
+  reservadoPor: string;
+  formaPago: string;
+  fechaReservaDesde: string;
+  fechaReservaHasta: string;
+  fechaVencimientoDesde: string;
+  fechaVencimientoHasta: string;
+  fechaFirmaDesde: string;
+  fechaFirmaHasta: string;
+};
+
+type SortKey =
+  | "loteNumero"
+  | "nombreComprador"
+  | "estado"
+  | "fechaReserva"
+  | "fechaVencimiento"
+  | "fechaFirma"
+  | "precioTotalNum"
+  | "reservadoPor";
+
+type SortDirection = "asc" | "desc";
+
+const defaultFilters: ReservaFilters = {
+  estado: "all",
+  reservadoPor: "all",
+  formaPago: "",
+  fechaReservaDesde: "",
+  fechaReservaHasta: "",
+  fechaVencimientoDesde: "",
+  fechaVencimientoHasta: "",
+  fechaFirmaDesde: "",
+  fechaFirmaHasta: "",
 };
 
 const estadoLabels: Record<EstadoReserva, string> = {
@@ -163,23 +211,40 @@ export default function ReservasPage() {
   const { data: session } = useSession();
   const [reservas, setReservas] = useState<ReservaRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterEstado, setFilterEstado] = useState<string>("all");
+  const [filters, setFilters] = useState<ReservaFilters>(defaultFilters);
+  const [draftFilters, setDraftFilters] = useState<ReservaFilters>(defaultFilters);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"lista" | "calendario">("lista");
   const [monthKey, setMonthKey] = useState(getMonthKey(new Date()));
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [sendingSummary, setSendingSummary] = useState(false);
   const [usuarios, setUsuarios] = useState<UsuarioRow[]>([]);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
 
   const fetchReservas = useCallback(async () => {
+    setLoading(true);
     const params = new URLSearchParams();
-    if (filterEstado !== "all") params.set("estado", filterEstado);
+    if (filters.estado !== "all") params.set("estado", filters.estado);
+    if (filters.reservadoPor !== "all") params.set("reservadoPor", filters.reservadoPor);
+    if (filters.formaPago.trim()) params.set("formaPago", filters.formaPago.trim());
+    if (filters.fechaReservaDesde) params.set("fechaReservaDesde", filters.fechaReservaDesde);
+    if (filters.fechaReservaHasta) params.set("fechaReservaHasta", filters.fechaReservaHasta);
+    if (filters.fechaVencimientoDesde) {
+      params.set("fechaVencimientoDesde", filters.fechaVencimientoDesde);
+    }
+    if (filters.fechaVencimientoHasta) {
+      params.set("fechaVencimientoHasta", filters.fechaVencimientoHasta);
+    }
+    if (filters.fechaFirmaDesde) params.set("fechaFirmaDesde", filters.fechaFirmaDesde);
+    if (filters.fechaFirmaHasta) params.set("fechaFirmaHasta", filters.fechaFirmaHasta);
     if (search.trim()) params.set("search", search.trim());
     const res = await fetch(`/api/crm/reservas?${params}`);
     const data: ReservaRow[] = await res.json();
     setReservas(data);
     setLoading(false);
-  }, [filterEstado, search]);
+  }, [filters, search]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -199,6 +264,33 @@ export default function ReservasPage() {
   }, [session?.user?.role]);
 
   const events = useMemo(() => buildEvents(reservas), [reservas]);
+  const sortedReservas = useMemo(() => {
+    if (!sort) return reservas;
+
+    return [...reservas].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === "loteNumero") {
+        result = a.loteNumero - b.loteNumero;
+      } else if (sort.key === "precioTotalNum") {
+        const priceA = Number(a.precioTotalNum ?? 0);
+        const priceB = Number(b.precioTotalNum ?? 0);
+        result = priceA - priceB;
+      } else if (
+        sort.key === "fechaReserva" ||
+        sort.key === "fechaVencimiento" ||
+        sort.key === "fechaFirma"
+      ) {
+        result = (a[sort.key] ?? "").localeCompare(b[sort.key] ?? "");
+      } else {
+        result = (a[sort.key] ?? "").localeCompare(b[sort.key] ?? "", "es-AR", {
+          sensitivity: "base",
+        });
+      }
+
+      return sort.direction === "asc" ? result : -result;
+    });
+  }, [reservas, sort]);
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
@@ -212,6 +304,47 @@ export default function ReservasPage() {
   const calendarDays = useMemo(() => buildCalendarDays(monthKey), [monthKey]);
   const activeMonth = parseMonthKey(monthKey);
   const monthLabel = `${monthNames[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
+  const activeFilters = useMemo(() => {
+    const items: Array<{ key: keyof ReservaFilters; label: string }> = [];
+    if (filters.estado !== "all") {
+      items.push({ key: "estado", label: `Estado: ${estadoLabels[filters.estado]}` });
+    }
+    if (filters.reservadoPor !== "all") {
+      const usuario = usuarios.find((item) => item.email === filters.reservadoPor);
+      items.push({
+        key: "reservadoPor",
+        label: `Comercial: ${usuario?.name || filters.reservadoPor}`,
+      });
+    }
+    if (filters.formaPago.trim()) {
+      items.push({ key: "formaPago", label: `Pago: ${filters.formaPago.trim()}` });
+    }
+    if (filters.fechaReservaDesde) {
+      items.push({ key: "fechaReservaDesde", label: `Reserva desde ${formatDate(filters.fechaReservaDesde)}` });
+    }
+    if (filters.fechaReservaHasta) {
+      items.push({ key: "fechaReservaHasta", label: `Reserva hasta ${formatDate(filters.fechaReservaHasta)}` });
+    }
+    if (filters.fechaVencimientoDesde) {
+      items.push({
+        key: "fechaVencimientoDesde",
+        label: `Vence desde ${formatDate(filters.fechaVencimientoDesde)}`,
+      });
+    }
+    if (filters.fechaVencimientoHasta) {
+      items.push({
+        key: "fechaVencimientoHasta",
+        label: `Vence hasta ${formatDate(filters.fechaVencimientoHasta)}`,
+      });
+    }
+    if (filters.fechaFirmaDesde) {
+      items.push({ key: "fechaFirmaDesde", label: `Firma desde ${formatDate(filters.fechaFirmaDesde)}` });
+    }
+    if (filters.fechaFirmaHasta) {
+      items.push({ key: "fechaFirmaHasta", label: `Firma hasta ${formatDate(filters.fechaFirmaHasta)}` });
+    }
+    return items;
+  }, [filters, usuarios]);
 
   function moveMonth(delta: number) {
     const next = parseMonthKey(monthKey);
@@ -311,6 +444,82 @@ export default function ReservasPage() {
     }
   }
 
+  async function handleDeleteReserva(reserva: ReservaRow) {
+    if (session?.user?.role !== "admin") return;
+    const comprador = reserva.nombreComprador ?? `lote ${reserva.loteNumero}`;
+    if (!window.confirm(`Borrar la reserva de ${comprador}?`)) return;
+
+    setDeletingId(reserva.id);
+    try {
+      const res = await fetch(`/api/crm/reservas/${reserva.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Reserva borrada");
+        await fetchReservas();
+        return;
+      }
+
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "No se pudo borrar la reserva");
+    } catch {
+      toast.error("No se pudo borrar la reserva");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function openFilters() {
+    setDraftFilters(filters);
+    setFilterSheetOpen(true);
+  }
+
+  function applyFilters() {
+    setFilters(draftFilters);
+    setFilterSheetOpen(false);
+  }
+
+  function clearFilters() {
+    setDraftFilters(defaultFilters);
+    setFilters(defaultFilters);
+    setFilterSheetOpen(false);
+  }
+
+  function removeFilter(key: keyof ReservaFilters) {
+    setFilters((current) => ({
+      ...current,
+      [key]: key === "estado" || key === "reservadoPor" ? "all" : "",
+    }));
+  }
+
+  function toggleSort(key: SortKey) {
+    setSort((current) => {
+      if (!current || current.key !== key) {
+        return { key, direction: "asc" };
+      }
+      return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+    });
+  }
+
+  function SortHeader({ sortKey, children }: { sortKey: SortKey; children: ReactNode }) {
+    const isActive = sort?.key === sortKey;
+    const Icon = !isActive ? ArrowUpDown : sort.direction === "asc" ? ArrowUp : ArrowDown;
+
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => toggleSort(sortKey)}
+        className="-ml-3 h-8 px-3"
+      >
+        {children}
+        <Icon className="ml-1 h-3.5 w-3.5" />
+      </Button>
+    );
+  }
+
   function canEditReserva(reserva: ReservaRow) {
     return session?.user?.role === "admin" || reserva.reservadoPor === session?.user?.email;
   }
@@ -356,28 +565,215 @@ export default function ReservasPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative sm:max-w-xs">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Buscar comprador, DNI, lote..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative sm:max-w-xs">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Buscar comprador, DNI, lote..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <SheetTrigger asChild>
+              <Button type="button" variant="outline" onClick={openFilters} className="justify-start">
+                <Filter className="mr-2 h-4 w-4" />
+                Filtros
+                {activeFilters.length > 0 && (
+                  <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                    {activeFilters.length}
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+              <SheetHeader>
+                <SheetTitle>Filtros de reservas</SheetTitle>
+              </SheetHeader>
+              <div className="grid flex-1 auto-rows-min gap-5 px-4">
+                <div className="grid gap-2">
+                  <Label>Estado</Label>
+                  <Select
+                    value={draftFilters.estado}
+                    onValueChange={(value) =>
+                      setDraftFilters((current) => ({
+                        ...current,
+                        estado: value as ReservaFilters["estado"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los estados" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      {(Object.keys(estadoLabels) as EstadoReserva[]).map((estado) => (
+                        <SelectItem key={estado} value={estado}>
+                          {estadoLabels[estado]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {session?.user?.role === "admin" && (
+                  <div className="grid gap-2">
+                    <Label>Comercial</Label>
+                    <Select
+                      value={draftFilters.reservadoPor}
+                      onValueChange={(value) =>
+                        setDraftFilters((current) => ({ ...current, reservadoPor: value }))
+                      }
+                      disabled={usuarios.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos los comerciales" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los comerciales</SelectItem>
+                        {usuarios.map((usuario) => (
+                          <SelectItem key={usuario.id} value={usuario.email}>
+                            {usuario.name || usuario.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <Label htmlFor="forma-pago-filter">Forma de pago</Label>
+                  <Input
+                    id="forma-pago-filter"
+                    value={draftFilters.formaPago}
+                    onChange={(e) =>
+                      setDraftFilters((current) => ({ ...current, formaPago: e.target.value }))
+                    }
+                    placeholder="Contado, cuotas..."
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-3">
+                  <Label>Fecha de reserva</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={draftFilters.fechaReservaDesde}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          fechaReservaDesde: e.target.value,
+                        }))
+                      }
+                      aria-label="Fecha de reserva desde"
+                    />
+                    <Input
+                      type="date"
+                      value={draftFilters.fechaReservaHasta}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          fechaReservaHasta: e.target.value,
+                        }))
+                      }
+                      aria-label="Fecha de reserva hasta"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <Label>Vencimiento</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={draftFilters.fechaVencimientoDesde}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          fechaVencimientoDesde: e.target.value,
+                        }))
+                      }
+                      aria-label="Fecha de vencimiento desde"
+                    />
+                    <Input
+                      type="date"
+                      value={draftFilters.fechaVencimientoHasta}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          fechaVencimientoHasta: e.target.value,
+                        }))
+                      }
+                      aria-label="Fecha de vencimiento hasta"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <Label>Firma</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={draftFilters.fechaFirmaDesde}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          fechaFirmaDesde: e.target.value,
+                        }))
+                      }
+                      aria-label="Fecha de firma desde"
+                    />
+                    <Input
+                      type="date"
+                      value={draftFilters.fechaFirmaHasta}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({
+                          ...current,
+                          fechaFirmaHasta: e.target.value,
+                        }))
+                      }
+                      aria-label="Fecha de firma hasta"
+                    />
+                  </div>
+                </div>
+              </div>
+              <SheetFooter>
+                <Button type="button" onClick={applyFilters}>
+                  Aplicar filtros
+                </Button>
+                <Button type="button" variant="outline" onClick={clearFilters}>
+                  Limpiar
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+          {activeFilters.length > 0 && (
+            <Button type="button" variant="ghost" onClick={clearFilters}>
+              Limpiar
+            </Button>
+          )}
         </div>
-        <Select value={filterEstado} onValueChange={setFilterEstado}>
-          <SelectTrigger className="sm:w-44">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="activa">Activas</SelectItem>
-            <SelectItem value="cancelada">Canceladas</SelectItem>
-            <SelectItem value="vencida">Vencidas</SelectItem>
-            <SelectItem value="realizada">Realizadas</SelectItem>
-          </SelectContent>
-        </Select>
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilters.map((filter) => (
+              <Badge key={filter.key} variant="secondary" className="gap-1 pr-1">
+                {filter.label}
+                <button
+                  type="button"
+                  onClick={() => removeFilter(filter.key)}
+                  className="rounded-full p-0.5 hover:bg-black/10"
+                  aria-label={`Quitar filtro ${filter.label}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       {view === "lista" ? (
@@ -385,14 +781,30 @@ export default function ReservasPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Lote</TableHead>
-                <TableHead>Comprador</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Fecha reserva</TableHead>
-                <TableHead>Vencimiento</TableHead>
-                <TableHead>Firma</TableHead>
-                <TableHead>Precio</TableHead>
-                <TableHead>Reservado por</TableHead>
+                <TableHead>
+                  <SortHeader sortKey="loteNumero">Lote</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="nombreComprador">Comprador</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="estado">Estado</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="fechaReserva">Fecha reserva</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="fechaVencimiento">Vencimiento</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="fechaFirma">Firma</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="precioTotalNum">Precio</SortHeader>
+                </TableHead>
+                <TableHead>
+                  <SortHeader sortKey="reservadoPor">Reservado por</SortHeader>
+                </TableHead>
                 <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
@@ -407,7 +819,7 @@ export default function ReservasPage() {
                       ))}
                     </TableRow>
                   ))
-                : reservas.map((reserva) => (
+                : sortedReservas.map((reserva) => (
                     <TableRow key={reserva.id}>
                       <TableCell className="font-mono text-sm">
                         {reserva.loteNumero}
@@ -506,6 +918,18 @@ export default function ReservasPage() {
                           <Button asChild variant="ghost" size="sm">
                             <Link href={`/crm/lotes/${reserva.parcelaId}`}>Ver</Link>
                           </Button>
+                          {session?.user?.role === "admin" && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteReserva(reserva)}
+                              disabled={deletingId === reserva.id}
+                              aria-label={`Borrar reserva ${reserva.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { leads } from "@/lib/schema";
 import { eq } from "drizzle-orm";
-import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { requireApiAdmin, requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -76,4 +76,29 @@ export async function PUT(
       { status: 500 }
     );
   }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireApiAdmin();
+  if (isErrorResponse(authResult)) return authResult;
+
+  const { id } = await params;
+  const leadId = parseInt(id);
+  if (isNaN(leadId)) {
+    return NextResponse.json({ error: "ID invalido" }, { status: 400 });
+  }
+
+  const [deleted] = await db
+    .delete(leads)
+    .where(eq(leads.id, leadId))
+    .returning({ id: leads.id });
+
+  if (!deleted) {
+    return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

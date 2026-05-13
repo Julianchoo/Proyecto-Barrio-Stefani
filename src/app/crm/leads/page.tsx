@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoLead } from "@/lib/schema";
 
@@ -122,6 +122,7 @@ export default function LeadsPage() {
     notas: "",
   });
   const [createSaving, setCreateSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -365,6 +366,36 @@ export default function LeadsPage() {
     setCreateSaving(false);
   }
 
+  async function handleDeleteLead(lead: LeadRow) {
+    if (!isAdmin) return;
+    if (!window.confirm(`Borrar el lead de ${lead.nombre}?`)) return;
+
+    setDeletingId(lead.id);
+    try {
+      const res = await fetch(`/api/crm/leads/${lead.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setLeads((ls) => ls.filter((l) => l.id !== lead.id));
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(lead.id);
+          return next;
+        });
+        toast.success("Lead borrado");
+        return;
+      }
+
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "No se pudo borrar el lead");
+    } catch {
+      toast.error("No se pudo borrar el lead");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const allSelected = leads.length > 0 && selected.size === leads.length;
   const someSelected = selected.size > 0 && selected.size < leads.length;
   const colCount = isAdmin ? 9 : 8;
@@ -425,7 +456,7 @@ export default function LeadsPage() {
               <TableHead>Estado</TableHead>
               <TableHead>Asignado a</TableHead>
               <TableHead>Fecha</TableHead>
-              <TableHead className="w-16">Acciones</TableHead>
+              <TableHead className="w-24">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -523,16 +554,29 @@ export default function LeadsPage() {
                       {new Date(lead.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
                     <TableCell>
-                      {canEditLead(lead) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(lead)}
-                          aria-label={`Editar ${lead.nombre}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {canEditLead(lead) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(lead)}
+                            aria-label={`Editar ${lead.nombre}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteLead(lead)}
+                            disabled={deletingId === lead.id}
+                            aria-label={`Borrar ${lead.nombre}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

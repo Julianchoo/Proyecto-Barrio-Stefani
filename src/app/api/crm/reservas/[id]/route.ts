@@ -177,3 +177,53 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireApiAuth();
+  if (isErrorResponse(authResult)) return authResult;
+
+  if (authResult.role !== "admin") {
+    return NextResponse.json(
+      { error: "Solo un administrador puede borrar reservas" },
+      { status: 403 }
+    );
+  }
+
+  const { id } = await params;
+  const reservaId = parseInt(id);
+  if (isNaN(reservaId)) {
+    return NextResponse.json({ error: "ID invalido" }, { status: 400 });
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ reserva: reservas })
+      .from(reservas)
+      .where(eq(reservas.id, reservaId));
+
+    if (!current) return { kind: "not-found" as const };
+
+    await tx.delete(reservas).where(eq(reservas.id, reservaId));
+
+    if (
+      current.reserva.estado === "activa" ||
+      current.reserva.estado === "realizada"
+    ) {
+      await tx
+        .update(parcelas)
+        .set({ estado: "disponible" })
+        .where(eq(parcelas.id, current.reserva.parcelaId));
+    }
+
+    return { kind: "ok" as const };
+  });
+
+  if (result.kind === "not-found") {
+    return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
