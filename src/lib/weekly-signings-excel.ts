@@ -1,11 +1,14 @@
 import * as XLSX from "xlsx";
 import type { Parcela } from "@/lib/report-data";
+import type { ReservaReportRow } from "@/lib/reservas-report";
 
 type SigningSection = {
   title: string;
   range: { start: string; end: string };
   signings: Parcela[];
 };
+
+type MoneyMode = "formatted" | "raw";
 
 function fmt(value: string | number | null | undefined, fallback = "") {
   if (value === null || value === undefined || value === "") return fallback;
@@ -33,9 +36,22 @@ function money(value: string | number | null | undefined) {
   })}`;
 }
 
+function rawMoney(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "";
+  return parseMoney(value);
+}
+
+function excelMoney(value: string | number | null | undefined, mode: MoneyMode) {
+  return mode === "raw" ? rawMoney(value) : money(value);
+}
+
 function diffMoney(value: number) {
   if (value < 0) return `U$S (${Math.abs(value).toLocaleString("en-US")})`;
   return `U$S ${value.toLocaleString("en-US")}`;
+}
+
+function excelDiffMoney(value: number, mode: MoneyMode) {
+  return mode === "raw" ? value : diffMoney(value);
 }
 
 function modalidad(signing: Parcela) {
@@ -92,7 +108,7 @@ function buildNotas(sections: SigningSection[]) {
   ];
 }
 
-function buildBoletosRows(sections: SigningSection[]) {
+function buildBoletosRows(sections: SigningSection[], moneyMode: MoneyMode = "formatted") {
   let index = 1;
   return sections.flatMap((section) =>
     section.signings.map((signing) => ({
@@ -123,12 +139,12 @@ function buildBoletosRows(sections: SigningSection[]) {
       "Fecha esc.": "",
       "Calles frente": fmt(signing.calleFrente),
       "Calles linderas": callesLinderas(signing),
-      "Valor lote (USD)": money(basePrice(signing)),
-      "Valor total boleto (USD)": money(totalPrice(signing)),
-      "Anticipo (USD)": money(signing.anticipoNum),
-      "Saldo (USD)": money(signing.saldoNum),
+      "Valor lote (USD)": excelMoney(basePrice(signing), moneyMode),
+      "Valor total boleto (USD)": excelMoney(totalPrice(signing), moneyMode),
+      "Anticipo (USD)": excelMoney(signing.anticipoNum, moneyMode),
+      "Saldo (USD)": excelMoney(signing.saldoNum, moneyMode),
       "Cant. cuotas": fmt(signing.cantidadCuotas, "0"),
-      "Monto cuota (USD)": money(signing.cuotaMensual),
+      "Monto cuota (USD)": excelMoney(signing.cuotaMensual, moneyMode),
       Broker: fmt(signing.nombreCorredor),
     }))
   );
@@ -173,7 +189,7 @@ function buildChecklist(sections: SigningSection[]) {
   return [headers, ...rows];
 }
 
-function buildValidationRows(sections: SigningSection[]) {
+function buildValidationRows(sections: SigningSection[], moneyMode: MoneyMode = "formatted") {
   let index = 1;
   return sections.flatMap((section) =>
     section.signings.map((signing) => {
@@ -191,18 +207,92 @@ function buildValidationRows(sections: SigningSection[]) {
         Lote: `M${fmt(signing.manzana)}-L${fmt(signing.parcela ?? signing.numero)}`,
         Comprador: fmt(signing.nombreComprador),
         Modalidad: modalidadValue,
-        "Anticipo (a)": money(anticipo),
+        "Anticipo (a)": excelMoney(anticipo, moneyMode),
         "Cuotas (b)": cuotas,
-        "Monto cuota (c)": money(cuota),
-        "b x c (d)": money(cuotasTotal),
-        "Saldo planilla (e)": money(saldo),
-        "Diff (e-d)": diffMoney(saldo - cuotasTotal),
-        "a + e (Total)": money(anticipo + saldo),
-        "Total boleto (f)": money(total),
-        "Diff (f-(a+e))": diffMoney(total - (anticipo + saldo)),
+        "Monto cuota (c)": excelMoney(cuota, moneyMode),
+        "b x c (d)": excelMoney(cuotasTotal, moneyMode),
+        "Saldo planilla (e)": excelMoney(saldo, moneyMode),
+        "Diff (e-d)": excelDiffMoney(saldo - cuotasTotal, moneyMode),
+        "a + e (Total)": excelMoney(anticipo + saldo, moneyMode),
+        "Total boleto (f)": excelMoney(total, moneyMode),
+        "Diff (f-(a+e))": excelDiffMoney(total - (anticipo + saldo), moneyMode),
       };
     })
   );
+}
+
+function fmtDateTime(value: Date | string | null | undefined) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toLocaleString("es-AR");
+  return value;
+}
+
+function buildReservasCompletasRows(reservas: ReservaReportRow[]) {
+  return reservas.map((reserva) => ({
+    "ID reserva": reserva.id,
+    "ID lote": reserva.parcelaId,
+    "ID lead": fmt(reserva.leadId),
+    "Estado reserva": fmt(reserva.reservaEstado),
+    "Estado lote": fmt(reserva.loteEstado),
+    "Lote N": fmt(reserva.loteNumero),
+    Circunscripcion: fmt(reserva.circunscripcion),
+    Seccion: fmt(reserva.seccion),
+    Manzana: fmt(reserva.manzana),
+    Parcela: fmt(reserva.parcela),
+    "Partida ARBA": fmt(reserva.partidaArba),
+    "Partida municipal": fmt(reserva.partidaMunicipal),
+    Escritura: fmt(reserva.escritura),
+    Matricula: fmt(reserva.matriculaFolio),
+    "Certificado catastral": fmt(reserva.certificadoCatastral),
+    "Valuacion fiscal": fmt(reserva.valuacionFiscal),
+    "VF al acto": fmt(reserva.vfAlActo),
+    "Superficie m2": fmt(reserva.superficieM2),
+    Frente: fmt(reserva.metrosFrente),
+    Fondo: fmt(reserva.metrosFondo),
+    "Calle frente": fmt(reserva.calleFrente),
+    "Calle lindera 1": fmt(reserva.calleLindera1),
+    "Calle lindera 2": fmt(reserva.calleLindera2),
+    "Precio base": fmt(reserva.precioBase),
+    "Precio etapa 1": fmt(reserva.precioEtapa1),
+    "Valor m2": fmt(reserva.valorM2),
+    "Nombre comprador": fmt(reserva.nombreComprador),
+    "DNI/CUIT": fmt(reserva.dniCuit),
+    Telefono: fmt(reserva.telefono),
+    Email: fmt(reserva.emailComprador),
+    Domicilio: fmt(reserva.domicilioComprador),
+    Nacionalidad: fmt(reserva.nacionalidad),
+    "Fecha nacimiento": fmtDate(reserva.fechaNacimiento),
+    "Estado civil": fmt(reserva.estadoCivil),
+    "CUIT comprador": fmt(reserva.cuitComprador),
+    "Nombre co-comprador": fmt(reserva.nombreCoComprador),
+    "DNI co-comprador": fmt(reserva.dniCoComprador),
+    "CUIT co-comprador": fmt(reserva.cuitCoComprador),
+    "Estado civil co-comprador": fmt(reserva.estadoCivilCoComprador),
+    "% co-comprador": fmt(reserva.porcentajeCoComprador),
+    "Tipo entrega": fmt(reserva.tipoEntrega),
+    "Mes entrega": fmt(reserva.mesEntrega),
+    "Anio entrega": fmt(reserva.anioEntrega),
+    Corredor: fmt(reserva.nombreCorredor),
+    "Email corredor": fmt(reserva.emailCorredor),
+    "Forma de pago": fmt(reserva.formaPago),
+    "Fecha reserva": fmtDate(reserva.fechaReserva),
+    "Fecha vencimiento": fmtDate(reserva.fechaVencimiento),
+    "Fecha firma": fmtDate(reserva.fechaFirma),
+    "Modificado por": fmt(reserva.modificadoPor),
+    "Reservado por": fmt(reserva.reservadoPor),
+    Observaciones: fmt(reserva.observaciones),
+    "Precio total palabras": fmt(reserva.precioTotalPalabras),
+    "Precio total num": fmt(reserva.precioTotalNum),
+    "Anticipo palabras": fmt(reserva.anticipoPalabras),
+    "Anticipo num": fmt(reserva.anticipoNum),
+    "Saldo palabras": fmt(reserva.saldoPalabras),
+    "Saldo num": fmt(reserva.saldoNum),
+    "Cantidad cuotas": fmt(reserva.cantidadCuotas),
+    "Cuota mensual palabras": fmt(reserva.cuotaMensualPalabras),
+    "Cuota mensual": fmt(reserva.cuotaMensual),
+    "Reserva creada": fmtDateTime(reserva.reservaCreatedAt),
+    "Reserva actualizada": fmtDateTime(reserva.reservaUpdatedAt),
+  }));
 }
 
 function appendSheet(workbook: XLSX.WorkBook, name: string, data: unknown[][] | object[]) {
@@ -216,9 +306,31 @@ function appendSheet(workbook: XLSX.WorkBook, name: string, data: unknown[][] | 
 export function buildWeeklySigningsExcel(sections: SigningSection[]) {
   const workbook = XLSX.utils.book_new();
   appendSheet(workbook, "Notas", buildNotas(sections));
-  appendSheet(workbook, "Boletos firmas", buildBoletosRows(sections));
+  appendSheet(workbook, "Boletos firmas", buildBoletosRows(sections, "raw"));
   appendSheet(workbook, "Checklist completitud", buildChecklist(sections));
-  appendSheet(workbook, "Validacion montos", buildValidationRows(sections));
+  appendSheet(workbook, "Validacion montos", buildValidationRows(sections, "raw"));
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
+export function buildReservasExportExcel(reservas: ReservaReportRow[]) {
+  const sections = [
+    {
+      title: "Reservas filtradas",
+      range: { start: "", end: "" },
+      signings: reservas as unknown as Parcela[],
+    },
+  ];
+  const workbook = XLSX.utils.book_new();
+  appendSheet(workbook, "Notas", [
+    ["RESUMEN - Reservas filtradas Barrio Stefani CRM"],
+    [null],
+    [`${reservas.length} reservas incluidas.`],
+    [null],
+    ["Este archivo usa el mismo modelo del resumen de firmas y agrega una hoja con todos los campos de reserva."],
+  ]);
+  appendSheet(workbook, "Boletos firmas", buildBoletosRows(sections));
+  appendSheet(workbook, "Checklist completitud", buildChecklist(sections));
+  appendSheet(workbook, "Validacion montos", buildValidationRows(sections));
+  appendSheet(workbook, "Reservas completas", buildReservasCompletasRows(reservas));
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}

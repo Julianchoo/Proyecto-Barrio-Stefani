@@ -3,13 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, Download, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { ReservaDialog } from "@/components/crm/reserva-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -17,6 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -26,15 +41,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { ReservaDialog } from "@/components/crm/reserva-dialog";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, EstadoReserva } from "@/lib/schema";
 
@@ -77,8 +83,8 @@ type CalendarEvent = {
 };
 
 type ReservaFilters = {
-  estado: EstadoReserva | "all";
-  reservadoPor: string;
+  estado: EstadoReserva[];
+  reservadoPor: string[];
   formaPago: string;
   fechaReservaDesde: string;
   fechaReservaHasta: string;
@@ -101,8 +107,8 @@ type SortKey =
 type SortDirection = "asc" | "desc";
 
 const defaultFilters: ReservaFilters = {
-  estado: "all",
-  reservadoPor: "all",
+  estado: [],
+  reservadoPor: [],
   formaPago: "",
   fechaReservaDesde: "",
   fechaReservaHasta: "",
@@ -207,6 +213,10 @@ function buildCalendarDays(monthKey: string) {
   return cells;
 }
 
+function toggleValue<T extends string>(values: T[], value: T) {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
 export default function ReservasPage() {
   const { data: session } = useSession();
   const [reservas, setReservas] = useState<ReservaRow[]>([]);
@@ -220,14 +230,14 @@ export default function ReservasPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [sendingSummary, setSendingSummary] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [usuarios, setUsuarios] = useState<UsuarioRow[]>([]);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
 
-  const fetchReservas = useCallback(async () => {
-    setLoading(true);
+  const buildFilterParams = useCallback(() => {
     const params = new URLSearchParams();
-    if (filters.estado !== "all") params.set("estado", filters.estado);
-    if (filters.reservadoPor !== "all") params.set("reservadoPor", filters.reservadoPor);
+    for (const estado of filters.estado) params.append("estado", estado);
+    for (const email of filters.reservadoPor) params.append("reservadoPor", email);
     if (filters.formaPago.trim()) params.set("formaPago", filters.formaPago.trim());
     if (filters.fechaReservaDesde) params.set("fechaReservaDesde", filters.fechaReservaDesde);
     if (filters.fechaReservaHasta) params.set("fechaReservaHasta", filters.fechaReservaHasta);
@@ -240,11 +250,17 @@ export default function ReservasPage() {
     if (filters.fechaFirmaDesde) params.set("fechaFirmaDesde", filters.fechaFirmaDesde);
     if (filters.fechaFirmaHasta) params.set("fechaFirmaHasta", filters.fechaFirmaHasta);
     if (search.trim()) params.set("search", search.trim());
+    return params;
+  }, [filters, search]);
+
+  const fetchReservas = useCallback(async () => {
+    setLoading(true);
+    const params = buildFilterParams();
     const res = await fetch(`/api/crm/reservas?${params}`);
     const data: ReservaRow[] = await res.json();
     setReservas(data);
     setLoading(false);
-  }, [filters, search]);
+  }, [buildFilterParams]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -306,14 +322,20 @@ export default function ReservasPage() {
   const monthLabel = `${monthNames[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
   const activeFilters = useMemo(() => {
     const items: Array<{ key: keyof ReservaFilters; label: string }> = [];
-    if (filters.estado !== "all") {
-      items.push({ key: "estado", label: `Estado: ${estadoLabels[filters.estado]}` });
+    if (filters.estado.length > 0) {
+      items.push({
+        key: "estado",
+        label: `Estado: ${filters.estado.map((estado) => estadoLabels[estado]).join(", ")}`,
+      });
     }
-    if (filters.reservadoPor !== "all") {
-      const usuario = usuarios.find((item) => item.email === filters.reservadoPor);
+    if (filters.reservadoPor.length > 0) {
+      const labels = filters.reservadoPor.map((email) => {
+        const usuario = usuarios.find((item) => item.email === email);
+        return usuario?.name || email;
+      });
       items.push({
         key: "reservadoPor",
-        label: `Comercial: ${usuario?.name || filters.reservadoPor}`,
+        label: `Comercial: ${labels.join(", ")}`,
       });
     }
     if (filters.formaPago.trim()) {
@@ -444,6 +466,32 @@ export default function ReservasPage() {
     }
   }
 
+  async function handleExportExcel() {
+    setExportingExcel(true);
+    try {
+      const params = buildFilterParams();
+      const res = await fetch(`/api/crm/reservas/export?${params}`);
+      if (!res.ok) {
+        toast.error("No se pudo generar el Excel");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Reservas_Barrio_Stefani_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error("No se pudo generar el Excel");
+    } finally {
+      setExportingExcel(false);
+    }
+  }
+
   async function handleDeleteReserva(reserva: ReservaRow) {
     if (session?.user?.role !== "admin") return;
     const comprador = reserva.nombreComprador ?? `lote ${reserva.loteNumero}`;
@@ -489,7 +537,7 @@ export default function ReservasPage() {
   function removeFilter(key: keyof ReservaFilters) {
     setFilters((current) => ({
       ...current,
-      [key]: key === "estado" || key === "reservadoPor" ? "all" : "",
+      [key]: key === "estado" || key === "reservadoPor" ? [] : "",
     }));
   }
 
@@ -532,6 +580,16 @@ export default function ReservasPage() {
           <p className="mt-1 text-sm text-gray-500">Reservas por lote y estado</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={exportingExcel || loading}
+          >
+            <Download className="mr-1 h-4 w-4" />
+            {exportingExcel ? "Exportando..." : "Exportar Excel"}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -595,51 +653,72 @@ export default function ReservasPage() {
               <div className="grid flex-1 auto-rows-min gap-5 px-4">
                 <div className="grid gap-2">
                   <Label>Estado</Label>
-                  <Select
-                    value={draftFilters.estado}
-                    onValueChange={(value) =>
-                      setDraftFilters((current) => ({
-                        ...current,
-                        estado: value as ReservaFilters["estado"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los estados</SelectItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="outline" className="justify-between">
+                        {draftFilters.estado.length
+                          ? draftFilters.estado.map((estado) => estadoLabels[estado]).join(", ")
+                          : "Todos los estados"}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
                       {(Object.keys(estadoLabels) as EstadoReserva[]).map((estado) => (
-                        <SelectItem key={estado} value={estado}>
+                        <DropdownMenuCheckboxItem
+                          key={estado}
+                          checked={draftFilters.estado.includes(estado)}
+                          onCheckedChange={() =>
+                            setDraftFilters((current) => ({
+                              ...current,
+                              estado: toggleValue(current.estado, estado),
+                            }))
+                          }
+                          onSelect={(event) => event.preventDefault()}
+                        >
                           {estadoLabels[estado]}
-                        </SelectItem>
+                        </DropdownMenuCheckboxItem>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {session?.user?.role === "admin" && (
                   <div className="grid gap-2">
                     <Label>Comercial</Label>
-                    <Select
-                      value={draftFilters.reservadoPor}
-                      onValueChange={(value) =>
-                        setDraftFilters((current) => ({ ...current, reservadoPor: value }))
-                      }
-                      disabled={usuarios.length === 0}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos los comerciales" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los comerciales</SelectItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="justify-between"
+                          disabled={usuarios.length === 0}
+                        >
+                          {draftFilters.reservadoPor.length
+                            ? draftFilters.reservadoPor
+                                .map((email) => usuarios.find((usuario) => usuario.email === email)?.name || email)
+                                .join(", ")
+                            : "Todos los comerciales"}
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-72">
                         {usuarios.map((usuario) => (
-                          <SelectItem key={usuario.id} value={usuario.email}>
+                          <DropdownMenuCheckboxItem
+                            key={usuario.id}
+                            checked={draftFilters.reservadoPor.includes(usuario.email)}
+                            onCheckedChange={() =>
+                              setDraftFilters((current) => ({
+                                ...current,
+                                reservadoPor: toggleValue(current.reservadoPor, usuario.email),
+                              }))
+                            }
+                            onSelect={(event) => event.preventDefault()}
+                          >
                             {usuario.name || usuario.email}
-                          </SelectItem>
+                          </DropdownMenuCheckboxItem>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )}
 
