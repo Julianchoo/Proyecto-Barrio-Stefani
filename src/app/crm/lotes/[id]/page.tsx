@@ -471,18 +471,24 @@ export default function LoteDetailPage() {
       anioEntrega: null,
     };
 
-    const res = await fetch(`/api/crm/parcelas/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      toast.success("Cálculo aplicado a la reserva");
-      await fetchLote();
-    } else {
+    try {
+      const res = await fetch(`/api/crm/parcelas/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success("Cálculo aplicado a la reserva");
+        const updatedLote: ParcelaConReserva = await res.json();
+        setLote(updatedLote);
+      } else {
+        toast.error("No se pudo aplicar el cálculo");
+      }
+    } catch {
       toast.error("No se pudo aplicar el cálculo");
+    } finally {
+      setCalculatorSaving(false);
     }
-    setCalculatorSaving(false);
   }
 
   async function onSubmit(values: FormValues) {
