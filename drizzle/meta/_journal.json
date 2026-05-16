@@ -106,6 +106,13 @@
       "when": 1778363095464,
       "tag": "0014_hesitant_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1778955491868,
+      "tag": "0015_lonely_magdalene",
+      "breakpoints": true
     }
   ]
 }

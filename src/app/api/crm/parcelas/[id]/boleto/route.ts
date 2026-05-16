@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { eq } from "drizzle-orm";
-import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
+import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
 import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import path from "path";
@@ -120,7 +120,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireApiAdmin();
+  const authResult = await requireApiAuth();
   if (isErrorResponse(authResult)) return authResult;
 
   const { id } = await params;
@@ -155,6 +155,16 @@ export async function POST(
 
   if (!row) {
     return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
+  }
+  const canGenerateBoleto =
+    authResult.role === "admin" ||
+    row.parcela.estado === "disponible" ||
+    row.reserva?.reservadoPor === authResult.email;
+  if (!canGenerateBoleto) {
+    return NextResponse.json(
+      { error: "No tenés permiso para generar el boleto de este lote" },
+      { status: 403 }
+    );
   }
 
   const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);

@@ -282,6 +282,8 @@ export const reservas = pgTable(
 
     precioTotalPalabras: text("precio_total_palabras"),
     precioTotalNum: text("precio_total_num"),
+    reservaPalabras: text("reserva_palabras"),
+    reservaNum: text("reserva_num"),
     anticipoPalabras: text("anticipo_palabras"),
     anticipoNum: text("anticipo_num"),
     saldoPalabras: text("saldo_palabras"),
@@ -347,6 +349,8 @@ export type ParcelaConReserva = Parcela &
       | "observaciones"
       | "precioTotalPalabras"
       | "precioTotalNum"
+      | "reservaPalabras"
+      | "reservaNum"
       | "anticipoPalabras"
       | "anticipoNum"
       | "saldoPalabras"

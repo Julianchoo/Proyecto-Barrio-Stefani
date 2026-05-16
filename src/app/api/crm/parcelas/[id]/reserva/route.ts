@@ -113,11 +113,12 @@ export async function POST(
   const form = parsed.data;
   const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
   const anticipoNum = form.anticipoNum || formatMoney(parcela.anticipoNum);
-  const reservaNum = form.reservaNum || anticipoNum;
+  const reservaNum = form.reservaNum || formatMoney(parcela.reservaNum) || "500";
   const precioTotalNum = form.precioTotalNum || formatMoney(parcela.precioTotalNum);
   const saldoNum = form.saldoNum || formatMoney(parcela.saldoNum);
   const cuotaMensual = form.cuotaMensual || formatMoney(parcela.cuotaMensual);
 
+  const reservaPalabras = wordsOrAmount(form.reservaPalabras, reservaNum);
   const data: Record<string, string> = {
     dia: form.dia,
     mes: form.mes,
@@ -125,7 +126,7 @@ export async function POST(
     nombreComprador: form.nombreComprador || parcela.nombreComprador || "",
     dniComprador: form.dniComprador || parcela.dniCuit || "",
     domicilioComprador: form.domicilioComprador || parcela.domicilioComprador || "",
-    reservaPalabras: wordsOrAmount(form.reservaPalabras, reservaNum),
+    reservaPalabras,
     reservaNum,
     lote: form.lote || parcela.parcela || "",
     manzana: form.manzana || parcela.manzana || "",
@@ -147,6 +148,15 @@ export async function POST(
     honorariosPalabras: form.honorariosPalabras || "CUATROCIENTOS CINCUENTA",
     honorariosNum: form.honorariosNum || "450",
   };
+
+  await db
+    .update(reservas)
+    .set({
+      reservaPalabras,
+      reservaNum,
+      updatedAt: new Date(),
+    })
+    .where(eq(reservas.id, row.reserva.id));
 
   const templatePath = path.join(
     process.cwd(),

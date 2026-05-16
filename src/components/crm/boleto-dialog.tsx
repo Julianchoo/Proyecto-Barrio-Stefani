@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -109,9 +109,11 @@ type FormValues = z.infer<typeof schema>;
 
 interface BoletoDialogProps {
   parcela: ParcelaConReserva;
+  disabled?: boolean;
+  trigger?: ReactNode;
 }
 
-export function BoletoDialog({ parcela }: BoletoDialogProps) {
+export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) {
   const [open, setOpen] = useState(false);
 
   const form = useForm<FormValues>({
@@ -318,10 +320,12 @@ export function BoletoDialog({ parcela }: BoletoDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <FileText className="h-4 w-4" />
-          Generar Boleto
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" className="gap-2" disabled={disabled}>
+            <FileText className="h-4 w-4" />
+            Generar Boleto
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

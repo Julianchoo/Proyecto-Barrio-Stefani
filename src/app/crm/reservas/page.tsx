@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, Download, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { BoletoDialog } from "@/components/crm/boleto-dialog";
 import { ReservaDialog } from "@/components/crm/reserva-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,9 +43,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSession } from "@/lib/auth-client";
-import type { EstadoParcela, EstadoReserva } from "@/lib/schema";
+import type { EstadoParcela, EstadoReserva, ParcelaConReserva } from "@/lib/schema";
 
-type ReservaRow = {
+type ReservaRow = Omit<ParcelaConReserva, "id" | "estado" | "createdAt" | "updatedAt"> & {
   id: number;
   parcelaId: number;
   leadId: number | null;
@@ -572,6 +573,15 @@ export default function ReservasPage() {
     return session?.user?.role === "admin" || reserva.reservadoPor === session?.user?.email;
   }
 
+  function parcelaFromReserva(reserva: ReservaRow): ParcelaConReserva {
+    return {
+      ...reserva,
+      id: reserva.parcelaId,
+      estado: reserva.loteEstado,
+      reservaId: reserva.id,
+    } as unknown as ParcelaConReserva;
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -991,6 +1001,21 @@ export default function ReservasPage() {
                               >
                                 <FileText className="mr-1 h-4 w-4" />
                                 Reserva
+                              </Button>
+                            }
+                          />
+                          <BoletoDialog
+                            parcela={parcelaFromReserva(reserva)}
+                            disabled={!canEditReserva(reserva)}
+                            trigger={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={!canEditReserva(reserva)}
+                              >
+                                <FileText className="mr-1 h-4 w-4" />
+                                Boleto
                               </Button>
                             }
                           />

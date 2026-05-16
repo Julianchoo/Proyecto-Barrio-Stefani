@@ -31,6 +31,8 @@ const COMERCIAL_FIELDS = [
   "observaciones",
   "precioTotalPalabras",
   "precioTotalNum",
+  "reservaPalabras",
+  "reservaNum",
   "anticipoPalabras",
   "anticipoNum",
   "saldoPalabras",
@@ -61,6 +63,8 @@ const updateSchema = z
     observaciones: z.string().nullable().optional(),
     precioTotalPalabras: z.string().nullable().optional(),
     precioTotalNum: z.string().nullable().optional(),
+    reservaPalabras: z.string().nullable().optional(),
+    reservaNum: z.string().nullable().optional(),
     anticipoPalabras: z.string().nullable().optional(),
     anticipoNum: z.string().nullable().optional(),
     saldoPalabras: z.string().nullable().optional(),
@@ -128,6 +132,15 @@ const PARCELA_ADMIN_FIELDS = [
   "nota",
 ] as const;
 
+const PARCELA_COMERCIAL_FIELDS = [
+  "superficieM2",
+  "metrosFrente",
+  "metrosFondo",
+  "calleFrente",
+  "calleLindera1",
+  "calleLindera2",
+] as const;
+
 function hasReservaValue(data: Record<string, unknown>) {
   return Object.values(data).some((value) => value !== null && value !== "");
 }
@@ -143,6 +156,10 @@ function calculateValorM2(precioBase: unknown, superficieM2: unknown) {
   const superficie = numericValue(superficieM2);
   if (precio === null || superficie === null || superficie <= 0) return null;
   return String(Number((precio / superficie).toFixed(2)));
+}
+
+function hasAnyField(data: Record<string, unknown>, fields: readonly string[]) {
+  return fields.some((field) => field in data);
 }
 
 function isReservaCreation(
@@ -177,6 +194,9 @@ export async function PUT(
       for (const field of COMERCIAL_FIELDS) {
         if (field in data) allowedData[field] = data[field];
       }
+      for (const field of PARCELA_COMERCIAL_FIELDS) {
+        if (field in data) allowedData[field] = data[field];
+      }
     }
 
     const result = await db.transaction(async (tx) => {
@@ -198,18 +218,41 @@ export async function PUT(
 
       if (isReservedByOther) return { kind: "forbidden" as const };
 
+      const touchesCommercialParcelaFields = hasAnyField(
+        allowedData,
+        PARCELA_COMERCIAL_FIELDS
+      );
+      const canComercialEditParcelaFields =
+        authResult.role === "admin" ||
+        current.estado === "disponible" ||
+        activeReserva?.reservadoPor === authResult.email;
+
+      if (
+        authResult.role !== "admin" &&
+        touchesCommercialParcelaFields &&
+        !canComercialEditParcelaFields
+      ) {
+        return { kind: "forbidden" as const };
+      }
+
       const parcelaData: Record<string, unknown> = {};
       if ("estado" in allowedData) parcelaData.estado = allowedData.estado;
       if (authResult.role === "admin") {
         for (const field of PARCELA_ADMIN_FIELDS) {
           if (field in allowedData) parcelaData[field] = allowedData[field];
         }
-        if ("precioBase" in allowedData) {
-          parcelaData.valorM2 = calculateValorM2(
-            allowedData.precioBase,
-            "superficieM2" in allowedData ? allowedData.superficieM2 : current.superficieM2
-          );
+      } else {
+        for (const field of PARCELA_COMERCIAL_FIELDS) {
+          if (field in allowedData) parcelaData[field] = allowedData[field];
         }
+      }
+      if ("precioBase" in allowedData || "superficieM2" in parcelaData) {
+        parcelaData.valorM2 = calculateValorM2(
+          "precioBase" in allowedData
+            ? allowedData.precioBase
+            : current.precioBase ?? current.precioEtapa1,
+          "superficieM2" in parcelaData ? parcelaData.superficieM2 : current.superficieM2
+        );
       }
 
       const reservaData = pickReservaData(allowedData);

@@ -65,6 +65,8 @@ const schema = z.object({
   observaciones: z.string().nullable().optional(),
   precioTotalPalabras: z.string().nullable().optional(),
   precioTotalNum: z.string().nullable().optional(),
+  reservaPalabras: z.string().nullable().optional(),
+  reservaNum: z.string().nullable().optional(),
   anticipoPalabras: z.string().nullable().optional(),
   anticipoNum: z.string().nullable().optional(),
   saldoPalabras: z.string().nullable().optional(),
@@ -167,6 +169,15 @@ const editableLoteFields = [
   { name: "anticipoPct" as const, label: "Anticipo", suffix: "%" },
   { name: "tasaMensual" as const, label: "Tasa mensual", suffix: "%" },
 ];
+
+const comercialEditableLoteFieldNames = [
+  "superficieM2",
+  "metrosFrente",
+  "metrosFondo",
+  "calleFrente",
+  "calleLindera1",
+  "calleLindera2",
+] as const;
 
 const calculatedLoteFields = [
   { name: "valorM2" as const, label: "Valor m²", suffix: "USD" },
@@ -338,6 +349,8 @@ export default function LoteDetailPage() {
       observaciones: data.observaciones ?? "",
       precioTotalPalabras: data.precioTotalPalabras ?? "",
       precioTotalNum: data.precioTotalNum ?? "",
+      reservaPalabras: data.reservaPalabras ?? "",
+      reservaNum: data.reservaNum ?? "",
       anticipoPalabras: data.anticipoPalabras ?? "",
       anticipoNum: data.anticipoNum ?? "",
       saldoPalabras: data.saldoPalabras ?? "",
@@ -382,6 +395,7 @@ export default function LoteDetailPage() {
 
   function fillAmountWords() {
     const mappings: Array<[keyof FormValues, keyof FormValues]> = [
+      ["reservaNum", "reservaPalabras"],
       ["precioTotalNum", "precioTotalPalabras"],
       ["anticipoNum", "anticipoPalabras"],
       ["saldoNum", "saldoPalabras"],
@@ -587,6 +601,8 @@ export default function LoteDetailPage() {
         ["observaciones", data.observaciones],
         ["precioTotalPalabras", data.precioTotalPalabras],
         ["precioTotalNum", data.precioTotalNum],
+        ["reservaPalabras", data.reservaPalabras],
+        ["reservaNum", data.reservaNum],
         ["anticipoPalabras", data.anticipoPalabras],
         ["anticipoNum", data.anticipoNum],
         ["saldoPalabras", data.saldoPalabras],
@@ -654,6 +670,16 @@ export default function LoteDetailPage() {
     lote.estado === "reservado" &&
     session?.user?.role !== "admin" &&
     lote.reservadoPor !== session?.user?.email;
+  const canEditLoteParams =
+    session?.user?.role === "admin" ||
+    (session?.user?.role === "comercial" &&
+      (lote.estado === "disponible" || lote.reservadoPor === session.user.email));
+  const visibleEditableLoteFields =
+    session?.user?.role === "admin"
+      ? editableLoteFields
+      : editableLoteFields.filter(({ name }) =>
+          (comercialEditableLoteFieldNames as readonly string[]).includes(name)
+        );
   const selectedLeadId = form.watch("leadId");
   const leadDisplay = [
     ["Nombre", form.watch("nombreComprador") || "—"],
@@ -687,7 +713,7 @@ export default function LoteDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <ReservaDialog parcela={lote} disabled={isLocked} />
-          <BoletoDialog parcela={lote} />
+          <BoletoDialog parcela={lote} disabled={isLocked} />
         </div>
       </div>
 
@@ -710,7 +736,7 @@ export default function LoteDetailPage() {
           <CardTitle className="text-base">Datos del lote</CardTitle>
         </CardHeader>
         <CardContent>
-          {session?.user?.role === "admin" ? (
+          {canEditLoteParams ? (
             <form onSubmit={form.handleSubmit(handleLoteParamsSubmit)} className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 {readonlyCatastralFields.map(({ key, label }) => (
@@ -736,7 +762,7 @@ export default function LoteDetailPage() {
               </div>
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {editableLoteFields.map(({ name, label, suffix }) => (
+                {visibleEditableLoteFields.map(({ name, label, suffix }) => (
                   <div key={name} className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-500" htmlFor={name}>
                       {label}
@@ -1119,6 +1145,8 @@ export default function LoteDetailPage() {
                   {[
                     { name: "precioTotalPalabras" as const, label: "Precio total (en letras)", placeholder: "VEINTICINCO MIL" },
                     { name: "precioTotalNum" as const, label: "Precio total (número)", placeholder: "25000" },
+                    { name: "reservaPalabras" as const, label: "Reserva / seña (en letras)", placeholder: "QUINIENTOS" },
+                    { name: "reservaNum" as const, label: "Reserva / seña (número)", placeholder: "500" },
                     { name: "anticipoPalabras" as const, label: "Anticipo (en letras)", placeholder: "CINCO MIL" },
                     { name: "anticipoNum" as const, label: "Anticipo (número)", placeholder: "5000" },
                     { name: "saldoPalabras" as const, label: "Saldo (en letras)", placeholder: "VEINTE MIL" },

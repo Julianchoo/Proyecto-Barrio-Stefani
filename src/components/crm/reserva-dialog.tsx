@@ -133,6 +133,7 @@ function defaultWords(value: string) {
 
 function buildDefaults(parcela: ParcelaConReserva): FormValues {
   const fecha = parseFecha(parcela.fechaReserva);
+  const reservaNum = cleanNumber(parcela.reservaNum) || "500";
   const anticipoNum = cleanNumber(parcela.anticipoNum ?? parcela.anticipoUsd);
   const precioTotalNum = cleanNumber(parcela.precioTotalNum ?? parcela.precioEtapa1);
   const saldoNum = cleanNumber(parcela.saldoNum ?? parcela.saldoUsd);
@@ -146,8 +147,8 @@ function buildDefaults(parcela: ParcelaConReserva): FormValues {
     nombreComprador: parcela.nombreComprador ?? "",
     dniComprador: parcela.dniCuit ?? "",
     domicilioComprador: parcela.domicilioComprador ?? "",
-    reservaPalabras: parcela.anticipoPalabras ?? defaultWords(anticipoNum),
-    reservaNum: anticipoNum,
+    reservaPalabras: parcela.reservaPalabras ?? defaultWords(reservaNum),
+    reservaNum,
     lote: parcela.parcela ?? "",
     manzana: parcela.manzana ?? "",
     calleFrente: parcela.calleFrente ?? "",
