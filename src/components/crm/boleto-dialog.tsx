@@ -89,6 +89,7 @@ const schema = z.object({
   anticipoNum: z.string().optional(),
   saldoPalabras: z.string().optional(),
   saldoNum: z.string().optional(),
+  tipoCambioBna: z.string().optional(),
   cantidadCuotas: z.string().optional(),
   cuotaMensualPalabras: z.string().optional(),
   cuotaMensual: z.string().optional(),
@@ -137,6 +138,7 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
       anticipoNum: parcela.anticipoNum ?? (parcela.anticipoUsd ? String(Number(parcela.anticipoUsd)) : ""),
       saldoPalabras: parcela.saldoPalabras ?? "",
       saldoNum: parcela.saldoNum ?? (parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : ""),
+      tipoCambioBna: "",
       cantidadCuotas: parcela.cantidadCuotas ?? (parcela.cuotas48 ? "48" : ""),
       cuotaMensualPalabras: parcela.cuotaMensualPalabras ?? "",
       cuotaMensual: parcela.cuotaMensual ?? (parcela.cuotas48 ? String(parcela.cuotas48) : ""),
@@ -195,6 +197,7 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
       anticipoNum: parcela.anticipoNum ?? (parcela.anticipoUsd ? String(Number(parcela.anticipoUsd)) : ""),
       saldoPalabras: parcela.saldoPalabras ?? "",
       saldoNum: parcela.saldoNum ?? (parcela.saldoUsd ? String(Number(parcela.saldoUsd)) : ""),
+      tipoCambioBna: "",
       cantidadCuotas: parcela.cantidadCuotas ?? (parcela.cuotas48 ? "48" : ""),
       cuotaMensualPalabras: parcela.cuotaMensualPalabras ?? "",
       cuotaMensual: parcela.cuotaMensual ?? (parcela.cuotas48 ? String(parcela.cuotas48) : ""),
@@ -637,6 +640,20 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
                   </SelectContent>
                 </Select>
               </div>
+
+              <FormField
+                control={form.control}
+                name="tipoCambioBna"
+                render={({ field }) => (
+                  <FormItem className="mb-3">
+                    <FormLabel>Tipo de cambio vendedor BNA</FormLabel>
+                    <FormControl>
+                      <Input placeholder="1450" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid sm:grid-cols-2 gap-3">
                 {[

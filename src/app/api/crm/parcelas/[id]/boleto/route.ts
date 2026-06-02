@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
 import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
+import { amountToSpanishWords } from "@/lib/number-words";
 import path from "path";
 import fs from "fs";
 const PizZip = require("pizzip"); // eslint-disable-line @typescript-eslint/no-require-imports
@@ -36,6 +37,7 @@ const boletoSchema = z.object({
   anticipoNum: z.string().optional().default(""),
   saldoPalabras: z.string().optional().default(""),
   saldoNum: z.string().optional().default(""),
+  tipoCambioBna: z.string().optional().default(""),
   cantidadCuotas: z.string().optional().default(""),
   cuotaMensualPalabras: z.string().optional().default(""),
   cuotaMensual: z.string().optional().default(""),
@@ -62,6 +64,46 @@ type BoletoData = z.infer<typeof boletoSchema>;
 function formatUsd(value: string | number | null | undefined): string {
   if (!value) return "";
   return Number(value).toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
+function parseMoney(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const text = String(value).trim().replace(/\s+/g, "");
+  const cleaned = text.replace(/[^\d.,-]/g, "");
+  if (!cleaned || cleaned === "-") return null;
+
+  const lastDot = cleaned.lastIndexOf(".");
+  const lastComma = cleaned.lastIndexOf(",");
+  let normalized = cleaned;
+
+  if (lastDot !== -1 && lastComma !== -1) {
+    const decimalSeparator = lastDot > lastComma ? "." : ",";
+    const thousandsSeparator = decimalSeparator === "." ? "," : ".";
+    normalized = cleaned
+      .replace(new RegExp(`\\${thousandsSeparator}`, "g"), "")
+      .replace(decimalSeparator, ".");
+  } else {
+    const separator = lastDot !== -1 ? "." : lastComma !== -1 ? "," : "";
+    if (separator) {
+      const parts = cleaned.split(separator);
+      const lastPart = parts[parts.length - 1] ?? "";
+      normalized = lastPart.length === 3
+        ? parts.join("")
+        : cleaned.replace(separator, ".");
+    }
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatArs(value: number | null): string {
+  if (value === null) return "";
+  return Math.round(value).toLocaleString("es-AR", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
@@ -170,6 +212,33 @@ export async function POST(
   const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
   const numeroCuotaEntrega = form.numeroCuotaEntrega.trim();
   const entregaCuota = form.entregaCuota && Boolean(numeroCuotaEntrega);
+  const saldoNum = form.saldoNum || formatUsd(parcela.saldoUsd);
+  const cuotaMensual = form.cuotaMensual || formatUsd(parcela.cuotas48);
+  const tipoCambioBna = parseMoney(form.tipoCambioBna);
+  const saldoUsd = parseMoney(saldoNum);
+  const cuotaMensualUsd = parseMoney(cuotaMensual);
+
+  if (form.tipoPago === "financiado") {
+    if (tipoCambioBna === null || tipoCambioBna <= 0) {
+      return NextResponse.json(
+        { error: "Ingresá el tipo de cambio vendedor BNA" },
+        { status: 400 }
+      );
+    }
+    if (saldoUsd === null || cuotaMensualUsd === null) {
+      return NextResponse.json(
+        { error: "No se pudo calcular saldo/cuota en pesos: revisá los importes en USD" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const saldoPesosNum = formatArs(
+    tipoCambioBna === null || saldoUsd === null ? null : saldoUsd * tipoCambioBna
+  );
+  const cuotaPesosNum = formatArs(
+    tipoCambioBna === null || cuotaMensualUsd === null ? null : cuotaMensualUsd * tipoCambioBna
+  );
 
   // Build template data
   const data: Record<string, string | boolean> = {
@@ -207,10 +276,15 @@ export async function POST(
     anticipoPalabras: form.anticipoPalabras || "",
     anticipoNum: form.anticipoNum || formatUsd(parcela.anticipoUsd),
     saldoPalabras: form.saldoPalabras || "",
-    saldoNum: form.saldoNum || formatUsd(parcela.saldoUsd),
+    saldoNum,
+    tipoCambioBna: form.tipoCambioBna,
+    saldoPesosPalabras: amountToSpanishWords(saldoPesosNum) ?? "",
+    saldoPesosNum,
     cantidadCuotas: form.cantidadCuotas || "",
     cuotaMensualPalabras: form.cuotaMensualPalabras || "",
-    cuotaMensual: form.cuotaMensual || formatUsd(parcela.cuotas48),
+    cuotaMensual,
+    cuotaPesosPalabras: amountToSpanishWords(cuotaPesosNum) ?? "",
+    cuotaPesosNum,
     entregaCuota,
     entregaAlSaldo: !entregaCuota,
     numeroCuotaEntrega,
