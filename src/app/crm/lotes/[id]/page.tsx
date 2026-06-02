@@ -439,7 +439,7 @@ export default function LoteDetailPage() {
     setCalculatorSaving(true);
     const precioTotalNum = String(Math.round(calculatorResult.precioTotalNominal));
     const anticipoNum = String(Math.round(calculator.anticipo));
-    const saldoNum = String(Math.round(calculatorResult.saldo));
+    const saldoNum = String(Math.round(calculatorResult.totalFinanciado));
     const cantidadCuotas = String(Math.max(calculator.plazo, 1));
     const cuotaMensual = String(Math.round(calculatorResult.cuotaMensual));
     const useCuotaEntrega = calculatorResult.cuotaEntrega > 0;
