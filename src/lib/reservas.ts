@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { parcelas, reservas } from "@/lib/schema";
 import type { Lead, Parcela, ParcelaConReserva, Reserva } from "@/lib/schema";
 
@@ -86,6 +86,13 @@ const EMPTY_RESERVA_FIELDS = {
 
 export function activeReservaJoin() {
   return and(eq(reservas.parcelaId, parcelas.id), eq(reservas.estado, "activa"));
+}
+
+export function currentReservaJoin() {
+  return and(
+    eq(reservas.parcelaId, parcelas.id),
+    or(eq(reservas.estado, "activa"), eq(reservas.estado, "realizada"))
+  );
 }
 
 export function flattenParcelaReserva(

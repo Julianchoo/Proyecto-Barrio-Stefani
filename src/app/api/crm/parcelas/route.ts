@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
-import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
+import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoParcela } from "@/lib/schema";
 
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
   const rows = await db
     .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
-    .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(reservas, currentReservaJoin())
     .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(parcelas.numero);

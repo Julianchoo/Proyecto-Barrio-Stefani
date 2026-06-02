@@ -6,6 +6,7 @@ import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import {
   activeReservaJoin,
+  currentReservaJoin,
   flattenParcelaReserva,
   hasReservaData,
   pickReservaData,
@@ -388,7 +389,7 @@ export async function GET(
   const [row] = await db
     .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
-    .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(reservas, currentReservaJoin())
     .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(parcelas.id, parcelaId));
 
