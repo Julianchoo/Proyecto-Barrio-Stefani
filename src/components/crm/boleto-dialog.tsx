@@ -170,6 +170,7 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
   const [tipoPago, setTipoPago] = useState<"contado" | "financiado">(
     parcela.formaPago === "contado" ? "contado" : "financiado"
   );
+  const [monedaBoleto, setMonedaBoleto] = useState<"usd" | "pesos_cac">("pesos_cac");
   const [entregaCuota, setEntregaCuota] = useState(parcela.tipoEntrega === "cuota");
   const [showCoComprador, setShowCoComprador] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
@@ -212,6 +213,7 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
     });
     setShowApoderado(false);
     setTipoPago(parcela.formaPago === "contado" ? "contado" : "financiado");
+    setMonedaBoleto("pesos_cac");
     setEntregaCuota(parcela.tipoEntrega === "cuota");
     setShowCoComprador(Boolean(parcela.nombreCoComprador));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -296,7 +298,7 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
       const res = await fetch(`/api/crm/parcelas/${parcela.id}/boleto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, tipoPago, hasApoderado: showApoderado, hasCoComprador: showCoComprador, entregaCuota, numeroCuotaEntrega: values.numeroCuotaEntrega ?? "" }),
+        body: JSON.stringify({ ...values, tipoPago, monedaBoleto, hasApoderado: showApoderado, hasCoComprador: showCoComprador, entregaCuota, numeroCuotaEntrega: values.numeroCuotaEntrega ?? "" }),
       });
 
       if (!res.ok) {
@@ -641,19 +643,36 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
                 </Select>
               </div>
 
-              <FormField
-                control={form.control}
-                name="tipoCambioBna"
-                render={({ field }) => (
-                  <FormItem className="mb-3">
-                    <FormLabel>Tipo de cambio vendedor BNA</FormLabel>
-                    <FormControl>
-                      <Input placeholder="1450" {...field} value={field.value ?? ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {tipoPago === "financiado" && (
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Moneda del boleto</p>
+                  <Select value={monedaBoleto} onValueChange={(v) => setMonedaBoleto(v as "usd" | "pesos_cac")}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pesos_cac">Pesos + CAC</SelectItem>
+                      <SelectItem value="usd">USD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {tipoPago === "financiado" && monedaBoleto === "pesos_cac" && (
+                <FormField
+                  control={form.control}
+                  name="tipoCambioBna"
+                  render={({ field }) => (
+                    <FormItem className="mb-3">
+                      <FormLabel>Tipo de cambio vendedor BNA</FormLabel>
+                      <FormControl>
+                        <Input placeholder="1450" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <div className="grid sm:grid-cols-2 gap-3">
                 {[

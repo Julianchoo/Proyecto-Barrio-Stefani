@@ -38,6 +38,7 @@ const boletoSchema = z.object({
   saldoPalabras: z.string().optional().default(""),
   saldoNum: z.string().optional().default(""),
   tipoCambioBna: z.string().optional().default(""),
+  monedaBoleto: z.enum(["usd", "pesos_cac"]).default("pesos_cac"),
   cantidadCuotas: z.string().optional().default(""),
   cuotaMensualPalabras: z.string().optional().default(""),
   cuotaMensual: z.string().optional().default(""),
@@ -217,8 +218,10 @@ export async function POST(
   const tipoCambioBna = parseMoney(form.tipoCambioBna);
   const saldoUsd = parseMoney(saldoNum);
   const cuotaMensualUsd = parseMoney(cuotaMensual);
+  const usePesosCac =
+    form.tipoPago === "financiado" && form.monedaBoleto === "pesos_cac";
 
-  if (form.tipoPago === "financiado") {
+  if (usePesosCac) {
     if (tipoCambioBna === null || tipoCambioBna <= 0) {
       return NextResponse.json(
         { error: "Ingresá el tipo de cambio vendedor BNA" },
@@ -293,7 +296,9 @@ export async function POST(
   // Select template based on payment type
   const templateName = form.tipoPago === "contado"
     ? "boleto-template-contado.docx"
-    : "boleto-template-cuotas.docx";
+    : form.monedaBoleto === "usd"
+      ? "boleto-template-cuotas-usd.docx"
+      : "boleto-template-cuotas.docx";
   const templatePath = path.join(process.cwd(), "src", "templates", templateName);
   let templateBuf: Buffer;
   try {
