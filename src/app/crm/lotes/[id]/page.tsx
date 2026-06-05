@@ -308,18 +308,25 @@ export default function LoteDetailPage() {
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
     setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
+    const isComercial = session?.user?.role === "comercial";
     const reservaAnticipo = parseNumber(data.anticipoNum);
     const reservaSaldo = parseNumber(data.saldoNum);
-    const precioBase =
+    const precioLote = parseNumber(data.precioBase) ?? parseNumber(data.precioEtapa1) ?? 15000;
+    const precioAdmin =
       reservaAnticipo !== null && reservaSaldo !== null
         ? reservaAnticipo + reservaSaldo
         : parseNumber(data.precioEtapa1) ?? 15000;
-    const anticipoBase =
-      reservaAnticipo ?? parseNumber(data.anticipoUsd) ?? Math.round(precioBase * 0.3);
+    const precioCalculadora = isComercial ? precioLote : precioAdmin;
+    const anticipoCalculadora =
+      isComercial
+        ? Math.round(precioCalculadora * 0.3)
+        : reservaAnticipo ??
+          parseNumber(data.anticipoUsd) ??
+          Math.round(precioCalculadora * 0.3);
     setCalculator({
-      precio: precioBase,
-      anticipo: Math.min(anticipoBase, precioBase),
-      tasa: parseNumber(data.tasaMensual) ?? 1,
+      precio: precioCalculadora,
+      anticipo: Math.min(anticipoCalculadora, precioCalculadora),
+      tasa: isComercial ? 1 : parseNumber(data.tasaMensual) ?? 1,
       plazo: parseNumber(data.cantidadCuotas) ?? (data.cuotas48 ? 48 : 48),
     });
     form.reset({
@@ -680,6 +687,10 @@ export default function LoteDetailPage() {
       : editableLoteFields.filter(({ name }) =>
           (comercialEditableLoteFieldNames as readonly string[]).includes(name)
         );
+  const editableCalculatorFields =
+    session?.user?.role === "admin"
+      ? (["precio", "anticipo", "tasa", "plazo"] as const)
+      : (["plazo"] as const);
   const selectedLeadId = form.watch("leadId");
   const leadDisplay = [
     ["Nombre", form.watch("nombreComprador") || "—"],
@@ -859,6 +870,7 @@ export default function LoteDetailPage() {
             calculator={calculator}
             calculatorResult={calculatorResult}
             disabled={isLocked || calculatorSaving}
+            editableFields={editableCalculatorFields}
             saving={calculatorSaving}
             onChange={updateCalculatorValue}
             onApply={applyCalculatorToReserva}
@@ -1246,6 +1258,7 @@ export default function LoteDetailPage() {
                 calculator={calculator}
                 calculatorResult={calculatorResult}
                 disabled={isLocked || calculatorSaving}
+                editableFields={editableCalculatorFields}
                 saving={calculatorSaving}
                 onChange={updateCalculatorValue}
                 onApply={applyCalculatorToReserva}
@@ -1277,6 +1290,7 @@ function CalculatorContent({
   calculator,
   calculatorResult,
   disabled,
+  editableFields,
   saving,
   onChange,
   onApply,
@@ -1284,6 +1298,7 @@ function CalculatorContent({
   calculator: CalculatorState;
   calculatorResult: CalculatorResult;
   disabled: boolean;
+  editableFields: readonly (keyof CalculatorState)[];
   saving: boolean;
   onChange: (key: keyof CalculatorState, value: number) => void;
   onApply: () => void;
@@ -1326,7 +1341,10 @@ function CalculatorContent({
   return (
     <div className="space-y-4">
       <div className="space-y-3">
-        {fields.map((item) => (
+        {fields.map((item) => {
+          const fieldDisabled = disabled || !editableFields.includes(item.key);
+
+          return (
           <label key={item.key} className="block space-y-2">
             <span className="flex items-center justify-between gap-3 text-sm">
               <span className="font-medium text-gray-700">{item.label}</span>
@@ -1338,6 +1356,7 @@ function CalculatorContent({
                   step={item.step}
                   value={calculator[item.key]}
                   onChange={(e) => onChange(item.key, Number(e.target.value))}
+                  disabled={fieldDisabled}
                   className="h-8 w-28 text-right"
                 />
                 <span className="w-10 text-left text-xs text-gray-500">
@@ -1352,10 +1371,12 @@ function CalculatorContent({
               step={item.step}
               value={Math.min(calculator[item.key], item.max)}
               onChange={(e) => onChange(item.key, Number(e.target.value))}
+              disabled={fieldDisabled}
               className="w-full accent-green-700"
             />
           </label>
-        ))}
+          );
+        })}
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
