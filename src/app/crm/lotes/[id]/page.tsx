@@ -85,6 +85,7 @@ const schema = z.object({
   certificadoCatastral: z.string().nullable().optional(),
   valuacionFiscal: z.string().nullable().optional(),
   vfAlActo: z.string().nullable().optional(),
+  precioBase: z.string().nullable().optional(),
   precioEtapa1: z.string().nullable().optional(),
   valorM2: z.string().nullable().optional(),
   superficieM2: z.string().nullable().optional(),
@@ -116,6 +117,7 @@ const LOTE_PARAM_FIELDS = [
   "certificadoCatastral",
   "valuacionFiscal",
   "vfAlActo",
+  "precioBase",
   "precioEtapa1",
   "valorM2",
   "superficieM2",
@@ -159,15 +161,13 @@ type LeadOption = {
 };
 
 const editableLoteFields = [
-  { name: "precioEtapa1" as const, label: "Precio", suffix: "USD" },
+  { name: "precioBase" as const, label: "Precio", suffix: "USD" },
   { name: "superficieM2" as const, label: "Superficie", suffix: "m²" },
   { name: "metrosFrente" as const, label: "Frente", suffix: "m" },
   { name: "metrosFondo" as const, label: "Fondo", suffix: "m" },
   { name: "calleFrente" as const, label: "Calle de frente" },
   { name: "calleLindera1" as const, label: "Calle lindera 1" },
   { name: "calleLindera2" as const, label: "Calle lindera 2" },
-  { name: "anticipoPct" as const, label: "Anticipo", suffix: "%" },
-  { name: "tasaMensual" as const, label: "Tasa mensual", suffix: "%" },
 ];
 
 const comercialEditableLoteFieldNames = [
@@ -212,6 +212,27 @@ function calculateInstallment(saldo: number, tasaMensual: number, plazo: number)
   return Math.round((saldo * (1 + (tasaMensual / 100) * plazo)) / plazo);
 }
 
+const DEFAULT_ANTICIPO_PCT = 30;
+const DEFAULT_TASA_MENSUAL = 1;
+
+function calculateLotePricing(precioBase: string | null | undefined, superficieM2: string | null | undefined) {
+  const precio = parseNumber(precioBase);
+  const superficie = parseNumber(superficieM2);
+  const anticipo = precio !== null ? (precio * DEFAULT_ANTICIPO_PCT) / 100 : null;
+  const saldo = precio !== null && anticipo !== null ? Math.max(precio - anticipo, 0) : null;
+
+  return {
+    valorM2:
+      precio !== null && superficie !== null && superficie > 0
+        ? formatCalculated(precio / superficie, 2)
+        : "",
+    anticipoUsd: formatCalculated(anticipo),
+    saldoUsd: formatCalculated(saldo),
+    cuotas48: formatCalculated(saldo !== null ? calculateInstallment(saldo, DEFAULT_TASA_MENSUAL, 48) : null),
+    cuotas60: formatCalculated(saldo !== null ? calculateInstallment(saldo, DEFAULT_TASA_MENSUAL, 60) : null),
+  };
+}
+
 function formatUsd(value: number) {
   return `USD ${Math.round(value).toLocaleString("es-AR")}`;
 }
@@ -244,10 +265,8 @@ export default function LoteDetailPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
-  const precioEtapa1 = useWatch({ control: form.control, name: "precioEtapa1" });
+  const precioBase = useWatch({ control: form.control, name: "precioBase" });
   const superficieM2 = useWatch({ control: form.control, name: "superficieM2" });
-  const anticipoPct = useWatch({ control: form.control, name: "anticipoPct" });
-  const tasaMensual = useWatch({ control: form.control, name: "tasaMensual" });
   const calculatorResult = useMemo(() => {
     const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
     const plazo = Math.max(calculator.plazo, 1);
@@ -270,28 +289,7 @@ export default function LoteDetailPage() {
   }, [calculator]);
 
   useEffect(() => {
-    if (session?.user?.role !== "admin") return;
-
-    const precio = parseNumber(precioEtapa1);
-    const superficie = parseNumber(superficieM2);
-    const anticipoPorcentaje = parseNumber(anticipoPct) ?? 30;
-    const tasa = parseNumber(tasaMensual) ?? 1;
-
-    const valorM2 = precio !== null && superficie !== null && superficie > 0
-      ? precio / superficie
-      : null;
-    const anticipo = precio !== null ? (precio * anticipoPorcentaje) / 100 : null;
-    const saldo = precio !== null && anticipo !== null ? Math.max(precio - anticipo, 0) : null;
-    const cuotas48 = saldo !== null ? calculateInstallment(saldo, tasa, 48) : null;
-    const cuotas60 = saldo !== null ? calculateInstallment(saldo, tasa, 60) : null;
-
-    const derivedValues: Partial<FormValues> = {
-      valorM2: formatCalculated(valorM2, 2),
-      anticipoUsd: formatCalculated(anticipo),
-      saldoUsd: formatCalculated(saldo),
-      cuotas48: formatCalculated(cuotas48),
-      cuotas60: formatCalculated(cuotas60),
-    };
+    const derivedValues = calculateLotePricing(precioBase, superficieM2);
 
     for (const [key, value] of Object.entries(derivedValues) as Array<
       [keyof FormValues, string]
@@ -300,7 +298,7 @@ export default function LoteDetailPage() {
         form.setValue(key, value, { shouldDirty: true });
       }
     }
-  }, [anticipoPct, form, precioEtapa1, session?.user?.role, superficieM2, tasaMensual]);
+  }, [form, precioBase, superficieM2]);
 
   async function fetchLote() {
     const r = await fetch(`/api/crm/parcelas/${id}`);
@@ -308,25 +306,13 @@ export default function LoteDetailPage() {
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
     setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
-    const isComercial = session?.user?.role === "comercial";
-    const reservaAnticipo = parseNumber(data.anticipoNum);
-    const reservaSaldo = parseNumber(data.saldoNum);
     const precioLote = parseNumber(data.precioBase) ?? parseNumber(data.precioEtapa1) ?? 15000;
-    const precioAdmin =
-      reservaAnticipo !== null && reservaSaldo !== null
-        ? reservaAnticipo + reservaSaldo
-        : parseNumber(data.precioEtapa1) ?? 15000;
-    const precioCalculadora = isComercial ? precioLote : precioAdmin;
-    const anticipoCalculadora =
-      isComercial
-        ? Math.round(precioCalculadora * 0.3)
-        : reservaAnticipo ??
-          parseNumber(data.anticipoUsd) ??
-          Math.round(precioCalculadora * 0.3);
+    const precioCalculadora = precioLote;
+    const anticipoCalculadora = Math.round(precioCalculadora * 0.3);
     setCalculator({
       precio: precioCalculadora,
       anticipo: Math.min(anticipoCalculadora, precioCalculadora),
-      tasa: isComercial ? 1 : parseNumber(data.tasaMensual) ?? 1,
+      tasa: 1,
       plazo: parseNumber(data.cantidadCuotas) ?? (data.cuotas48 ? 48 : 48),
     });
     form.reset({
@@ -376,6 +362,7 @@ export default function LoteDetailPage() {
       certificadoCatastral: data.certificadoCatastral ?? "",
       valuacionFiscal: data.valuacionFiscal ?? "",
       vfAlActo: data.vfAlActo ?? "",
+      precioBase: data.precioBase ?? data.precioEtapa1 ?? "",
       precioEtapa1: data.precioEtapa1 ?? "",
       valorM2: data.valorM2 ?? "",
       superficieM2: data.superficieM2 ?? "",
@@ -384,9 +371,9 @@ export default function LoteDetailPage() {
       calleFrente: data.calleFrente ?? "",
       calleLindera1: data.calleLindera1 ?? "",
       calleLindera2: data.calleLindera2 ?? "",
-      anticipoPct: data.anticipoPct ?? "30",
+      anticipoPct: String(DEFAULT_ANTICIPO_PCT),
       anticipoUsd: data.anticipoUsd ?? "",
-      tasaMensual: data.tasaMensual ?? "1",
+      tasaMensual: String(DEFAULT_TASA_MENSUAL),
       saldoUsd: data.saldoUsd ?? "",
       cuotas48: data.cuotas48 ?? "",
       cuotas60: data.cuotas60 ?? "",
@@ -562,10 +549,18 @@ export default function LoteDetailPage() {
 
   async function handleLoteParamsSubmit(values: FormValues) {
     const payload: Record<string, unknown> = {};
+    const derivedValues = calculateLotePricing(values.precioBase, values.superficieM2);
+
     for (const field of LOTE_PARAM_FIELDS) {
       const value = values[field];
       payload[field] = value === "" ? null : value;
     }
+    payload.anticipoPct = String(DEFAULT_ANTICIPO_PCT);
+    payload.tasaMensual = String(DEFAULT_TASA_MENSUAL);
+    for (const [key, value] of Object.entries(derivedValues)) {
+      payload[key] = value === "" ? null : value;
+    }
+
     const res = await fetch(`/api/crm/parcelas/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -703,6 +698,17 @@ export default function LoteDetailPage() {
     ["Estado civil", form.watch("estadoCivil") || "—"],
     ["CUIT comprador", form.watch("cuitComprador") || "—"],
   ];
+  const readonlyPrecioBase = parseNumber(lote.precioBase);
+  const readonlyAnticipoUsd =
+    readonlyPrecioBase !== null ? Math.round(readonlyPrecioBase * (DEFAULT_ANTICIPO_PCT / 100)) : null;
+  const readonlySaldoUsd =
+    readonlyPrecioBase !== null && readonlyAnticipoUsd !== null
+      ? Math.max(readonlyPrecioBase - readonlyAnticipoUsd, 0)
+      : null;
+  const readonlyCuotas48 =
+    readonlySaldoUsd !== null ? calculateInstallment(readonlySaldoUsd, DEFAULT_TASA_MENSUAL, 48) : null;
+  const readonlyCuotas60 =
+    readonlySaldoUsd !== null ? calculateInstallment(readonlySaldoUsd, DEFAULT_TASA_MENSUAL, 60) : null;
 
   return (
     <div className="space-y-6">
@@ -784,6 +790,7 @@ export default function LoteDetailPage() {
                         {...form.register(name)}
                         type={
                           [
+                            "precioBase",
                             "precioEtapa1",
                             "superficieM2",
                             "metrosFrente",
@@ -802,6 +809,14 @@ export default function LoteDetailPage() {
                     </div>
                   </div>
                 ))}
+                <div>
+                  <span className="text-xs font-medium text-gray-500">Anticipo</span>
+                  <p className="font-medium text-gray-900 mt-1.5">{DEFAULT_ANTICIPO_PCT}%</p>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500">Tasa mensual</span>
+                  <p className="font-medium text-gray-900 mt-1.5">{DEFAULT_TASA_MENSUAL}%</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -843,13 +858,13 @@ export default function LoteDetailPage() {
                 ["Escritura", lote.escritura ?? "—"],
                 ["Matrícula / Folio", lote.matriculaFolio ?? "—"],
                 ["Cert. Catastral", lote.certificadoCatastral ?? "—"],
-                ["Precio Etapa 1", lote.precioEtapa1 ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}` : "—"],
-                ["Anticipo", lote.anticipoPct ? `${lote.anticipoPct}%` : "—"],
-                ["Anticipo USD", lote.anticipoUsd ? `USD ${Number(lote.anticipoUsd).toLocaleString("es-AR")}` : "—"],
-                ["Tasa mensual", lote.tasaMensual ? `${lote.tasaMensual}%` : "—"],
-                ["Saldo USD", lote.saldoUsd ? `USD ${Number(lote.saldoUsd).toLocaleString("es-AR")}` : "—"],
-                ["48 cuotas", lote.cuotas48 ? `USD ${lote.cuotas48}` : "—"],
-                ["60 cuotas", lote.cuotas60 ? `USD ${lote.cuotas60}` : "—"],
+                ["Precio base", lote.precioBase ? `USD ${Number(lote.precioBase).toLocaleString("es-AR")}` : "—"],
+                ["Anticipo", `${DEFAULT_ANTICIPO_PCT}%`],
+                ["Anticipo USD", readonlyAnticipoUsd !== null ? `USD ${readonlyAnticipoUsd.toLocaleString("es-AR")}` : "—"],
+                ["Tasa mensual", `${DEFAULT_TASA_MENSUAL}%`],
+                ["Saldo USD", readonlySaldoUsd !== null ? `USD ${readonlySaldoUsd.toLocaleString("es-AR")}` : "—"],
+                ["48 cuotas", readonlyCuotas48 !== null ? `USD ${readonlyCuotas48}` : "—"],
+                ["60 cuotas", readonlyCuotas60 !== null ? `USD ${readonlyCuotas60}` : "—"],
               ].map(([label, value]) => (
                 <div key={label}>
                   <span className="text-gray-500">{label}</span>
