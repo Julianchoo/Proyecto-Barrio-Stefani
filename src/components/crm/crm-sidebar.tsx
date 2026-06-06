@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
   CalendarDays,
+  LayoutDashboard,
+  LogOut,
   MapPin,
+  Menu,
+  TreePine,
   Users,
   UserCog,
-  LogOut,
-  TreePine,
-  Menu,
 } from "lucide-react";
+import { BnaExchangeRateIndicator } from "@/components/bna-exchange-rate-indicator";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { signOut, useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/crm", icon: LayoutDashboard, label: "Dashboard" },
@@ -57,6 +58,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { data: session } = useSession();
   const router = useRouter();
   const role: string | undefined = (session?.user as { role?: string } | undefined)?.role;
+  const canViewRate = role === "admin" || role === "comercial";
 
   const handleSignOut = async () => {
     await signOut();
@@ -78,6 +80,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       </div>
 
       <div className="border-t p-4 space-y-3">
+        <BnaExchangeRateIndicator
+          enabled={canViewRate}
+          className="flex flex-col rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+        />
         <div className="px-3">
           <p className="text-sm font-medium text-gray-900 truncate">
             {session?.user?.name}

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-
+import { BnaExchangeRateIndicator } from "@/components/bna-exchange-rate-indicator";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,8 +12,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useSession } from "@/lib/auth-client";
+
+function canViewExchangeRate(role?: string) {
+  return role === "admin" || role === "comercial";
+}
 
 export function Navbar() {
+  const { data: session } = useSession();
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const canViewRate = canViewExchangeRate(role);
+
   const scrollToContact = (e: React.MouseEvent) => {
     e.preventDefault();
     document.getElementById("contacto")?.scrollIntoView({ behavior: "smooth" });
@@ -41,12 +50,16 @@ export function Navbar() {
           </div>
         </Link>
         <nav className="flex flex-none items-center justify-end gap-2 sm:gap-3">
+          <BnaExchangeRateIndicator
+            enabled={canViewRate}
+            className="hidden flex-col items-end leading-tight lg:flex"
+          />
           <Sheet>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-primary sm:hidden"
+                className="text-muted-foreground hover:text-primary lg:hidden"
               >
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Abrir menú</span>
@@ -56,7 +69,11 @@ export function Navbar() {
               <SheetHeader>
                 <SheetTitle>Navegación</SheetTitle>
               </SheetHeader>
-              <div className="p-4">
+              <div className="space-y-4 p-4">
+                <BnaExchangeRateIndicator
+                  enabled={canViewRate}
+                  className="rounded-sm border border-border bg-muted/40 px-4 py-3"
+                />
                 <Link
                   href="/login"
                   className="block rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-muted"
@@ -70,7 +87,7 @@ export function Navbar() {
             variant="ghost"
             size="sm"
             asChild
-            className="hidden text-muted-foreground hover:text-primary hover:bg-primary/5 font-body sm:inline-flex"
+            className="hidden text-muted-foreground hover:text-primary hover:bg-primary/5 font-body lg:inline-flex"
           >
             <Link href="/login">Ingresar</Link>
           </Button>
