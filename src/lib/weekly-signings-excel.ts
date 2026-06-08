@@ -9,6 +9,10 @@ type SigningSection = {
 };
 
 type MoneyMode = "formatted" | "raw";
+type EntregaFields = {
+  tipoEntrega?: string | null;
+  mesEntrega?: string | null;
+};
 
 function fmt(value: string | number | null | undefined, fallback = "") {
   if (value === null || value === undefined || value === "") return fallback;
@@ -68,6 +72,11 @@ function medidas(signing: Parcela) {
 
 function callesLinderas(signing: Parcela) {
   return [signing.calleLindera1, signing.calleLindera2].filter(Boolean).join(" y ");
+}
+
+function cuotaEntregaPosesion(value: EntregaFields) {
+  if (value.tipoEntrega !== "cuota") return "";
+  return fmt(value.mesEntrega);
 }
 
 function basePrice(signing: Parcela) {
@@ -145,6 +154,7 @@ function buildBoletosRows(sections: SigningSection[], moneyMode: MoneyMode = "fo
       "Saldo (USD)": excelMoney(signing.saldoNum, moneyMode),
       "Cant. cuotas": fmt(signing.cantidadCuotas, "0"),
       "Monto cuota (USD)": excelMoney(signing.cuotaMensual, moneyMode),
+      "Cuota entrega posesion": cuotaEntregaPosesion(signing),
       Broker: fmt(signing.nombreCorredor),
     }))
   );
@@ -272,6 +282,7 @@ function buildReservasCompletasRows(reservas: ReservaReportRow[]) {
     "Tipo entrega": fmt(reserva.tipoEntrega),
     "Mes entrega": fmt(reserva.mesEntrega),
     "Anio entrega": fmt(reserva.anioEntrega),
+    "Cuota entrega posesion": cuotaEntregaPosesion(reserva),
     Corredor: fmt(reserva.nombreCorredor),
     "Email corredor": fmt(reserva.emailCorredor),
     "Forma de pago": fmt(reserva.formaPago),
