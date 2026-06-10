@@ -263,6 +263,9 @@ export const reservas = pgTable(
 
     nombreCoComprador: text("nombre_co_comprador"),
     dniCoComprador: text("dni_co_comprador"),
+    nacionalidadCoComprador: text("nacionalidad_co_comprador"),
+    fechaNacimientoCoComprador: date("fecha_nacimiento_co_comprador"),
+    domicilioCoComprador: text("domicilio_co_comprador"),
     cuitCoComprador: text("cuit_co_comprador"),
     estadoCivilCoComprador: text("estado_civil_co_comprador"),
     porcentajeCoComprador: text("porcentaje_co_comprador"),
@@ -332,6 +335,9 @@ export type ParcelaConReserva = Parcela &
       | "cuitComprador"
       | "nombreCoComprador"
       | "dniCoComprador"
+      | "nacionalidadCoComprador"
+      | "fechaNacimientoCoComprador"
+      | "domicilioCoComprador"
       | "cuitCoComprador"
       | "estadoCivilCoComprador"
       | "porcentajeCoComprador"

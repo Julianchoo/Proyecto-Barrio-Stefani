@@ -113,6 +113,13 @@
       "when": 1778955491868,
       "tag": "0015_lonely_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1781100758293,
+      "tag": "0016_red_dagger",
+      "breakpoints": true
     }
   ]
 }

@@ -46,6 +46,9 @@ COMPRADOR:
 CO-COMPRADOR (si hay más de un comprador en el documento):
 - nombreCoComprador: nombre del co-comprador, null si no hay
 - dniCoComprador: DNI del co-comprador, null si no hay
+- nacionalidadCoComprador: nacionalidad del co-comprador, null si no hay
+- fechaNacimientoCoComprador: fecha de nacimiento del co-comprador, null si no hay
+- domicilioCoComprador: domicilio del co-comprador, null si no hay
 - cuitCoComprador: CUIT del co-comprador, null si no hay
 - estadoCivilCoComprador: estado civil del co-comprador, null si no hay
 - porcentajeCoComprador: porcentaje de compra del co-comprador (ej: "50"), null si no hay
@@ -65,7 +68,7 @@ PRECIO (buscar en la sección "PRECIO Y FORMA DE PAGO" o similar):
 Si un campo no está presente o no es legible, usá null. No inventes datos.
 
 Ejemplo de respuesta esperada (financiado):
-{"dia":"8","mes":"abril","anio":"2026","nombreComprador":"Carlos A. Palacio","dniComprador":"31173551","cuitComprador":null,"domicilioComprador":"Coronel Escalada 10020, Cuartel V, Moreno","nacionalidad":null,"fechaNacimiento":null,"estadoCivil":null,"nombreCoComprador":null,"dniCoComprador":null,"cuitCoComprador":null,"estadoCivilCoComprador":null,"porcentajeCoComprador":null,"precioTotalPalabras":"VEINTIDOS MIL QUINIENTOS SETENTA Y DOS","precioTotalNum":"22572","anticipoPalabras":"CUATRO MIL QUINIENTAS","anticipoNum":"4500","saldoPalabras":"DIECIOCHO MIL SETENTA Y DOS","saldoNum":"18072","tipoPago":"financiado","cantidadCuotas":"72","cuotaMensualPalabras":"DOSCIENTOS CINCUENTA Y UNO","cuotaMensual":"251"}`;
+{"dia":"8","mes":"abril","anio":"2026","nombreComprador":"Carlos A. Palacio","dniComprador":"31173551","cuitComprador":null,"domicilioComprador":"Coronel Escalada 10020, Cuartel V, Moreno","nacionalidad":null,"fechaNacimiento":null,"estadoCivil":null,"nombreCoComprador":null,"dniCoComprador":null,"nacionalidadCoComprador":null,"fechaNacimientoCoComprador":null,"domicilioCoComprador":null,"cuitCoComprador":null,"estadoCivilCoComprador":null,"porcentajeCoComprador":null,"precioTotalPalabras":"VEINTIDOS MIL QUINIENTOS SETENTA Y DOS","precioTotalNum":"22572","anticipoPalabras":"CUATRO MIL QUINIENTAS","anticipoNum":"4500","saldoPalabras":"DIECIOCHO MIL SETENTA Y DOS","saldoNum":"18072","tipoPago":"financiado","cantidadCuotas":"72","cuotaMensualPalabras":"DOSCIENTOS CINCUENTA Y UNO","cuotaMensual":"251"}`;
 
   const mistralResponse = await fetch(
     "https://api.mistral.ai/v1/chat/completions",

@@ -55,6 +55,9 @@ const boletoSchema = z.object({
   hasCoComprador: z.boolean().optional().default(false),
   nombreCoComprador: z.string().optional().default(""),
   dniCoComprador: z.string().optional().default(""),
+  nacionalidadCoComprador: z.string().optional().default(""),
+  fechaNacimientoCoComprador: z.string().optional().default(""),
+  domicilioCoComprador: z.string().optional().default(""),
   cuitCoComprador: z.string().optional().default(""),
   estadoCivilCoComprador: z.string().optional().default(""),
   porcentajeCoComprador: z.string().optional().default("50"),
@@ -242,6 +245,10 @@ export async function POST(
   const cuotaPesosNum = formatArs(
     tipoCambioBna === null || cuotaMensualUsd === null ? null : cuotaMensualUsd * tipoCambioBna
   );
+  const nombreCoComprador = form.nombreCoComprador || parcela.nombreCoComprador || "";
+  const coCompradorIntro = form.hasCoComprador && Boolean(nombreCoComprador.trim());
+  const fechaNacimientoCoComprador =
+    form.fechaNacimientoCoComprador || parcela.fechaNacimientoCoComprador || "";
 
   // Build template data
   const data: Record<string, string | boolean> = {
@@ -258,6 +265,18 @@ export async function POST(
     estadoCivil: form.estadoCivil,
     cuitComprador: form.cuitComprador,
     domicilioComprador: form.domicilioComprador,
+    coCompradorIntro,
+    nombreCoComprador,
+    dniCoComprador: form.dniCoComprador || parcela.dniCoComprador || "",
+    nacionalidadCoComprador:
+      form.nacionalidadCoComprador || parcela.nacionalidadCoComprador || "",
+    fechaNacimientoCoComprador,
+    fechaNacimientoCoCompradorLetras: formatBirthDate(fechaNacimientoCoComprador),
+    estadoCivilCoComprador:
+      form.estadoCivilCoComprador || parcela.estadoCivilCoComprador || "",
+    cuitCoComprador: form.cuitCoComprador || parcela.cuitCoComprador || "",
+    domicilioCoComprador:
+      form.domicilioCoComprador || parcela.domicilioCoComprador || "",
     // Property (from DB)
     calleInmueble: form.calleInmueble || "",
     limites: form.limites || "",

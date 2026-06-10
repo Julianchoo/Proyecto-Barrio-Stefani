@@ -39,6 +39,9 @@ DATOS DEL COMPRADOR Y RESERVA:
 - cuitComprador: CUIT del comprador si aparece (con guiones, ej: "20-12345678-9")
 - nombreCoComprador: nombre del co-comprador, null si no hay
 - dniCoComprador: DNI del co-comprador, null si no hay
+- nacionalidadCoComprador: nacionalidad del co-comprador, null si no hay
+- fechaNacimientoCoComprador: fecha de nacimiento del co-comprador en formato YYYY-MM-DD, null si no hay
+- domicilioCoComprador: domicilio del co-comprador, null si no hay
 - cuitCoComprador: CUIT del co-comprador, null si no hay
 - estadoCivilCoComprador: estado civil del co-comprador, null si no hay
 - porcentajeCoComprador: porcentaje de compra del co-comprador (ej: "50"), null si no hay
@@ -62,7 +65,7 @@ PRECIO (buscar en la seccion "PRECIO Y FORMA DE PAGO" o similar):
 Si un campo no esta presente o no es legible, usa null. No inventes datos.
 
 Ejemplo de respuesta esperada:
-{"nombreComprador":"Carlos A. Palacio","dniCuit":"31173551","telefono":null,"emailComprador":null,"domicilioComprador":"Coronel Escalada 10020, Cuartel V, Moreno","nacionalidad":null,"fechaNacimiento":null,"estadoCivil":null,"cuitComprador":null,"nombreCoComprador":null,"dniCoComprador":null,"cuitCoComprador":null,"estadoCivilCoComprador":null,"porcentajeCoComprador":null,"fechaReserva":"2026-04-08","fechaVencimiento":null,"formaPago":"financiado","nombreCorredor":"Victoria Anapira","observaciones":null,"precioTotalPalabras":"VEINTIDOS MIL QUINIENTOS SETENTA Y DOS","precioTotalNum":"22572","anticipoPalabras":"CUATRO MIL QUINIENTAS","anticipoNum":"4500","saldoPalabras":"DIECIOCHO MIL SETENTA Y DOS","saldoNum":"18072","cantidadCuotas":"72","cuotaMensualPalabras":"DOSCIENTOS CINCUENTA Y UNO","cuotaMensual":"251"}`;
+{"nombreComprador":"Carlos A. Palacio","dniCuit":"31173551","telefono":null,"emailComprador":null,"domicilioComprador":"Coronel Escalada 10020, Cuartel V, Moreno","nacionalidad":null,"fechaNacimiento":null,"estadoCivil":null,"cuitComprador":null,"nombreCoComprador":null,"dniCoComprador":null,"nacionalidadCoComprador":null,"fechaNacimientoCoComprador":null,"domicilioCoComprador":null,"cuitCoComprador":null,"estadoCivilCoComprador":null,"porcentajeCoComprador":null,"fechaReserva":"2026-04-08","fechaVencimiento":null,"formaPago":"financiado","nombreCorredor":"Victoria Anapira","observaciones":null,"precioTotalPalabras":"VEINTIDOS MIL QUINIENTOS SETENTA Y DOS","precioTotalNum":"22572","anticipoPalabras":"CUATRO MIL QUINIENTAS","anticipoNum":"4500","saldoPalabras":"DIECIOCHO MIL SETENTA Y DOS","saldoNum":"18072","cantidadCuotas":"72","cuotaMensualPalabras":"DOSCIENTOS CINCUENTA Y UNO","cuotaMensual":"251"}`;
 
   const mistralResponse = await fetch(
     "https://api.mistral.ai/v1/chat/completions",

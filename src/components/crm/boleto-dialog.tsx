@@ -101,21 +101,87 @@ const schema = z.object({
   // Co-buyer (hasCoComprador is managed by local state, not Zod)
   nombreCoComprador: z.string().optional(),
   dniCoComprador: z.string().optional(),
+  nacionalidadCoComprador: z.string().optional(),
+  fechaNacimientoCoComprador: z.string().optional(),
+  domicilioCoComprador: z.string().optional(),
   cuitCoComprador: z.string().optional(),
   estadoCivilCoComprador: z.string().optional(),
   porcentajeCoComprador: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
+type CoCompradorDefaults = Partial<
+  Pick<
+    FormValues,
+    | "nombreCoComprador"
+    | "dniCoComprador"
+    | "nacionalidadCoComprador"
+    | "fechaNacimientoCoComprador"
+    | "domicilioCoComprador"
+    | "cuitCoComprador"
+    | "estadoCivilCoComprador"
+    | "porcentajeCoComprador"
+  >
+>;
 
 interface BoletoDialogProps {
   parcela: ParcelaConReserva;
   disabled?: boolean;
   trigger?: ReactNode;
+  coCompradorDefaults?: CoCompradorDefaults;
 }
 
-export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) {
+function coCompradorValue(
+  defaults: CoCompradorDefaults | undefined,
+  parcelaValue: string | null | undefined,
+  key: keyof CoCompradorDefaults,
+  fallback = ""
+) {
+  return defaults?.[key] ?? parcelaValue ?? fallback;
+}
+
+function hasCoCompradorData(values: CoCompradorDefaults) {
+  return Object.values(values).some((value) => Boolean(value?.trim()));
+}
+
+export function BoletoDialog({
+  parcela,
+  disabled,
+  trigger,
+  coCompradorDefaults,
+}: BoletoDialogProps) {
   const [open, setOpen] = useState(false);
+  const initialCoCompradorValues = {
+    nombreCoComprador: coCompradorValue(coCompradorDefaults, parcela.nombreCoComprador, "nombreCoComprador"),
+    dniCoComprador: coCompradorValue(coCompradorDefaults, parcela.dniCoComprador, "dniCoComprador"),
+    nacionalidadCoComprador: coCompradorValue(
+      coCompradorDefaults,
+      parcela.nacionalidadCoComprador,
+      "nacionalidadCoComprador"
+    ),
+    fechaNacimientoCoComprador: coCompradorValue(
+      coCompradorDefaults,
+      parcela.fechaNacimientoCoComprador,
+      "fechaNacimientoCoComprador"
+    ),
+    domicilioCoComprador: coCompradorValue(
+      coCompradorDefaults,
+      parcela.domicilioCoComprador,
+      "domicilioCoComprador"
+    ),
+    cuitCoComprador: coCompradorValue(coCompradorDefaults, parcela.cuitCoComprador, "cuitCoComprador"),
+    estadoCivilCoComprador: coCompradorValue(
+      coCompradorDefaults,
+      parcela.estadoCivilCoComprador,
+      "estadoCivilCoComprador"
+    ),
+    porcentajeCoComprador: coCompradorValue(
+      coCompradorDefaults,
+      parcela.porcentajeCoComprador,
+      "porcentajeCoComprador",
+      "50"
+    ),
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -145,11 +211,7 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
       numeroCuotaEntrega: parcela.tipoEntrega === "cuota" ? (parcela.mesEntrega ?? "") : "",
       nombreApoderado: "",
       dniApoderado: "",
-      nombreCoComprador: parcela.nombreCoComprador ?? "",
-      dniCoComprador: parcela.dniCoComprador ?? "",
-      cuitCoComprador: parcela.cuitCoComprador ?? "",
-      estadoCivilCoComprador: parcela.estadoCivilCoComprador ?? "",
-      porcentajeCoComprador: parcela.porcentajeCoComprador ?? "50",
+      ...initialCoCompradorValues,
     },
   });
 
@@ -205,17 +267,13 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
       numeroCuotaEntrega: parcela.tipoEntrega === "cuota" ? (parcela.mesEntrega ?? "") : "",
       nombreApoderado: "",
       dniApoderado: "",
-      nombreCoComprador: parcela.nombreCoComprador ?? "",
-      dniCoComprador: parcela.dniCoComprador ?? "",
-      cuitCoComprador: parcela.cuitCoComprador ?? "",
-      estadoCivilCoComprador: parcela.estadoCivilCoComprador ?? "",
-      porcentajeCoComprador: parcela.porcentajeCoComprador ?? "50",
+      ...initialCoCompradorValues,
     });
     setShowApoderado(false);
     setTipoPago(parcela.formaPago === "contado" ? "contado" : "financiado");
     setMonedaBoleto("pesos_cac");
     setEntregaCuota(parcela.tipoEntrega === "cuota");
-    setShowCoComprador(Boolean(parcela.nombreCoComprador));
+    setShowCoComprador(hasCoCompradorData(initialCoCompradorValues));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function fillAmountWords() {
@@ -268,6 +326,11 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
         setShowCoComprador(true);
         form.setValue("nombreCoComprador", data.nombreCoComprador);
         if (data.dniCoComprador) form.setValue("dniCoComprador", data.dniCoComprador);
+        if (data.nacionalidadCoComprador) form.setValue("nacionalidadCoComprador", data.nacionalidadCoComprador);
+        if (data.fechaNacimientoCoComprador) {
+          form.setValue("fechaNacimientoCoComprador", data.fechaNacimientoCoComprador);
+        }
+        if (data.domicilioCoComprador) form.setValue("domicilioCoComprador", data.domicilioCoComprador);
         if (data.cuitCoComprador) form.setValue("cuitCoComprador", data.cuitCoComprador);
         if (data.estadoCivilCoComprador) form.setValue("estadoCivilCoComprador", data.estadoCivilCoComprador);
         if (data.porcentajeCoComprador) form.setValue("porcentajeCoComprador", data.porcentajeCoComprador);
@@ -572,6 +635,9 @@ export function BoletoDialog({ parcela, disabled, trigger }: BoletoDialogProps) 
                   {[
                     { name: "nombreCoComprador" as const, label: "Nombre completo", placeholder: "Juan Pérez" },
                     { name: "dniCoComprador" as const, label: "DNI", placeholder: "12345678" },
+                    { name: "nacionalidadCoComprador" as const, label: "Nacionalidad", placeholder: "argentina/o" },
+                    { name: "fechaNacimientoCoComprador" as const, label: "Fecha de nacimiento", placeholder: "01/01/1990" },
+                    { name: "domicilioCoComprador" as const, label: "Domicilio", placeholder: "Av. Ejemplo 123, CABA" },
                     { name: "cuitCoComprador" as const, label: "CUIT", placeholder: "20-12345678-9" },
                     { name: "porcentajeCoComprador" as const, label: "Porcentaje de compra", placeholder: "50" },
                   ].map(({ name, label, placeholder }) => (

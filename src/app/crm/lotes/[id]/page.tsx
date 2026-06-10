@@ -52,6 +52,9 @@ const schema = z.object({
   cuitComprador: z.string().nullable().optional(),
   nombreCoComprador: z.string().nullable().optional(),
   dniCoComprador: z.string().nullable().optional(),
+  nacionalidadCoComprador: z.string().nullable().optional(),
+  fechaNacimientoCoComprador: z.string().nullable().optional(),
+  domicilioCoComprador: z.string().nullable().optional(),
   cuitCoComprador: z.string().nullable().optional(),
   estadoCivilCoComprador: z.string().nullable().optional(),
   porcentajeCoComprador: z.string().nullable().optional(),
@@ -329,6 +332,9 @@ export default function LoteDetailPage() {
       cuitComprador: data.cuitComprador ?? "",
       nombreCoComprador: data.nombreCoComprador ?? "",
       dniCoComprador: data.dniCoComprador ?? "",
+      nacionalidadCoComprador: data.nacionalidadCoComprador ?? "",
+      fechaNacimientoCoComprador: data.fechaNacimientoCoComprador ?? "",
+      domicilioCoComprador: data.domicilioCoComprador ?? "",
       cuitCoComprador: data.cuitCoComprador ?? "",
       estadoCivilCoComprador: data.estadoCivilCoComprador ?? "",
       porcentajeCoComprador: data.porcentajeCoComprador ?? "",
@@ -593,6 +599,9 @@ export default function LoteDetailPage() {
       const fieldMap: Array<[keyof FormValues, string | null]> = [
         ["nombreCoComprador", data.nombreCoComprador],
         ["dniCoComprador", data.dniCoComprador],
+        ["nacionalidadCoComprador", data.nacionalidadCoComprador],
+        ["fechaNacimientoCoComprador", data.fechaNacimientoCoComprador],
+        ["domicilioCoComprador", data.domicilioCoComprador],
         ["cuitCoComprador", data.cuitCoComprador],
         ["estadoCivilCoComprador", data.estadoCivilCoComprador],
         ["porcentajeCoComprador", data.porcentajeCoComprador],
@@ -698,6 +707,16 @@ export default function LoteDetailPage() {
     ["Estado civil", form.watch("estadoCivil") || "—"],
     ["CUIT comprador", form.watch("cuitComprador") || "—"],
   ];
+  const coCompradorDefaults = {
+    nombreCoComprador: form.watch("nombreCoComprador") ?? "",
+    dniCoComprador: form.watch("dniCoComprador") ?? "",
+    nacionalidadCoComprador: form.watch("nacionalidadCoComprador") ?? "",
+    fechaNacimientoCoComprador: form.watch("fechaNacimientoCoComprador") ?? "",
+    domicilioCoComprador: form.watch("domicilioCoComprador") ?? "",
+    cuitCoComprador: form.watch("cuitCoComprador") ?? "",
+    estadoCivilCoComprador: form.watch("estadoCivilCoComprador") ?? "",
+    porcentajeCoComprador: form.watch("porcentajeCoComprador") ?? "",
+  };
   const readonlyPrecioBase = parseNumber(lote.precioBase);
   const readonlyAnticipoUsd =
     readonlyPrecioBase !== null ? Math.round(readonlyPrecioBase * (DEFAULT_ANTICIPO_PCT / 100)) : null;
@@ -730,7 +749,11 @@ export default function LoteDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <ReservaDialog parcela={lote} disabled={isLocked} />
-          <BoletoDialog parcela={lote} disabled={isLocked} />
+          <BoletoDialog
+            parcela={lote}
+            disabled={isLocked}
+            coCompradorDefaults={coCompradorDefaults}
+          />
         </div>
       </div>
 
@@ -1109,6 +1132,9 @@ export default function LoteDetailPage() {
                   {[
                     { name: "nombreCoComprador" as const, label: "Nombre co-comprador" },
                     { name: "dniCoComprador" as const, label: "DNI co-comprador" },
+                    { name: "nacionalidadCoComprador" as const, label: "Nacionalidad co-comprador" },
+                    { name: "fechaNacimientoCoComprador" as const, label: "Fecha nacimiento co-comprador" },
+                    { name: "domicilioCoComprador" as const, label: "Domicilio co-comprador" },
                     { name: "cuitCoComprador" as const, label: "CUIT co-comprador" },
                     { name: "estadoCivilCoComprador" as const, label: "Estado civil co-comprador" },
                     { name: "porcentajeCoComprador" as const, label: "Porcentaje co-comprador" },
