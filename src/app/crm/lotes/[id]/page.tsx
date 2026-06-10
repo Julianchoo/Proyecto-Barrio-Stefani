@@ -1133,12 +1133,16 @@ export default function LoteDetailPage() {
                     { name: "nombreCoComprador" as const, label: "Nombre co-comprador" },
                     { name: "dniCoComprador" as const, label: "DNI co-comprador" },
                     { name: "nacionalidadCoComprador" as const, label: "Nacionalidad co-comprador" },
-                    { name: "fechaNacimientoCoComprador" as const, label: "Fecha nacimiento co-comprador" },
+                    {
+                      name: "fechaNacimientoCoComprador" as const,
+                      label: "Fecha nacimiento co-comprador",
+                      placeholder: "MM/DD/YYYY",
+                    },
                     { name: "domicilioCoComprador" as const, label: "Domicilio co-comprador" },
                     { name: "cuitCoComprador" as const, label: "CUIT co-comprador" },
                     { name: "estadoCivilCoComprador" as const, label: "Estado civil co-comprador" },
                     { name: "porcentajeCoComprador" as const, label: "Porcentaje co-comprador" },
-                  ].map(({ name, label }) => (
+                  ].map(({ name, label, placeholder }) => (
                     <FormField
                       key={name}
                       control={form.control}
@@ -1147,7 +1151,7 @@ export default function LoteDetailPage() {
                         <FormItem>
                           <FormLabel>{label}</FormLabel>
                           <FormControl>
-                            <Input {...field} value={field.value ?? ""} />
+                            <Input {...field} value={field.value ?? ""} placeholder={placeholder} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

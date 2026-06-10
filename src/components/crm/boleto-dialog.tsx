@@ -566,7 +566,7 @@ export function BoletoDialog({
                   { name: "nombreComprador" as const, label: "Nombre completo", placeholder: "Juan Pérez" },
                   { name: "dniComprador" as const, label: "DNI", placeholder: "12345678" },
                   { name: "nacionalidad" as const, label: "Nacionalidad", placeholder: "argentina/o" },
-                  { name: "fechaNacimiento" as const, label: "Fecha de nacimiento", placeholder: "01/01/1990" },
+                  { name: "fechaNacimiento" as const, label: "Fecha de nacimiento", placeholder: "MM/DD/YYYY" },
                   { name: "cuitComprador" as const, label: "CUIT", placeholder: "20-12345678-9" },
                   { name: "domicilioComprador" as const, label: "Domicilio", placeholder: "Av. Ejemplo 123, CABA" },
                 ].map(({ name, label, placeholder }) => (
@@ -636,7 +636,7 @@ export function BoletoDialog({
                     { name: "nombreCoComprador" as const, label: "Nombre completo", placeholder: "Juan Pérez" },
                     { name: "dniCoComprador" as const, label: "DNI", placeholder: "12345678" },
                     { name: "nacionalidadCoComprador" as const, label: "Nacionalidad", placeholder: "argentina/o" },
-                    { name: "fechaNacimientoCoComprador" as const, label: "Fecha de nacimiento", placeholder: "01/01/1990" },
+                    { name: "fechaNacimientoCoComprador" as const, label: "Fecha de nacimiento", placeholder: "MM/DD/YYYY" },
                     { name: "domicilioCoComprador" as const, label: "Domicilio", placeholder: "Av. Ejemplo 123, CABA" },
                     { name: "cuitCoComprador" as const, label: "CUIT", placeholder: "20-12345678-9" },
                     { name: "porcentajeCoComprador" as const, label: "Porcentaje de compra", placeholder: "50" },
