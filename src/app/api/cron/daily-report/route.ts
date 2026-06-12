@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const html = buildDailyReportHtml({ date, summary, appUrl, reservations, todayLeads });
 
   await sendEmail({
-    to: "juliankorn@gmail.com, hugo.guindani@gmail.com",
+    to: "juliankorn@gmail.com, hugo.guindani@gmail.com, agustin.alonso@eulerdesarrollos.com.ar, 74aleromero@gmail.com, mariostefani@pilmabia.com.ar, Miguelangellazzaro@gmail.com",
     subject: `Reporte Diario — Barrio Stefani (${new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" })})`,
     html,
   });
