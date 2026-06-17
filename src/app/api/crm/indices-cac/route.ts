@@ -17,6 +17,10 @@ const indiceSchema = z.object({
   nota: z.string().nullable().optional(),
 });
 
+const deleteIndiceSchema = z.object({
+  periodo: z.string().regex(/^\d{4}-\d{2}$/),
+});
+
 export async function GET() {
   const authResult = await requireApiAuth();
   if (isErrorResponse(authResult)) return authResult;
@@ -64,6 +68,27 @@ export async function POST(request: Request) {
       creadoPor: authResult.email,
     });
   }
+
+  await recomputeAllPesosCacCuotas();
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request) {
+  const authResult = await requireApiAdmin();
+  if (isErrorResponse(authResult)) return authResult;
+
+  const body = await request.json().catch(() => null);
+  const parsed = deleteIndiceSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Datos invalidos", details: parsed.error.issues },
+      { status: 400 }
+    );
+  }
+
+  await db
+    .delete(indicesCac)
+    .where(eq(indicesCac.periodo, parsed.data.periodo));
 
   await recomputeAllPesosCacCuotas();
   return NextResponse.json({ ok: true });

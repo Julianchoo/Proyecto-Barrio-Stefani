@@ -11,6 +11,7 @@ import {
   Filter,
   Save,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,7 +39,7 @@ import { useSession } from "@/lib/auth-client";
 import type { IndiceCac, ModalidadContrato, MonedaPago } from "@/lib/schema";
 
 type CuentaRow = {
-  contratoId: number;
+  contratoId: number | null;
   reservaId: number;
   parcelaId: number;
   loteNumero: number;
@@ -59,6 +60,7 @@ type CuentaRow = {
   proximoVencimiento: string | null;
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
+  cuentaEstado: "creada" | "pendiente";
 };
 
 const modalidadLabels: Record<ModalidadContrato, string> = {
@@ -237,6 +239,32 @@ export default function CuotasPage() {
     }
   }
 
+  async function deleteIndice(indice: IndiceCac) {
+    if (!window.confirm(`Borrar CAC ${indice.periodo}?`)) return;
+
+    setSavingIndice(true);
+    try {
+      const res = await fetch("/api/crm/indices-cac", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodo: indice.periodo }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? "No se pudo borrar el CAC");
+        return;
+      }
+      toast.success("CAC borrado");
+      if (editingPeriodo === indice.periodo) {
+        cancelEditIndice();
+      }
+      await fetchIndices();
+      await fetchRows();
+    } finally {
+      setSavingIndice(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -272,6 +300,7 @@ export default function CuotasPage() {
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="vencidas">Vencidas</SelectItem>
                 <SelectItem value="pendiente_indice">Falta CAC</SelectItem>
+                <SelectItem value="pendiente_cuenta">Pendiente cuenta</SelectItem>
                 <SelectItem value="al_dia">Al día</SelectItem>
               </SelectContent>
             </Select>
@@ -357,7 +386,7 @@ export default function CuotasPage() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Fuente / nota</TableHead>
                       <TableHead>Cargado por</TableHead>
-                      <TableHead className="w-28" />
+                      <TableHead className="w-40" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -426,15 +455,29 @@ export default function CuotasPage() {
                                   </Button>
                                 </div>
                               ) : (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => startEditIndice(indice)}
-                                >
-                                  <Edit2 className="mr-1 h-4 w-4" />
-                                  Editar
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => startEditIndice(indice)}
+                                    disabled={savingIndice}
+                                  >
+                                    <Edit2 className="mr-1 h-4 w-4" />
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteIndice(indice)}
+                                    disabled={savingIndice}
+                                    aria-label={`Borrar CAC ${indice.periodo}`}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>
@@ -478,7 +521,7 @@ export default function CuotasPage() {
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.contratoId}>
+                <TableRow key={row.reservaId}>
                   <TableCell className="font-mono text-sm">
                     {row.loteNumero}
                     <span className="ml-2 font-sans text-xs text-gray-500">
@@ -495,7 +538,12 @@ export default function CuotasPage() {
                   </TableCell>
                   <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
                   <TableCell>
-                    {row.cuotasPendienteIndice > 0 ? (
+                    {row.cuentaEstado === "pendiente" ? (
+                      <Badge className="gap-1 bg-amber-100 text-amber-800">
+                        <AlertTriangle className="h-3 w-3" />
+                        Pendiente cuenta
+                      </Badge>
+                    ) : row.cuotasPendienteIndice > 0 ? (
                       <Badge className="gap-1 bg-amber-100 text-amber-800">
                         <AlertTriangle className="h-3 w-3" />
                         Falta CAC
@@ -521,7 +569,9 @@ export default function CuotasPage() {
                   </TableCell>
                   <TableCell>
                     <Button asChild variant="ghost" size="sm">
-                      <Link href={`/crm/cuotas/${row.reservaId}`}>Ver</Link>
+                      <Link href={`/crm/cuotas/${row.reservaId}`}>
+                        {row.cuentaEstado === "pendiente" ? "Crear" : "Ver"}
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>

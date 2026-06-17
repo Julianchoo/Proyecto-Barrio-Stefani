@@ -40,9 +40,15 @@ export async function GET(request: Request) {
   if (estado === "pendiente_indice") {
     rows = rows.filter((row) => row.cuotasPendienteIndice > 0);
   }
+  if (estado === "pendiente_cuenta") {
+    rows = rows.filter((row) => row.cuentaEstado === "pendiente");
+  }
   if (estado === "al_dia") {
     rows = rows.filter(
-      (row) => row.cuotasVencidas === 0 && row.cuotasPendienteIndice === 0
+      (row) =>
+        row.cuentaEstado === "creada" &&
+        row.cuotasVencidas === 0 &&
+        row.cuotasPendienteIndice === 0
     );
   }
 

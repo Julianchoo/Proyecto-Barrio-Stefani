@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   contratos,
@@ -21,7 +21,7 @@ import type {
 } from "@/lib/schema";
 
 export type CuentaCorrienteSummary = {
-  contratoId: number;
+  contratoId: number | null;
   reservaId: number;
   parcelaId: number;
   loteNumero: number;
@@ -42,6 +42,7 @@ export type CuentaCorrienteSummary = {
   proximoVencimiento: string | null;
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
+  cuentaEstado: "creada" | "pendiente";
 };
 
 export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
@@ -359,7 +360,28 @@ export async function getCuentasCorrientesSummaries() {
     .where(eq(reservas.estado, "realizada"))
     .orderBy(asc(parcelas.numero));
 
-  if (rows.length === 0) return [];
+  const pendingRows = await db
+    .select({
+      reserva: reservas,
+      parcela: parcelas,
+      lead: leads,
+    })
+    .from(reservas)
+    .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
+    .leftJoin(contratos, eq(contratos.reservaId, reservas.id))
+    .where(
+      and(
+        eq(reservas.estado, "realizada"),
+        ne(reservas.formaPago, "contado"),
+        isNull(contratos.id)
+      )
+    )
+    .orderBy(asc(parcelas.numero));
+
+  const pendingSummaries = pendingRows.map((row) => buildPendingSummary(row));
+
+  if (rows.length === 0) return pendingSummaries;
 
   const contratoIds = rows.map((row) => row.contrato.id);
   const cuotaRows = await db
@@ -374,7 +396,44 @@ export async function getCuentasCorrientesSummaries() {
     cuotasByContrato.set(cuota.contratoId, list);
   }
 
-  return rows.map((row) => buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? []));
+  return [
+    ...rows.map((row) =>
+      buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? [])
+    ),
+    ...pendingSummaries,
+  ].sort((a, b) => a.loteNumero - b.loteNumero);
+}
+
+function buildPendingSummary(row: {
+  reserva: Reserva;
+  parcela: typeof parcelas.$inferSelect;
+  lead: typeof leads.$inferSelect | null;
+}): CuentaCorrienteSummary {
+  const modalidad = row.reserva.modalidadContrato ?? "requiere_revision";
+  return {
+    contratoId: null,
+    reservaId: row.reserva.id,
+    parcelaId: row.parcela.id,
+    loteNumero: row.parcela.numero,
+    manzana: row.parcela.manzana,
+    parcela: row.parcela.parcela,
+    comprador: row.lead?.nombre ?? row.reserva.nombreComprador,
+    dniCuit: row.lead?.dniCuit ?? row.reserva.dniCuit,
+    telefono: row.lead?.telefono ?? row.reserva.telefono,
+    email: row.lead?.email ?? row.reserva.emailComprador,
+    reservadoPor: row.reserva.reservadoPor,
+    modalidad,
+    requiereRevision: modalidad === "requiere_revision",
+    totalVencido: 0,
+    saldoPendiente: 0,
+    cuotasPendientes: 0,
+    cuotasVencidas: 0,
+    cuotasPendienteIndice: 0,
+    proximoVencimiento: null,
+    proximaCuotaMonto: null,
+    moneda: modalidad === "pesos_cac" ? "ars" : "usd",
+    cuentaEstado: "pendiente",
+  };
 }
 
 function buildSummary(
@@ -429,6 +488,7 @@ function buildSummary(
       ? toNumber(nextCuota.importeAjustado) ?? toNumber(nextCuota.importeBase)
       : null,
     moneda: row.contrato.monedaBase,
+    cuentaEstado: "creada",
   };
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { createContratoForReserva } from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
 import { parcelas, reservas, user } from "@/lib/schema";
 
@@ -19,6 +20,16 @@ function loteEstadoForReserva(estado: z.infer<typeof updateSchema>["estado"]) {
   if (estado === "activa") return "reservado";
   if (estado === "realizada") return "vendido";
   return "disponible";
+}
+
+function cuentaCorrienteMessage(kind: string) {
+  if (kind === "ok") return "Cuenta corriente creada";
+  if (kind === "exists") return "La reserva ya tenia cuenta corriente";
+  if (kind === "missing-data") return "Faltan datos para generar la cuenta corriente";
+  if (kind === "missing-exchange-rate") {
+    return "Falta tipo de cambio BNA para generar la cuenta Pesos + CAC";
+  }
+  return "No se genero cuenta corriente";
 }
 
 export async function GET(
@@ -229,7 +240,37 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json(result.data);
+    const updatedReserva = result.data;
+    if (!updatedReserva) {
+      return NextResponse.json(
+        { error: "Error interno del servidor" },
+        { status: 500 }
+      );
+    }
+
+    if (
+      data.estado === "realizada" &&
+      updatedReserva.formaPago !== "contado" &&
+      (updatedReserva.modalidadContrato === "usd_fijo" ||
+        updatedReserva.modalidadContrato === "pesos_cac")
+    ) {
+      const cuentaResult = await createContratoForReserva(
+        reservaId,
+        { modalidad: updatedReserva.modalidadContrato },
+        authResult.email
+      );
+      return NextResponse.json({
+        ...updatedReserva,
+        cuentaCorriente: {
+          status: cuentaResult.kind,
+          message: cuentaCorrienteMessage(cuentaResult.kind),
+          contratoId:
+            "contratoId" in cuentaResult ? cuentaResult.contratoId : null,
+        },
+      });
+    }
+
+    return NextResponse.json(updatedReserva);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

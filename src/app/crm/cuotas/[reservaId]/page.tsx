@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
   Clipboard,
   CreditCard,
   Loader2,
@@ -47,6 +50,7 @@ import type {
   MonedaPago,
   Pago,
   Reserva,
+  IndiceCac,
 } from "@/lib/schema";
 
 type CuentaDetail = {
@@ -75,6 +79,7 @@ type CuentaDetail = {
   reserva: Reserva;
   cuotas: Cuota[];
   pagos: Pago[];
+  indices: IndiceCac[];
 };
 
 type ReservaForCuenta = Pick<
@@ -127,6 +132,40 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const monthLabels = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+function currentYear() {
+  return new Date().getFullYear();
+}
+
+function yearFromPeriod(period: string) {
+  return Number(period.slice(0, 4)) || currentYear();
+}
+
+function monthPeriod(year: number, monthIndex: number) {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+}
+
+function formatPeriod(period: string) {
+  if (!period) return "Elegir período";
+  const [year, month] = period.split("-");
+  const monthIndex = Number(month) - 1;
+  return `${monthLabels[monthIndex] ?? month} ${year}`;
+}
+
 export default function CuentaDetallePage() {
   const { reservaId } = useParams<{ reservaId: string }>();
   const { data: session } = useSession();
@@ -143,12 +182,31 @@ export default function CuentaDetallePage() {
   const [createModalidad, setCreateModalidad] =
     useState<ModalidadContrato>("requiere_revision");
   const [periodoBaseCac, setPeriodoBaseCac] = useState("");
+  const [indicesCac, setIndicesCac] = useState<IndiceCac[]>([]);
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [periodPickerYear, setPeriodPickerYear] = useState(currentYear());
   const [tipoCambioBna, setTipoCambioBna] = useState("");
 
   const sortedPayments = useMemo(
     () => [...(detail?.pagos ?? [])].sort((a, b) => b.fechaPago.localeCompare(a.fechaPago)),
     [detail?.pagos]
   );
+  const loadedCacPeriods = useMemo(
+    () => new Set(indicesCac.map((indice) => indice.periodo)),
+    [indicesCac]
+  );
+
+  async function fetchIndicesCac() {
+    const res = await fetch("/api/crm/indices-cac");
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      toast.error(data?.error ?? "No se pudieron cargar los CAC");
+      return [];
+    }
+    const rows = data as IndiceCac[];
+    setIndicesCac(rows);
+    return rows;
+  }
 
   async function fetchReservaForCuenta() {
     const res = await fetch(`/api/crm/reservas/${reservaId}`);
@@ -181,6 +239,10 @@ export default function CuentaDetallePage() {
         setCreateModalidad(reserva.modalidadContrato ?? "requiere_revision");
         if (reserva.modalidadContrato === "pesos_cac") {
           await fetchTipoCambioBna();
+          const rows = await fetchIndicesCac();
+          setPeriodPickerYear(
+            rows[0]?.periodo ? yearFromPeriod(rows[0].periodo) : currentYear()
+          );
         }
         setMissing(true);
         setDetail(null);
@@ -193,6 +255,7 @@ export default function CuentaDetallePage() {
       }
       const data: CuentaDetail = await res.json();
       setDetail(data);
+      setIndicesCac(data.indices);
       setCreateModalidad(
         data.reserva.modalidadContrato ?? data.contrato.modalidad ?? "requiere_revision"
       );
@@ -370,6 +433,15 @@ export default function CuentaDetallePage() {
                     if (next === "pesos_cac" && !tipoCambioBna) {
                       void fetchTipoCambioBna();
                     }
+                    if (next === "pesos_cac" && indicesCac.length === 0) {
+                      void fetchIndicesCac().then((rows) => {
+                        setPeriodPickerYear(
+                          rows[0]?.periodo
+                            ? yearFromPeriod(rows[0].periodo)
+                            : currentYear()
+                        );
+                      });
+                    }
                   }}
                 >
                   <SelectTrigger>
@@ -383,13 +455,79 @@ export default function CuentaDetallePage() {
                 </Select>
               </div>
               {createModalidad === "pesos_cac" && (
-                <div className="grid gap-2">
+                <div className="relative grid gap-2">
                   <Label>Período base CAC</Label>
-                  <Input
-                    type="month"
-                    value={periodoBaseCac}
-                    onChange={(event) => setPeriodoBaseCac(event.target.value)}
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => {
+                      setPeriodPickerYear(
+                        periodoBaseCac
+                          ? yearFromPeriod(periodoBaseCac)
+                          : periodPickerYear
+                      );
+                      setShowPeriodPicker((value) => !value);
+                    }}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {formatPeriod(periodoBaseCac)}
+                  </Button>
+                  {showPeriodPicker && (
+                    <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border bg-white p-3 shadow-lg">
+                      <div className="mb-3 flex items-center justify-between">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPeriodPickerYear((year) => year - 1)}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {periodPickerYear}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPeriodPickerYear((year) => year + 1)}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {monthLabels.map((label, index) => {
+                          const period = monthPeriod(periodPickerYear, index);
+                          const hasCac = loadedCacPeriods.has(period);
+                          const isSelected = periodoBaseCac === period;
+                          return (
+                            <Button
+                              key={period}
+                              type="button"
+                              variant={isSelected ? "default" : "outline"}
+                              size="sm"
+                              className={
+                                hasCac && !isSelected
+                                  ? "border-green-300 bg-green-50 text-green-800 hover:bg-green-100"
+                                  : ""
+                              }
+                              onClick={() => {
+                                setPeriodoBaseCac(period);
+                                setShowPeriodPicker(false);
+                              }}
+                            >
+                              {label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                        Mes con CAC cargado
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {createModalidad === "pesos_cac" && (

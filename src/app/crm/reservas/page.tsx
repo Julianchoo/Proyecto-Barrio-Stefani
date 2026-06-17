@@ -398,7 +398,16 @@ export default function ReservasPage() {
       });
 
       if (res.ok) {
-        toast.success("Reserva actualizada");
+        const data = (await res.json().catch(() => null)) as {
+          cuentaCorriente?: { status?: string; message?: string };
+        } | null;
+        if (data?.cuentaCorriente?.status === "ok") {
+          toast.success("Reserva actualizada. Cuenta corriente creada.");
+        } else if (data?.cuentaCorriente?.message) {
+          toast.warning(`Reserva actualizada. ${data.cuentaCorriente.message}.`);
+        } else {
+          toast.success("Reserva actualizada");
+        }
         await fetchReservas();
         return;
       }

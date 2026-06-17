@@ -62,6 +62,10 @@ const schema = z.object({
   nombreCorredor: z.string().nullable().optional(),
   emailCorredor: z.string().email().or(z.literal("")).nullable().optional(),
   formaPago: z.string().nullable().optional(),
+  modalidadContrato: z
+    .enum(["usd_fijo", "pesos_cac", "requiere_revision"])
+    .nullable()
+    .optional(),
   fechaReserva: z.string().nullable().optional(),
   fechaVencimiento: z.string().nullable().optional(),
   fechaFirma: z.string().nullable().optional(),
@@ -107,6 +111,33 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+type TipoPagoReserva = "contado" | "financiado";
+type ModalidadContratoInput = "usd_fijo" | "pesos_cac" | "requiere_revision";
+type PaymentFields = {
+  formaPago: TipoPagoReserva;
+  modalidadContrato: FormValues["modalidadContrato"];
+};
+
+function modalidadFromReserva(
+  modalidadContrato: FormValues["modalidadContrato"]
+): ModalidadContratoInput {
+  if (modalidadContrato === "usd_fijo") return "usd_fijo";
+  if (modalidadContrato === "pesos_cac") return "pesos_cac";
+  return "requiere_revision";
+}
+
+function paymentFieldsFromSelection(
+  tipoPago: TipoPagoReserva,
+  modalidadContrato: ModalidadContratoInput
+): PaymentFields {
+  if (tipoPago === "contado") {
+    return { formaPago: "contado", modalidadContrato: null };
+  }
+  if (modalidadContrato === "usd_fijo" || modalidadContrato === "pesos_cac") {
+    return { formaPago: "financiado", modalidadContrato };
+  }
+  return { formaPago: "financiado", modalidadContrato: "requiere_revision" };
+}
 
 const LOTE_PARAM_FIELDS = [
   "circunscripcion",
@@ -253,7 +284,9 @@ export default function LoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [entregaCuota, setEntregaCuota] = useState(false);
-  const [tipoPago, setTipoPago] = useState<"contado" | "financiado">("financiado");
+  const [tipoPago, setTipoPago] = useState<TipoPagoReserva>("financiado");
+  const [modalidadContrato, setModalidadContrato] =
+    useState<ModalidadContratoInput>("requiere_revision");
   const [calculatorSaving, setCalculatorSaving] = useState(false);
   const [calculator, setCalculator] = useState({
     precio: 15000,
@@ -309,6 +342,7 @@ export default function LoteDetailPage() {
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
     setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
+    setModalidadContrato(modalidadFromReserva(data.modalidadContrato));
     const precioLote = parseNumber(data.precioBase) ?? parseNumber(data.precioEtapa1) ?? 15000;
     const precioCalculadora = precioLote;
     const anticipoCalculadora = Math.round(precioCalculadora * 0.3);
@@ -342,6 +376,7 @@ export default function LoteDetailPage() {
       nombreCorredor: data.nombreCorredor ?? "",
       emailCorredor: data.emailCorredor ?? "",
       formaPago: data.formaPago ?? "",
+      modalidadContrato: data.modalidadContrato ?? null,
       fechaReserva: data.fechaReserva ?? "",
       fechaVencimiento: data.fechaVencimiento ?? "",
       fechaFirma: data.fechaFirma ?? "",
@@ -436,7 +471,20 @@ export default function LoteDetailPage() {
       return;
     }
 
+    if (tipoPago !== "financiado") {
+      toast.error("SeleccionÃ¡ Financiado para aplicar cuotas");
+      return;
+    }
+    if (modalidadContrato === "requiere_revision") {
+      toast.error("ElegÃ­ USD fijo o Pesos + CAC para aplicar cuotas");
+      return;
+    }
+
     setCalculatorSaving(true);
+    const paymentFields = paymentFieldsFromSelection(
+      tipoPago,
+      modalidadContrato
+    );
     const precioTotalNum = String(Math.round(calculatorResult.precioTotalNominal));
     const anticipoNum = String(Math.round(calculator.anticipo));
     const saldoNum = String(Math.round(calculatorResult.totalFinanciado));
@@ -446,7 +494,8 @@ export default function LoteDetailPage() {
 
     const nextValues: Partial<FormValues> = {
       estado: "reservado",
-      formaPago: "financiado",
+      formaPago: paymentFields.formaPago,
+      modalidadContrato: paymentFields.modalidadContrato,
       precioTotalNum,
       precioTotalPalabras: amountToSpanishWords(precioTotalNum),
       anticipoNum,
@@ -464,13 +513,13 @@ export default function LoteDetailPage() {
     >) {
       form.setValue(key, value ?? "", { shouldDirty: true });
     }
-    setTipoPago("financiado");
     setEntregaCuota(useCuotaEntrega);
 
     const payload = {
       estado: "reservado",
       leadId,
-      formaPago: "financiado",
+      formaPago: paymentFields.formaPago,
+      modalidadContrato: paymentFields.modalidadContrato,
       precioTotalNum,
       precioTotalPalabras: nextValues.precioTotalPalabras,
       anticipoNum,
@@ -511,13 +560,23 @@ export default function LoteDetailPage() {
       toast.error("Seleccioná un lead antes de reservar el lote");
       return;
     }
+    if (isReserving && tipoPago === "financiado" && modalidadContrato === "requiere_revision") {
+      toast.error("Elegí USD fijo o Pesos + CAC");
+      return;
+    }
 
+    const paymentFields = paymentFieldsFromSelection(
+      tipoPago,
+      modalidadContrato
+    );
     const payload: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(values)) {
       if (k === "numeroCuotaEntrega") continue; // handled separately
       if ((LEAD_PERSONAL_FIELDS as readonly string[]).includes(k)) continue;
       payload[k] = v === "" ? null : v;
     }
+    payload.formaPago = paymentFields.formaPago;
+    payload.modalidadContrato = paymentFields.modalidadContrato;
     const hasReservaInput =
       values.estado === "reservado" ||
       entregaCuota ||
@@ -534,6 +593,15 @@ export default function LoteDetailPage() {
       );
     const explicitNonReservedStateChange =
       lote !== null && values.estado !== lote.estado && values.estado !== "reservado";
+    if (
+      hasReservaInput &&
+      !explicitNonReservedStateChange &&
+      tipoPago === "financiado" &&
+      modalidadContrato === "requiere_revision"
+    ) {
+      toast.error("Elegí USD fijo o Pesos + CAC");
+      return;
+    }
     if (hasReservaInput && !explicitNonReservedStateChange) {
       payload.estado = "reservado";
       payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
@@ -1111,6 +1179,16 @@ export default function LoteDetailPage() {
                       const val = v as "contado" | "financiado";
                       setTipoPago(val);
                       form.setValue("formaPago", val);
+                      if (val === "contado") {
+                        form.setValue("modalidadContrato", null);
+                      } else {
+                        form.setValue(
+                          "modalidadContrato",
+                          modalidadContrato === "requiere_revision"
+                            ? "requiere_revision"
+                            : modalidadContrato
+                        );
+                      }
                     }}
                   >
                     <FormControl>
@@ -1124,6 +1202,32 @@ export default function LoteDetailPage() {
                     </SelectContent>
                   </Select>
                 </FormItem>
+                {tipoPago === "financiado" && (
+                  <FormItem className="mt-3">
+                    <FormLabel>Modalidad del contrato</FormLabel>
+                    <Select
+                      value={modalidadContrato}
+                      onValueChange={(v) => {
+                        const val = v as ModalidadContratoInput;
+                        setModalidadContrato(val);
+                        form.setValue("modalidadContrato", val);
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="requiere_revision" disabled>
+                          Requiere revisión
+                        </SelectItem>
+                        <SelectItem value="usd_fijo">USD fijo</SelectItem>
+                        <SelectItem value="pesos_cac">Pesos + CAC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
               </div>
 
               <div>
