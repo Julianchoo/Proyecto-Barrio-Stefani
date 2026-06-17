@@ -42,6 +42,7 @@ export const RESERVA_FIELDS = [
   "cantidadCuotas",
   "cuotaMensualPalabras",
   "cuotaMensual",
+  "modalidadContrato",
 ] as const;
 
 export type ReservaField = (typeof RESERVA_FIELDS)[number];
@@ -88,6 +89,7 @@ const EMPTY_RESERVA_FIELDS = {
   cantidadCuotas: null,
   cuotaMensualPalabras: null,
   cuotaMensual: null,
+  modalidadContrato: null,
 };
 
 export function activeReservaJoin() {
@@ -178,6 +180,7 @@ export function flattenParcelaReserva(
     cantidadCuotas: reserva.cantidadCuotas,
     cuotaMensualPalabras: reserva.cuotaMensualPalabras,
     cuotaMensual: reserva.cuotaMensual,
+    modalidadContrato: reserva.modalidadContrato,
   };
 }
 

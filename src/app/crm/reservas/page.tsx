@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, Download, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
 import { ReservaDialog } from "@/components/crm/reserva-dialog";
@@ -377,6 +377,14 @@ export default function ReservasPage() {
 
   async function handleEstadoChange(reserva: ReservaRow, estado: EstadoReserva) {
     if (reserva.estado === estado) return;
+    if (session?.user?.role !== "admin" && estado === "realizada") {
+      toast.error("Solo un administrador puede marcar una reserva como realizada");
+      return;
+    }
+    if (session?.user?.role !== "admin" && reserva.estado === "realizada") {
+      toast.error("Solo un administrador puede editar una reserva realizada");
+      return;
+    }
     if (!canEditReserva(reserva)) {
       toast.error("Solo el comercial que tomó la reserva o un administrador puede modificarla");
       return;
@@ -570,7 +578,9 @@ export default function ReservasPage() {
   }
 
   function canEditReserva(reserva: ReservaRow) {
-    return session?.user?.role === "admin" || reserva.reservadoPor === session?.user?.email;
+    if (session?.user?.role === "admin") return true;
+    if (reserva.estado === "realizada") return false;
+    return reserva.reservadoPor === session?.user?.email;
   }
 
   function parcelaFromReserva(reserva: ReservaRow): ParcelaConReserva {
@@ -1022,6 +1032,14 @@ export default function ReservasPage() {
                           <Button asChild variant="ghost" size="sm">
                             <Link href={`/crm/lotes/${reserva.parcelaId}`}>Ver</Link>
                           </Button>
+                          {session?.user?.role === "admin" && (
+                            <Button asChild variant="ghost" size="sm">
+                              <Link href={`/crm/cuotas/${reserva.id}`}>
+                                <CreditCard className="mr-1 h-4 w-4" />
+                                Cuenta
+                              </Link>
+                            </Button>
+                          )}
                           {session?.user?.role === "admin" && (
                             <Button
                               type="button"

@@ -45,6 +45,25 @@ export const estadoReservaEnum = pgEnum("estado_reserva", [
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "comercial"]);
 
+export const modalidadContratoEnum = pgEnum("modalidad_contrato", [
+  "usd_fijo",
+  "pesos_cac",
+  "requiere_revision",
+]);
+
+export const estadoCuotaEnum = pgEnum("estado_cuota", [
+  "pendiente",
+  "pendiente_indice",
+  "parcial",
+  "pagada",
+  "vencida",
+  "cancelada",
+]);
+
+export const monedaPagoEnum = pgEnum("moneda_pago", ["usd", "ars"]);
+
+export const estadoPagoEnum = pgEnum("estado_pago", ["activo", "anulado"]);
+
 // ─── Better Auth Tables ───────────────────────────────────────────────────────
 
 export const user = pgTable(
@@ -294,6 +313,7 @@ export const reservas = pgTable(
     cantidadCuotas: text("cantidad_cuotas"),
     cuotaMensualPalabras: text("cuota_mensual_palabras"),
     cuotaMensual: text("cuota_mensual"),
+    modalidadContrato: modalidadContratoEnum("modalidad_contrato"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -310,15 +330,131 @@ export const reservas = pgTable(
   ]
 );
 
+export const contratos = pgTable(
+  "contratos",
+  {
+    id: serial("id").primaryKey(),
+    reservaId: integer("reserva_id")
+      .notNull()
+      .references(() => reservas.id, { onDelete: "cascade" }),
+    modalidad: modalidadContratoEnum("modalidad").notNull(),
+    fechaInicio: date("fecha_inicio").notNull(),
+    fechaPrimerVencimiento: date("fecha_primer_vencimiento").notNull(),
+    cantidadCuotas: integer("cantidad_cuotas").notNull(),
+    diaVencimiento: integer("dia_vencimiento").notNull(),
+    saldoInicial: numeric("saldo_inicial").notNull(),
+    cuotaBase: numeric("cuota_base").notNull(),
+    monedaBase: monedaPagoEnum("moneda_base").notNull(),
+    periodoBaseCac: text("periodo_base_cac"),
+    requiereRevision: boolean("requiere_revision").default(false).notNull(),
+    observaciones: text("observaciones"),
+    creadoPor: text("creado_por"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("contratos_reserva_idx").on(table.reservaId),
+    index("contratos_modalidad_idx").on(table.modalidad),
+  ]
+);
+
+export const cuotas = pgTable(
+  "cuotas",
+  {
+    id: serial("id").primaryKey(),
+    contratoId: integer("contrato_id")
+      .notNull()
+      .references(() => contratos.id, { onDelete: "cascade" }),
+    numero: integer("numero").notNull(),
+    fechaVencimiento: date("fecha_vencimiento").notNull(),
+    periodoCac: text("periodo_cac"),
+    importeBase: numeric("importe_base").notNull(),
+    importeAjustado: numeric("importe_ajustado"),
+    moneda: monedaPagoEnum("moneda").notNull(),
+    saldo: numeric("saldo").notNull(),
+    estado: estadoCuotaEnum("estado").default("pendiente").notNull(),
+    observaciones: text("observaciones"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("cuotas_contrato_numero_idx").on(table.contratoId, table.numero),
+    index("cuotas_contrato_idx").on(table.contratoId),
+    index("cuotas_vencimiento_idx").on(table.fechaVencimiento),
+    index("cuotas_estado_idx").on(table.estado),
+  ]
+);
+
+export const pagos = pgTable(
+  "pagos",
+  {
+    id: serial("id").primaryKey(),
+    contratoId: integer("contrato_id")
+      .notNull()
+      .references(() => contratos.id, { onDelete: "cascade" }),
+    cuotaId: integer("cuota_id").references(() => cuotas.id, {
+      onDelete: "set null",
+    }),
+    fechaPago: date("fecha_pago").notNull(),
+    monto: numeric("monto").notNull(),
+    moneda: monedaPagoEnum("moneda").notNull(),
+    medio: text("medio"),
+    observacion: text("observacion"),
+    estado: estadoPagoEnum("estado").default("activo").notNull(),
+    creadoPor: text("creado_por"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("pagos_contrato_idx").on(table.contratoId),
+    index("pagos_cuota_idx").on(table.cuotaId),
+    index("pagos_fecha_idx").on(table.fechaPago),
+  ]
+);
+
+export const indicesCac = pgTable(
+  "indices_cac",
+  {
+    id: serial("id").primaryKey(),
+    periodo: text("periodo").notNull(),
+    valor: numeric("valor").notNull(),
+    fuente: text("fuente"),
+    nota: text("nota"),
+    creadoPor: text("creado_por"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [uniqueIndex("indices_cac_periodo_idx").on(table.periodo)]
+);
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type User = typeof user.$inferSelect;
 export type Parcela = typeof parcelas.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type Reserva = typeof reservas.$inferSelect;
+export type Contrato = typeof contratos.$inferSelect;
+export type Cuota = typeof cuotas.$inferSelect;
+export type Pago = typeof pagos.$inferSelect;
+export type IndiceCac = typeof indicesCac.$inferSelect;
 export type EstadoParcela = (typeof estadoParcelaEnum.enumValues)[number];
 export type EstadoLead = (typeof estadoLeadEnum.enumValues)[number];
 export type EstadoReserva = (typeof estadoReservaEnum.enumValues)[number];
+export type ModalidadContrato = (typeof modalidadContratoEnum.enumValues)[number];
+export type EstadoCuota = (typeof estadoCuotaEnum.enumValues)[number];
+export type MonedaPago = (typeof monedaPagoEnum.enumValues)[number];
 export type ParcelaConReserva = Parcela &
   Partial<
     Pick<
@@ -364,6 +500,7 @@ export type ParcelaConReserva = Parcela &
       | "cantidadCuotas"
       | "cuotaMensualPalabras"
       | "cuotaMensual"
+      | "modalidadContrato"
     >
   > & {
     reservaId: number | null;

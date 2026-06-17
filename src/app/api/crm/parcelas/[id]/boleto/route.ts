@@ -214,6 +214,12 @@ export async function POST(
   }
 
   const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
+  const modalidadContrato =
+    form.tipoPago === "financiado"
+      ? form.monedaBoleto === "usd"
+        ? "usd_fijo"
+        : "pesos_cac"
+      : null;
   const numeroCuotaEntrega = form.numeroCuotaEntrega.trim();
   const entregaCuota = form.entregaCuota && Boolean(numeroCuotaEntrega);
   const saldoNum = form.saldoNum || formatUsd(parcela.saldoUsd);
@@ -319,6 +325,13 @@ export async function POST(
       ? "boleto-template-cuotas-usd.docx"
       : "boleto-template-cuotas.docx";
   const templatePath = path.join(process.cwd(), "src", "templates", templateName);
+  if (row.reserva && modalidadContrato) {
+    await db
+      .update(reservas)
+      .set({ modalidadContrato, updatedAt: new Date() })
+      .where(eq(reservas.id, row.reserva.id));
+  }
+
   let templateBuf: Buffer;
   try {
     templateBuf = fs.readFileSync(templatePath);

@@ -21,6 +21,58 @@ function loteEstadoForReserva(estado: z.infer<typeof updateSchema>["estado"]) {
   return "disponible";
 }
 
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireApiAuth();
+  if (isErrorResponse(authResult)) return authResult;
+
+  const { id } = await params;
+  const reservaId = parseInt(id);
+  if (isNaN(reservaId)) {
+    return NextResponse.json({ error: "ID invalido" }, { status: 400 });
+  }
+
+  const [row] = await db
+    .select({
+      id: reservas.id,
+      parcelaId: reservas.parcelaId,
+      leadId: reservas.leadId,
+      estado: reservas.estado,
+      nombreComprador: reservas.nombreComprador,
+      dniCuit: reservas.dniCuit,
+      telefono: reservas.telefono,
+      emailComprador: reservas.emailComprador,
+      reservadoPor: reservas.reservadoPor,
+      fechaReserva: reservas.fechaReserva,
+      fechaVencimiento: reservas.fechaVencimiento,
+      fechaFirma: reservas.fechaFirma,
+      formaPago: reservas.formaPago,
+      precioTotalNum: reservas.precioTotalNum,
+      modalidadContrato: reservas.modalidadContrato,
+      observaciones: reservas.observaciones,
+      createdAt: reservas.createdAt,
+      updatedAt: reservas.updatedAt,
+      loteNumero: parcelas.numero,
+      manzana: parcelas.manzana,
+      parcela: parcelas.parcela,
+      loteEstado: parcelas.estado,
+    })
+    .from(reservas)
+    .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+    .where(eq(reservas.id, reservaId));
+
+  if (!row) {
+    return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
+  }
+  if (authResult.role !== "admin" && row.reservadoPor !== authResult.email) {
+    return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
+  }
+
+  return NextResponse.json(row);
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -48,6 +100,13 @@ export async function PATCH(
       if (!current) return { kind: "not-found" as const };
 
       const { reserva } = current;
+
+      if (
+        authResult.role !== "admin" &&
+        (reserva.estado === "realizada" || data.estado === "realizada")
+      ) {
+        return { kind: "admin-only-realizada" as const };
+      }
 
       if (
         authResult.role !== "admin" &&
@@ -126,6 +185,7 @@ export async function PATCH(
           fechaFirma: reservas.fechaFirma,
           formaPago: reservas.formaPago,
           precioTotalNum: reservas.precioTotalNum,
+          modalidadContrato: reservas.modalidadContrato,
           observaciones: reservas.observaciones,
           createdAt: reservas.createdAt,
           updatedAt: reservas.updatedAt,
@@ -147,6 +207,12 @@ export async function PATCH(
     if (result.kind === "forbidden") {
       return NextResponse.json(
         { error: "Solo el comercial que tomó la reserva o un administrador puede modificarla" },
+        { status: 403 }
+      );
+    }
+    if (result.kind === "admin-only-realizada") {
+      return NextResponse.json(
+        { error: "Solo un administrador puede marcar o editar una reserva realizada" },
         { status: 403 }
       );
     }

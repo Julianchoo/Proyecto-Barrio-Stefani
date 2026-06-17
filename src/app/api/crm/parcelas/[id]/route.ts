@@ -44,6 +44,7 @@ const COMERCIAL_FIELDS = [
   "cantidadCuotas",
   "cuotaMensualPalabras",
   "cuotaMensual",
+  "modalidadContrato",
 ] as const;
 
 const updateSchema = z
@@ -79,6 +80,10 @@ const updateSchema = z
     cantidadCuotas: z.string().nullable().optional(),
     cuotaMensualPalabras: z.string().nullable().optional(),
     cuotaMensual: z.string().nullable().optional(),
+    modalidadContrato: z
+      .enum(["usd_fijo", "pesos_cac", "requiere_revision"])
+      .nullable()
+      .optional(),
     circunscripcion: z.string().nullable().optional(),
     seccion: z.string().nullable().optional(),
     manzana: z.string().nullable().optional(),
@@ -210,13 +215,17 @@ export async function PUT(
       const [currentRow] = await tx
         .select({ parcela: parcelas, reserva: reservas, lead: leads })
         .from(parcelas)
-        .leftJoin(reservas, activeReservaJoin())
+        .leftJoin(reservas, currentReservaJoin())
         .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(eq(parcelas.id, parcelaId));
 
       if (!currentRow) return { kind: "not-found" as const };
 
       const { parcela: current, reserva: activeReserva } = currentRow;
+      if (authResult.role !== "admin" && activeReserva?.estado === "realizada") {
+        return { kind: "admin-only-realizada" as const };
+      }
+
       const isReservedByOther =
         current.estado === "reservado" &&
         activeReserva &&
@@ -348,6 +357,12 @@ export async function PUT(
     if (result.kind === "forbidden") {
       return NextResponse.json(
         { error: "Este lote fue reservado por otro comercial" },
+        { status: 403 }
+      );
+    }
+    if (result.kind === "admin-only-realizada") {
+      return NextResponse.json(
+        { error: "Solo un administrador puede editar una reserva realizada o su lote" },
         { status: 403 }
       );
     }

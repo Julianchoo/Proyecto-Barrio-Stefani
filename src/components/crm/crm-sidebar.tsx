@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -19,7 +20,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { signOut, useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const baseNavItems = [
   { href: "/crm", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/crm/lotes", icon: MapPin, label: "Lotes" },
   { href: "/crm/reservas", icon: CalendarDays, label: "Reservas" },
@@ -29,8 +30,12 @@ const navItems = [
 function NavLinks({ role, onClose }: { role?: string; onClose?: () => void }) {
   const pathname = usePathname();
   const items = role === "admin"
-    ? [...navItems, { href: "/crm/usuarios", icon: UserCog, label: "Usuarios" }]
-    : navItems;
+    ? [
+        ...baseNavItems,
+        { href: "/crm/cuotas", icon: CreditCard, label: "Cuotas" },
+        { href: "/crm/usuarios", icon: UserCog, label: "Usuarios" },
+      ]
+    : baseNavItems;
 
   return (
     <nav className="flex-1 space-y-1 px-3">
