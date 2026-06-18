@@ -1,13 +1,12 @@
 import { buildDailyReportHtml } from "@/lib/email-template";
-import { getParcelasSummary, getRecentReservations, getTodayLeads } from "@/lib/report-data";
+import { getParcelasSummary, getRecentReservations } from "@/lib/report-data";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const [summary, reservations, todayLeads] = await Promise.all([
+  const [summary, reservations] = await Promise.all([
     getParcelasSummary(),
     getRecentReservations(),
-    getTodayLeads(),
   ]);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -19,7 +18,7 @@ export async function GET() {
     timeZone: "America/Argentina/Buenos_Aires",
   });
 
-  const html = buildDailyReportHtml({ date, summary, appUrl, reservations, todayLeads });
+  const html = buildDailyReportHtml({ date, summary, appUrl, reservations });
 
   return new Response(html, {
     headers: { "Content-Type": "text/html; charset=utf-8" },

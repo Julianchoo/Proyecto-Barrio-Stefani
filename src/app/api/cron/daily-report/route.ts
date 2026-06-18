@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { buildDailyReportHtml } from "@/lib/email-template";
-import { getParcelasSummary, getRecentReservations, getTodayLeads } from "@/lib/report-data";
+import { getParcelasSummary, getRecentReservations } from "@/lib/report-data";
 
 export const runtime = "nodejs";
 
@@ -11,10 +11,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [summary, reservations, todayLeads] = await Promise.all([
+  const [summary, reservations] = await Promise.all([
     getParcelasSummary(),
     getRecentReservations(),
-    getTodayLeads(),
   ]);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://barriostefani.vercel.app";
@@ -26,7 +25,7 @@ export async function POST(request: Request) {
     timeZone: "America/Argentina/Buenos_Aires",
   });
 
-  const html = buildDailyReportHtml({ date, summary, appUrl, reservations, todayLeads });
+  const html = buildDailyReportHtml({ date, summary, appUrl, reservations });
 
   await sendEmail({
     to: "juliankorn@gmail.com, hugo.guindani@gmail.com, agustin.alonso@eulerdesarrollos.com.ar, 74aleromero@gmail.com, mariostefani@pilmabia.com.ar, Miguelangellazzaro@gmail.com",

@@ -15,7 +15,7 @@ Email automático que se manda todos los días con un resumen del CRM.
 | `src/app/api/cron/daily-report/route.ts` | Endpoint POST que recibe el cron, valida el secret, y envía el email |
 | `src/app/api/cron/daily-report/preview/route.ts` | Endpoint GET para ver el email en el browser sin mandarlo |
 | `src/lib/email.ts` | Función `sendEmail()` — configura el transport de nodemailer con Gmail |
-| `src/lib/report-data.ts` | Las 3 queries a la DB: resumen por estado, reservas recientes, leads de hoy |
+| `src/lib/report-data.ts` | Las queries a la DB: resumen por estado y reservas recientes |
 | `src/lib/email-template.ts` | Arma el HTML del email (estilos inline, tablas, badges de estado) |
 
 ## Variables de entorno
@@ -46,17 +46,16 @@ Para agregar o sacar alguien, editá esa línea.
 
 ## Contenido del email
 
-Definido en `report-data.ts`. Tres secciones:
+Definido en `report-data.ts`. Dos secciones:
 
 1. **Resumen de parcelas** — `getParcelasSummary()`: GROUP BY estado, muestra los 4 estados (disponible, reservado, vendido, no_disponible) con su conteo
 2. **Reservas recientes** — `getRecentReservations()`: parcelas con `estado = 'reservado'` y `fecha_reserva >= hace 7 días`
-3. **Leads de hoy** — `getTodayLeads()`: leads con `created_at >= medianoche UTC de hoy`
 
 ## Template HTML
 
 `email-template.ts` exporta `buildDailyReportHtml(data)` que devuelve un string HTML puro (sin JSX, sin React). Usa estilos inline porque Gmail no soporta `<style>` tags.
 
-Para cambiar colores de los badges de estado, editar los objetos `ESTADO_PARCELA_STYLES` y `ESTADO_LEAD_STYLES` al principio del archivo.
+Para cambiar colores de los badges de estado, editar el objeto `ESTADO_PARCELA_STYLES` al principio del archivo.
 
 ## Preview local
 
