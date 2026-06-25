@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
@@ -13,7 +13,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const estado = searchParams.get("estado") as EstadoParcela | null;
   const search = searchParams.get("search");
-  const manzana = searchParams.get("manzana");
+  const manzanaFilters = searchParams
+    .getAll("manzana")
+    .map((value) => value.trim())
+    .filter(Boolean);
   const superficieMin = searchParams.get("superficieMin");
   const superficieMax = searchParams.get("superficieMax");
 
@@ -23,8 +26,8 @@ export async function GET(request: Request) {
     conditions.push(eq(parcelas.estado, estado));
   }
 
-  if (manzana) {
-    conditions.push(ilike(parcelas.manzana, `%${manzana}%`));
+  if (manzanaFilters.length > 0) {
+    conditions.push(inArray(parcelas.manzana, manzanaFilters));
   }
 
   if (superficieMin) {

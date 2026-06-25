@@ -21,8 +21,14 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, Pencil } from "lucide-react";
+import { ChevronDown, Lock, Pencil } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
@@ -173,6 +179,12 @@ function formatDeliveryInstallment(value: number): string {
   return `Despues de cuota ${value}`;
 }
 
+function toggleValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((item) => item !== value)
+    : [...values, value];
+}
+
 function loadVisibleCols(): Record<ColKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -192,7 +204,7 @@ export default function LotesPage() {
   const [manzanas, setManzanas] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("disponible");
-  const [filterManzana, setFilterManzana] = useState<string>("all");
+  const [filterManzanas, setFilterManzanas] = useState<string[]>([]);
   const [filterSuperficie, setFilterSuperficie] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkEstado, setBulkEstado] = useState<EstadoParcela | "">("");
@@ -239,7 +251,7 @@ export default function LotesPage() {
     setLoading(true);
     const params = new URLSearchParams();
     if (filterEstado !== "all") params.set("estado", filterEstado);
-    if (filterManzana !== "all") params.set("manzana", filterManzana);
+    for (const manzana of filterManzanas) params.append("manzana", manzana);
     if (filterSuperficie !== "all") {
       const range = SUPERFICIE_RANGES[Number(filterSuperficie)];
       if (range) {
@@ -254,7 +266,7 @@ export default function LotesPage() {
     setSelected(new Set());
     lastCheckedIndexRef.current = null;
     setLoading(false);
-  }, [filterEstado, filterManzana, filterSuperficie, search]);
+  }, [filterEstado, filterManzanas, filterSuperficie, search]);
 
   useEffect(() => {
     fetchLotes();
@@ -647,19 +659,46 @@ export default function LotesPage() {
             <SelectItem value="no_disponible">No disponible</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterManzana} onValueChange={setFilterManzana}>
-          <SelectTrigger className="sm:w-36">
-            <SelectValue placeholder="Manzana" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las manzanas</SelectItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 justify-between sm:w-48"
+              disabled={manzanas.length === 0}
+            >
+              <span className="truncate">
+                {filterManzanas.length === 0
+                  ? "Todas las manzanas"
+                  : filterManzanas.length === 1
+                    ? `Manzana ${filterManzanas[0]}`
+                    : `${filterManzanas.length} manzanas`}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-48">
+            {filterManzanas.length > 0 && (
+              <DropdownMenuCheckboxItem
+                checked={false}
+                onCheckedChange={() => setFilterManzanas([])}
+                onSelect={(event) => event.preventDefault()}
+              >
+                Todas las manzanas
+              </DropdownMenuCheckboxItem>
+            )}
             {manzanas.map((m) => (
-              <SelectItem key={m} value={m}>
+              <DropdownMenuCheckboxItem
+                key={m}
+                checked={filterManzanas.includes(m)}
+                onCheckedChange={() => setFilterManzanas((current) => toggleValue(current, m))}
+                onSelect={(event) => event.preventDefault()}
+              >
                 Manzana {m}
-              </SelectItem>
+              </DropdownMenuCheckboxItem>
             ))}
-          </SelectContent>
-        </Select>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Select value={filterSuperficie} onValueChange={setFilterSuperficie}>
           <SelectTrigger className="sm:w-44">
             <SelectValue placeholder="Superficie" />
