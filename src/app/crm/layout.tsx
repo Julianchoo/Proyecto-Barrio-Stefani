@@ -9,7 +9,7 @@ export default async function CrmLayout({
   await requireAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       <CrmSidebar />
       {/* Desktop: offset for sidebar. Mobile: offset for top bar */}
       <div className="md:pl-56 pt-14 md:pt-0">

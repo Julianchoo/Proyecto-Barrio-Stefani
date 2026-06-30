@@ -98,7 +98,7 @@ export function BnaExchangeRateIndicator({
   if (exchangeRate.status === "unavailable") {
     return (
       <div className={className}>
-        <span className="text-xs font-medium text-muted-foreground">
+        <span className="text-xs font-medium text-current/70">
           BNA billete vendedor no disponible
         </span>
       </div>
@@ -109,14 +109,14 @@ export function BnaExchangeRateIndicator({
 
   return (
     <div className={cn("leading-tight", className)}>
-      <span className="text-xs font-medium text-muted-foreground">
+      <span className="text-xs font-medium text-current/70">
         {exchangeRate.label}:{" "}
-        <span className="font-semibold text-primary">
+        <span className="font-semibold text-current">
           {formatCurrency(exchangeRate.sell)}
         </span>
       </span>
       {updatedAt ? (
-        <span className="text-[11px] text-muted-foreground/75">
+        <span className="text-[11px] text-current/55">
           Act. {updatedAt}
         </span>
       ) : null}
