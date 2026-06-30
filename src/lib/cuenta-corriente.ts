@@ -44,6 +44,7 @@ export type CuentaCorrienteSummary = {
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
   cuentaEstado: "creada" | "pendiente";
+  mensajeCuotas: string;
 };
 
 export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
@@ -502,7 +503,37 @@ function buildPendingSummary(row: {
     proximaCuotaMonto: null,
     moneda: modalidad === "pesos_cac" ? "ars" : "usd",
     cuentaEstado: "pendiente",
+    mensajeCuotas: "",
   };
+}
+
+export function buildMensajeCuentaCorriente(summary: Pick<
+  CuentaCorrienteSummary,
+  | "comprador"
+  | "loteNumero"
+  | "totalVencido"
+  | "saldoPendiente"
+  | "moneda"
+  | "proximoVencimiento"
+  | "proximaCuotaMonto"
+>) {
+  const comprador = summary.comprador ?? "cliente";
+  if (summary.totalVencido > 0) {
+    return [
+      `Hola ${comprador}, te escribimos por el estado de cuenta del lote ${summary.loteNumero}.`,
+      `A la fecha registra un saldo vencido de ${formatCuentaMoney(summary.totalVencido, summary.moneda)}.`,
+      `El saldo total pendiente es ${formatCuentaMoney(summary.saldoPendiente, summary.moneda)}.`,
+      "Por favor avisanos cuando realices el pago para registrarlo en la cuenta corriente.",
+    ].join("\n");
+  }
+
+  return [
+    `Hola ${comprador}, te escribimos por el estado de cuenta del lote ${summary.loteNumero}.`,
+    summary.proximoVencimiento && summary.proximaCuotaMonto !== null
+      ? `La proxima cuota vence el ${summary.proximoVencimiento} por ${formatCuentaMoney(summary.proximaCuotaMonto, summary.moneda)}.`
+      : "No registra cuotas pendientes a la fecha.",
+    `El saldo total pendiente es ${formatCuentaMoney(summary.saldoPendiente, summary.moneda)}.`,
+  ].join("\n");
 }
 
 function buildSummary(
@@ -519,13 +550,13 @@ function buildSummary(
     (cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado)
   );
   const overdueCuotas = activeCuotas.filter(
-    (cuota) => cuota.fechaVencimiento < today && cuota.estado !== "pendiente_indice"
+    (cuota) => cuota.fechaVencimiento < today
   );
   const nextCuota = activeCuotas
     .filter((cuota) => cuota.fechaVencimiento >= today)
     .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))[0];
 
-  return {
+  const summary: CuentaCorrienteSummary = {
     contratoId: row.contrato.id,
     reservaId: row.reserva.id,
     parcelaId: row.parcela.id,
@@ -561,6 +592,12 @@ function buildSummary(
       : null,
     moneda: row.contrato.monedaBase,
     cuentaEstado: "creada",
+    mensajeCuotas: "",
+  };
+
+  return {
+    ...summary,
+    mensajeCuotas: buildMensajeCuentaCorriente(summary),
   };
 }
 

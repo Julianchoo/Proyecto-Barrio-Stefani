@@ -40,9 +40,6 @@ export async function GET(request: Request) {
   if (estado === "pendiente_indice") {
     rows = rows.filter((row) => row.cuotasPendienteIndice > 0);
   }
-  if (estado === "proyectadas") {
-    rows = rows.filter((row) => row.cuotasProyectadas > 0);
-  }
   if (estado === "pendiente_cuenta") {
     rows = rows.filter((row) => row.cuentaEstado === "pendiente");
   }
@@ -50,9 +47,7 @@ export async function GET(request: Request) {
     rows = rows.filter(
       (row) =>
         row.cuentaEstado === "creada" &&
-        row.cuotasVencidas === 0 &&
-        row.cuotasPendienteIndice === 0 &&
-        row.cuotasProyectadas === 0
+        row.cuotasVencidas === 0
     );
   }
 

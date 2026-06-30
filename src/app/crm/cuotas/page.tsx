@@ -8,6 +8,7 @@ import {
   ChevronDown,
   CircleDollarSign,
   Edit2,
+  FileSpreadsheet,
   Filter,
   Save,
   Search,
@@ -15,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +64,7 @@ type CuentaRow = {
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
   cuentaEstado: "creada" | "pendiente";
+  mensajeCuotas: string;
 };
 
 const modalidadLabels: Record<ModalidadContrato, string> = {
@@ -83,6 +86,12 @@ function formatDate(value: string | null) {
   if (!value) return "-";
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function estadoResumen(row: CuentaRow) {
+  if (row.cuentaEstado === "pendiente") return "Pendiente creacion";
+  if (row.cuotasVencidas > 0) return `${row.cuotasVencidas} Vencida(s)`;
+  return "Al dia";
 }
 
 export default function CuotasPage() {
@@ -166,7 +175,7 @@ export default function CuotasPage() {
   async function saveIndice() {
     const numericValue = Number(valor);
     if (!periodo || !Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("Cargá período y valor CAC");
+      toast.error("Carga periodo y valor CAC");
       return;
     }
 
@@ -183,10 +192,10 @@ export default function CuotasPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        toast.error(data?.error ?? "No se pudo guardar el índice");
+        toast.error(data?.error ?? "No se pudo guardar el indice");
         return;
       }
-      toast.success("Índice CAC guardado");
+      toast.success("Indice CAC guardado");
       setValor("");
       setFuente("");
       await fetchIndices();
@@ -211,7 +220,7 @@ export default function CuotasPage() {
   async function saveEditedIndice(periodoToSave: string) {
     const numericValue = Number(editingValor);
     if (!Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("CargÃ¡ un valor CAC vÃ¡lido");
+      toast.error("Carga un valor CAC valido");
       return;
     }
 
@@ -266,6 +275,48 @@ export default function CuotasPage() {
     }
   }
 
+  function exportResumenXls() {
+    const data = rows.map((row) => ({
+      Lote: row.loteNumero,
+      Manzana: row.manzana ?? "",
+      Parcela: row.parcela ?? "",
+      Cliente: row.comprador ?? "",
+      DNI: row.dniCuit ?? "",
+      Telefono: row.telefono ?? "",
+      "Email contacto": row.email ?? "",
+      Modalidad: modalidadLabels[row.modalidad],
+      Estado: estadoResumen(row),
+      Vencido: row.totalVencido,
+      Saldo: row.saldoPendiente,
+      "Proximo vencimiento": row.proximoVencimiento ?? "",
+      "Proxima cuota": row.proximaCuotaMonto ?? "",
+      Mensaje: row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet["!cols"] = [
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 30 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 80 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Resumen cuotas");
+    XLSX.writeFile(
+      workbook,
+      `resumen-cuotas-${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -275,9 +326,20 @@ export default function CuotasPage() {
             Cuenta corriente por lote vendido
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
-          <CircleDollarSign className="h-4 w-4 text-green-700" />
-          <span>{rows.length} cuentas activas</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
+            <CircleDollarSign className="h-4 w-4 text-green-700" />
+            <span>{rows.length} cuentas activas</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={exportResumenXls}
+            disabled={rows.length === 0}
+          >
+            <FileSpreadsheet className="mr-1 h-4 w-4" />
+            Exportar XLS
+          </Button>
         </div>
       </div>
 
@@ -300,9 +362,8 @@ export default function CuotasPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="vencidas">Vencidas</SelectItem>
-                <SelectItem value="proyectadas">Proyectadas</SelectItem>
-                <SelectItem value="pendiente_cuenta">Pendiente cuenta</SelectItem>
-                <SelectItem value="al_dia">Al día</SelectItem>
+                <SelectItem value="pendiente_cuenta">Pendiente creacion</SelectItem>
+                <SelectItem value="al_dia">Al dia</SelectItem>
               </SelectContent>
             </Select>
             <Select value={modalidad} onValueChange={setModalidad}>
@@ -327,12 +388,12 @@ export default function CuotasPage() {
       {session?.user?.role === "admin" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Índice CAC mensual</CardTitle>
+            <CardTitle className="text-base">Indice CAC mensual</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-[150px_160px_1fr_auto] md:items-end">
               <div className="grid gap-2">
-                <Label>Período</Label>
+                <Label>Periodo</Label>
                 <Input
                   type="month"
                   value={periodo}
@@ -383,7 +444,7 @@ export default function CuotasPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>PerÃ­odo</TableHead>
+                      <TableHead>Periodo</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Fuente / nota</TableHead>
                       <TableHead>Cargado por</TableHead>
@@ -499,24 +560,26 @@ export default function CuotasPage() {
             <TableRow>
               <TableHead>Lote</TableHead>
               <TableHead>Cliente</TableHead>
+              <TableHead>Email contacto</TableHead>
+              <TableHead>Mensaje</TableHead>
               <TableHead>Modalidad</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Vencido</TableHead>
               <TableHead>Saldo</TableHead>
-              <TableHead>Próximo vencimiento</TableHead>
+              <TableHead>Proximo vencimiento</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-gray-500">
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-gray-500">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-gray-500">
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-gray-500">
                   No hay cuentas corrientes para este filtro
                 </TableCell>
               </TableRow>
@@ -537,30 +600,25 @@ export default function CuotasPage() {
                       {row.dniCuit ?? row.email ?? row.telefono ?? "-"}
                     </div>
                   </TableCell>
+                  <TableCell>{row.email ?? ""}</TableCell>
+                  <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-gray-600">
+                    {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
+                  </TableCell>
                   <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
                   <TableCell>
                     {row.cuentaEstado === "pendiente" ? (
                       <Badge className="gap-1 bg-amber-100 text-amber-800">
                         <AlertTriangle className="h-3 w-3" />
-                        Pendiente cuenta
+                        Pendiente creacion
                       </Badge>
                     ) : row.cuotasVencidas > 0 ? (
                       <Badge className="bg-red-100 text-red-700">
-                        {row.cuotasVencidas} vencida(s)
-                      </Badge>
-                    ) : row.cuotasPendienteIndice > 0 ? (
-                      <Badge className="gap-1 bg-amber-100 text-amber-800">
-                        <AlertTriangle className="h-3 w-3" />
-                        Falta CAC vencida
-                      </Badge>
-                    ) : row.cuotasProyectadas > 0 ? (
-                      <Badge className="bg-sky-100 text-sky-800">
-                        {row.cuotasProyectadas} proyectada(s)
+                        {row.cuotasVencidas} Vencida(s)
                       </Badge>
                     ) : (
                       <Badge className="gap-1 bg-green-100 text-green-700">
                         <CheckCircle2 className="h-3 w-3" />
-                        Al día
+                        Al dia
                       </Badge>
                     )}
                   </TableCell>
