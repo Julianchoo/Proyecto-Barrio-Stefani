@@ -44,9 +44,15 @@ export async function POST(
     .where(eq(cuotas.id, cuotaId));
 
   if (!row) return NextResponse.json({ error: "Cuota no encontrada" }, { status: 404 });
+  if (row.cuota.estado === "cancelada") {
+    return NextResponse.json(
+      { error: "No se puede registrar pago en una cuota cancelada" },
+      { status: 409 }
+    );
+  }
   if (row.cuota.estado === "pendiente_indice") {
     return NextResponse.json(
-      { error: "No se puede registrar pago hasta cargar el indice CAC" },
+      { error: "No se puede registrar pago: falta cargar el CAC aplicable a una cuota vencida" },
       { status: 409 }
     );
   }

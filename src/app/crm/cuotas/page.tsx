@@ -57,6 +57,7 @@ type CuentaRow = {
   cuotasPendientes: number;
   cuotasVencidas: number;
   cuotasPendienteIndice: number;
+  cuotasProyectadas: number;
   proximoVencimiento: string | null;
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
@@ -299,7 +300,7 @@ export default function CuotasPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="vencidas">Vencidas</SelectItem>
-                <SelectItem value="pendiente_indice">Falta CAC</SelectItem>
+                <SelectItem value="proyectadas">Proyectadas</SelectItem>
                 <SelectItem value="pendiente_cuenta">Pendiente cuenta</SelectItem>
                 <SelectItem value="al_dia">Al día</SelectItem>
               </SelectContent>
@@ -543,14 +544,18 @@ export default function CuotasPage() {
                         <AlertTriangle className="h-3 w-3" />
                         Pendiente cuenta
                       </Badge>
-                    ) : row.cuotasPendienteIndice > 0 ? (
-                      <Badge className="gap-1 bg-amber-100 text-amber-800">
-                        <AlertTriangle className="h-3 w-3" />
-                        Falta CAC
-                      </Badge>
                     ) : row.cuotasVencidas > 0 ? (
                       <Badge className="bg-red-100 text-red-700">
                         {row.cuotasVencidas} vencida(s)
+                      </Badge>
+                    ) : row.cuotasPendienteIndice > 0 ? (
+                      <Badge className="gap-1 bg-amber-100 text-amber-800">
+                        <AlertTriangle className="h-3 w-3" />
+                        Falta CAC vencida
+                      </Badge>
+                    ) : row.cuotasProyectadas > 0 ? (
+                      <Badge className="bg-sky-100 text-sky-800">
+                        {row.cuotasProyectadas} proyectada(s)
                       </Badge>
                     ) : (
                       <Badge className="gap-1 bg-green-100 text-green-700">

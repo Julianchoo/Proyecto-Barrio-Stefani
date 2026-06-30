@@ -11,7 +11,17 @@ const updateSchema = z
     fechaVencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     importeBase: z.number().positive().optional(),
     estado: z
-      .enum(["pendiente", "pendiente_indice", "parcial", "pagada", "vencida", "cancelada"])
+      .enum([
+        "pendiente",
+        "pendiente_indice",
+        "parcial",
+        "pagada",
+        "vencida",
+        "calculada",
+        "proyectada",
+        "parcial_vencida",
+        "cancelada",
+      ])
       .optional(),
     observaciones: z.string().nullable().optional(),
   })

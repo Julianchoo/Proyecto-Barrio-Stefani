@@ -127,6 +127,13 @@
       "when": 1781701057753,
       "tag": "0017_overrated_morgan_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782839823035,
+      "tag": "0018_sour_norrin_radd",
+      "breakpoints": true
     }
   ]
 }

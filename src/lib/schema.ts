@@ -57,6 +57,9 @@ export const estadoCuotaEnum = pgEnum("estado_cuota", [
   "parcial",
   "pagada",
   "vencida",
+  "calculada",
+  "proyectada",
+  "parcial_vencida",
   "cancelada",
 ]);
 
@@ -346,6 +349,7 @@ export const contratos = pgTable(
     cuotaBase: numeric("cuota_base").notNull(),
     monedaBase: monedaPagoEnum("moneda_base").notNull(),
     periodoBaseCac: text("periodo_base_cac"),
+    indiceBaseCac: numeric("indice_base_cac"),
     requiereRevision: boolean("requiere_revision").default(false).notNull(),
     observaciones: text("observaciones"),
     creadoPor: text("creado_por"),
@@ -371,6 +375,7 @@ export const cuotas = pgTable(
     numero: integer("numero").notNull(),
     fechaVencimiento: date("fecha_vencimiento").notNull(),
     periodoCac: text("periodo_cac"),
+    indiceCac: numeric("indice_cac"),
     importeBase: numeric("importe_base").notNull(),
     importeAjustado: numeric("importe_ajustado"),
     moneda: monedaPagoEnum("moneda").notNull(),

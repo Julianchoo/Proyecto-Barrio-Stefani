@@ -72,6 +72,7 @@ type CuentaDetail = {
   cuotasPendientes: number;
   cuotasVencidas: number;
   cuotasPendienteIndice: number;
+  cuotasProyectadas: number;
   proximoVencimiento: string | null;
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
@@ -102,7 +103,22 @@ const estadoColors: Record<string, string> = {
   parcial: "bg-blue-100 text-blue-700",
   pagada: "bg-green-100 text-green-700",
   vencida: "bg-red-100 text-red-700",
+  calculada: "bg-emerald-100 text-emerald-800",
+  proyectada: "bg-sky-100 text-sky-800",
+  parcial_vencida: "bg-orange-100 text-orange-800",
   cancelada: "bg-gray-100 text-gray-500",
+};
+
+const estadoLabels: Record<string, string> = {
+  pendiente: "Pendiente",
+  pendiente_indice: "Falta CAC",
+  parcial: "Parcial",
+  pagada: "Pagada",
+  vencida: "Vencida",
+  calculada: "Calculada",
+  proyectada: "Proyectada",
+  parcial_vencida: "Parcial vencida",
+  cancelada: "Cancelada",
 };
 
 const modalidadLabels: Record<ModalidadContrato, string> = {
@@ -120,6 +136,16 @@ function formatMoney(value: number | string | null, moneda: MonedaPago) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatIndex(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") return "-";
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "-";
+  return amount.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatDate(value: string | null) {
@@ -195,6 +221,15 @@ export default function CuentaDetallePage() {
     () => new Set(indicesCac.map((indice) => indice.periodo)),
     [indicesCac]
   );
+  const cacByPeriod = useMemo(
+    () => new Map(indicesCac.map((indice) => [indice.periodo, indice.valor])),
+    [indicesCac]
+  );
+  const baseCacValue =
+    detail?.contrato.indiceBaseCac ??
+    (detail?.contrato.periodoBaseCac
+      ? cacByPeriod.get(detail.contrato.periodoBaseCac) ?? null
+      : null);
 
   async function fetchIndicesCac() {
     const res = await fetch("/api/crm/indices-cac");
@@ -623,6 +658,10 @@ export default function CuentaDetallePage() {
                   <TableHead>Vencimiento</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Base</TableHead>
+                  <TableHead>CAC base</TableHead>
+                  <TableHead>Periodo CAC base</TableHead>
+                  <TableHead>CAC cuota</TableHead>
+                  <TableHead>Periodo CAC cuota</TableHead>
                   <TableHead>Ajustado</TableHead>
                   <TableHead>Saldo</TableHead>
                   <TableHead className="w-36" />
@@ -635,10 +674,20 @@ export default function CuentaDetallePage() {
                     <TableCell>{formatDate(cuota.fechaVencimiento)}</TableCell>
                     <TableCell>
                       <Badge className={estadoColors[cuota.estado]}>
-                        {cuota.estado.replace("_", " ")}
+                        {estadoLabels[cuota.estado] ?? cuota.estado}
                       </Badge>
                     </TableCell>
                     <TableCell>{formatMoney(cuota.importeBase, cuota.moneda)}</TableCell>
+                    <TableCell>{formatIndex(baseCacValue)}</TableCell>
+                    <TableCell>
+                      {detail.contrato.periodoBaseCac
+                        ? formatPeriod(detail.contrato.periodoBaseCac)
+                        : "-"}
+                    </TableCell>
+                    <TableCell>{formatIndex(cuota.indiceCac)}</TableCell>
+                    <TableCell>
+                      {cuota.periodoCac ? formatPeriod(cuota.periodoCac) : "-"}
+                    </TableCell>
                     <TableCell>
                       {cuota.estado === "pendiente_indice"
                         ? "Falta CAC"

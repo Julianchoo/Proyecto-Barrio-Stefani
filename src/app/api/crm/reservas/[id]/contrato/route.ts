@@ -77,6 +77,12 @@ export async function POST(
       { status: 400 }
     );
   }
+  if (result.kind === "missing-base-cac") {
+    return NextResponse.json(
+      { error: "Carga el indice CAC del periodo base antes de crear la cuenta corriente" },
+      { status: 400 }
+    );
+  }
   if (result.kind === "not-found") {
     return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
   }

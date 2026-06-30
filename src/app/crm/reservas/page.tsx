@@ -43,7 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSession } from "@/lib/auth-client";
-import type { EstadoParcela, EstadoReserva, ParcelaConReserva } from "@/lib/schema";
+import type { EstadoParcela, EstadoReserva, ModalidadContrato, ParcelaConReserva } from "@/lib/schema";
 
 type ReservaRow = Omit<ParcelaConReserva, "id" | "estado" | "createdAt" | "updatedAt"> & {
   id: number;
@@ -59,8 +59,11 @@ type ReservaRow = Omit<ParcelaConReserva, "id" | "estado" | "createdAt" | "updat
   fechaVencimiento: string | null;
   fechaFirma: string | null;
   formaPago: string | null;
+  modalidadContrato: ModalidadContrato | null;
   precioTotalNum: string | null;
   observaciones: string | null;
+  cantidadCuotas: string | null;
+  cuotaMensual: string | null;
   createdAt: string;
   updatedAt: string;
   loteNumero: number;
@@ -102,6 +105,7 @@ type SortKey =
   | "fechaReserva"
   | "fechaVencimiento"
   | "fechaFirma"
+  | "modalidadPago"
   | "precioTotalNum"
   | "reservadoPor";
 
@@ -133,6 +137,14 @@ const estadoColors: Record<EstadoReserva, string> = {
   realizada: "bg-blue-100 text-blue-700",
 };
 
+const modalidadContratoLabels: Record<ModalidadContrato, string> = {
+  usd_fijo: "Financiado USD",
+  pesos_cac: "Financiado CAC",
+  requiere_revision: "Requiere revision",
+};
+
+const financedPaymentValues = new Set(["cuotas", "financiado"]);
+
 const monthNames = [
   "enero",
   "febrero",
@@ -158,6 +170,21 @@ function formatDate(value: string | null) {
   return `${day}/${month}/${year}`;
 }
 
+function hasInstallments(reserva: Pick<ReservaRow, "cantidadCuotas" | "cuotaMensual">) {
+  return Boolean(reserva.cantidadCuotas?.trim() || reserva.cuotaMensual?.trim());
+}
+
+function formatPaymentMode(
+  reserva: Pick<ReservaRow, "formaPago" | "modalidadContrato" | "cantidadCuotas" | "cuotaMensual">
+) {
+  if (reserva.modalidadContrato) return modalidadContratoLabels[reserva.modalidadContrato];
+
+  const formaPago = reserva.formaPago?.trim().toLowerCase();
+  if (formaPago === "contado") return "Contado";
+  if (formaPago && formaPago !== "-" && financedPaymentValues.has(formaPago)) return "Requiere revision";
+  if (hasInstallments(reserva)) return "Requiere revision";
+  return "-";
+}
 function normalizeDateKey(value: string | null) {
   if (!value) return null;
   const datePart = value.slice(0, 10);
@@ -299,6 +326,10 @@ export default function ReservasPage() {
         sort.key === "fechaFirma"
       ) {
         result = (a[sort.key] ?? "").localeCompare(b[sort.key] ?? "");
+      } else if (sort.key === "modalidadPago") {
+        result = formatPaymentMode(a).localeCompare(formatPaymentMode(b), "es-AR", {
+          sensitivity: "base",
+        });
       } else {
         result = (a[sort.key] ?? "").localeCompare(b[sort.key] ?? "", "es-AR", {
           sensitivity: "base",
@@ -386,7 +417,7 @@ export default function ReservasPage() {
       return;
     }
     if (!canEditReserva(reserva)) {
-      toast.error("Solo el comercial que tomó la reserva o un administrador puede modificarla");
+      toast.error("Solo el comercial que tomo la reserva o un administrador puede modificarla");
       return;
     }
     setUpdatingId(reserva.id);
@@ -578,7 +609,7 @@ export default function ReservasPage() {
         variant="ghost"
         size="sm"
         onClick={() => toggleSort(sortKey)}
-        className="-ml-3 h-8 px-3"
+        className="-ml-3 h-8 px-3 text-inherit hover:bg-gray-100 hover:text-gray-900"
       >
         {children}
         <Icon className="ml-1 h-3.5 w-3.5" />
@@ -885,10 +916,10 @@ export default function ReservasPage() {
       </div>
 
       {view === "lista" ? (
-        <div className="overflow-x-auto rounded-lg border bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow>
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <Table className="min-w-[1180px]">
+            <TableHeader className="bg-gray-50 [&_th]:h-11 [&_th]:px-3 [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-normal [&_th]:text-gray-600">
+              <TableRow className="hover:bg-transparent">
                 <TableHead>
                   <SortHeader sortKey="loteNumero">Lote</SortHeader>
                 </TableHead>
@@ -908,6 +939,9 @@ export default function ReservasPage() {
                   <SortHeader sortKey="fechaFirma">Firma</SortHeader>
                 </TableHead>
                 <TableHead>
+                  <SortHeader sortKey="modalidadPago">Modalidad</SortHeader>
+                </TableHead>
+                <TableHead>
                   <SortHeader sortKey="precioTotalNum">Precio</SortHeader>
                 </TableHead>
                 <TableHead>
@@ -916,11 +950,11 @@ export default function ReservasPage() {
                 <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="[&_tr]:bg-white [&_tr:hover]:bg-gray-50 [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-gray-700">
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 9 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -952,7 +986,7 @@ export default function ReservasPage() {
                             }
                             disabled={updatingId === reserva.id}
                           >
-                            <SelectTrigger className="h-7 w-32 border-0 p-0 shadow-none focus:ring-0">
+                            <SelectTrigger className="h-7 w-32 border-0 bg-transparent p-0 shadow-none focus:ring-0">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
                               >
@@ -981,6 +1015,7 @@ export default function ReservasPage() {
                       <TableCell>{formatDate(reserva.fechaReserva)}</TableCell>
                       <TableCell>{formatDate(reserva.fechaVencimiento)}</TableCell>
                       <TableCell>{formatDate(reserva.fechaFirma)}</TableCell>
+                      <TableCell>{formatPaymentMode(reserva)}</TableCell>
                       <TableCell>
                         {reserva.precioTotalNum ? `USD ${reserva.precioTotalNum}` : "-"}
                       </TableCell>

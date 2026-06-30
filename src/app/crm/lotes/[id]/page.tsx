@@ -111,10 +111,10 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-type TipoPagoReserva = "contado" | "financiado";
+type TipoPagoReserva = "contado" | "financiado" | "sin_dato";
 type ModalidadContratoInput = "usd_fijo" | "pesos_cac" | "requiere_revision";
 type PaymentFields = {
-  formaPago: TipoPagoReserva;
+  formaPago: FormValues["formaPago"];
   modalidadContrato: FormValues["modalidadContrato"];
 };
 
@@ -126,10 +126,27 @@ function modalidadFromReserva(
   return "requiere_revision";
 }
 
+function hasInstallments(data: Pick<ParcelaConReserva, "cantidadCuotas" | "cuotaMensual">) {
+  return Boolean(data.cantidadCuotas?.trim() || data.cuotaMensual?.trim());
+}
+
+function tipoPagoFromReserva(
+  data: Pick<ParcelaConReserva, "formaPago" | "cantidadCuotas" | "cuotaMensual">
+): TipoPagoReserva {
+  const formaPago = data.formaPago?.trim().toLowerCase();
+  if (formaPago === "contado") return "contado";
+  if (formaPago === "financiado" || formaPago === "cuotas" || hasInstallments(data)) {
+    return "financiado";
+  }
+  return "sin_dato";
+}
 function paymentFieldsFromSelection(
   tipoPago: TipoPagoReserva,
   modalidadContrato: ModalidadContratoInput
 ): PaymentFields {
+  if (tipoPago === "sin_dato") {
+    return { formaPago: null, modalidadContrato: null };
+  }
   if (tipoPago === "contado") {
     return { formaPago: "contado", modalidadContrato: null };
   }
@@ -284,7 +301,7 @@ export default function LoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [entregaCuota, setEntregaCuota] = useState(false);
-  const [tipoPago, setTipoPago] = useState<TipoPagoReserva>("financiado");
+  const [tipoPago, setTipoPago] = useState<TipoPagoReserva>("sin_dato");
   const [modalidadContrato, setModalidadContrato] =
     useState<ModalidadContratoInput>("requiere_revision");
   const [calculatorSaving, setCalculatorSaving] = useState(false);
@@ -341,7 +358,7 @@ export default function LoteDetailPage() {
     const data: ParcelaConReserva = await r.json();
     setLote(data);
     setEntregaCuota(data.tipoEntrega === "cuota");
-    setTipoPago(data.formaPago === "contado" ? "contado" : "financiado");
+    setTipoPago(tipoPagoFromReserva(data));
     setModalidadContrato(modalidadFromReserva(data.modalidadContrato));
     const precioLote = parseNumber(data.precioBase) ?? parseNumber(data.precioEtapa1) ?? 15000;
     const precioCalculadora = precioLote;
@@ -560,6 +577,10 @@ export default function LoteDetailPage() {
       toast.error("Seleccioná un lead antes de reservar el lote");
       return;
     }
+    if (isReserving && tipoPago === "sin_dato") {
+      toast.error("Elegi tipo de pago");
+      return;
+    }
     if (isReserving && tipoPago === "financiado" && modalidadContrato === "requiere_revision") {
       toast.error("Elegí USD fijo o Pesos + CAC");
       return;
@@ -763,17 +784,29 @@ export default function LoteDetailPage() {
     session?.user?.role === "admin"
       ? (["precio", "anticipo", "tasa", "plazo"] as const)
       : (["plazo"] as const);
-  const selectedLeadId = form.watch("leadId");
+  const selectedLeadId = form.watch("leadId") ?? lote.leadId ?? null;
+  const leadValue = (field: keyof Pick<
+    FormValues,
+    | "nombreComprador"
+    | "dniCuit"
+    | "telefono"
+    | "emailComprador"
+    | "domicilioComprador"
+    | "nacionalidad"
+    | "fechaNacimiento"
+    | "estadoCivil"
+    | "cuitComprador"
+  >) => form.watch(field) || lote[field] || "-";
   const leadDisplay = [
-    ["Nombre", form.watch("nombreComprador") || "—"],
-    ["DNI / CUIT", form.watch("dniCuit") || "—"],
-    ["Teléfono", form.watch("telefono") || "—"],
-    ["Email", form.watch("emailComprador") || "—"],
-    ["Domicilio", form.watch("domicilioComprador") || "—"],
-    ["Nacionalidad", form.watch("nacionalidad") || "—"],
-    ["Fecha de nacimiento", form.watch("fechaNacimiento") || "—"],
-    ["Estado civil", form.watch("estadoCivil") || "—"],
-    ["CUIT comprador", form.watch("cuitComprador") || "—"],
+    ["Nombre", leadValue("nombreComprador")],
+    ["DNI / CUIT", leadValue("dniCuit")],
+    ["Telefono", leadValue("telefono")],
+    ["Email", leadValue("emailComprador")],
+    ["Domicilio", leadValue("domicilioComprador")],
+    ["Nacionalidad", leadValue("nacionalidad")],
+    ["Fecha de nacimiento", leadValue("fechaNacimiento")],
+    ["Estado civil", leadValue("estadoCivil")],
+    ["CUIT comprador", leadValue("cuitComprador")],
   ];
   const coCompradorDefaults = {
     nombreCoComprador: form.watch("nombreCoComprador") ?? "",
@@ -1176,7 +1209,7 @@ export default function LoteDetailPage() {
                   <Select
                     value={tipoPago}
                     onValueChange={(v) => {
-                      const val = v as "contado" | "financiado";
+                      const val = v as TipoPagoReserva;
                       setTipoPago(val);
                       form.setValue("formaPago", val);
                       if (val === "contado") {
@@ -1197,6 +1230,7 @@ export default function LoteDetailPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="sin_dato">Sin dato</SelectItem>
                       <SelectItem value="financiado">Financiado (con cuotas)</SelectItem>
                       <SelectItem value="contado">Contado</SelectItem>
                     </SelectContent>

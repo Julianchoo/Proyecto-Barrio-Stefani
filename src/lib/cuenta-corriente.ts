@@ -39,6 +39,7 @@ export type CuentaCorrienteSummary = {
   cuotasPendientes: number;
   cuotasVencidas: number;
   cuotasPendienteIndice: number;
+  cuotasProyectadas: number;
   proximoVencimiento: string | null;
   proximaCuotaMonto: number | null;
   moneda: MonedaPago;
@@ -86,6 +87,16 @@ function periodFromDate(value: string) {
   return value.slice(0, 7);
 }
 
+function addMonthsToPeriod(period: string, monthsToAdd: number) {
+  const [year, month] = period.split("-").map(Number);
+  const date = new Date(Date.UTC(year ?? 2000, (month ?? 1) - 1 + monthsToAdd, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function cacPeriodForDueDate(fechaVencimiento: string) {
+  return addMonthsToPeriod(periodFromDate(fechaVencimiento), -2);
+}
+
 function parseDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(Date.UTC(year ?? 2000, (month ?? 1) - 1, day ?? 1));
@@ -113,31 +124,64 @@ function sumActivePayments(items: Pago[]) {
 function statusForCuota(
   fechaVencimiento: string,
   saldo: number,
-  dueAmount: number | null,
+  paid: number,
+  amountKind: "real" | "projected" | "missing",
   currentEstado: EstadoCuota
 ): EstadoCuota {
   if (currentEstado === "cancelada") return "cancelada";
-  if (dueAmount === null) return "pendiente_indice";
   if (saldo <= 0) return "pagada";
-  if (saldo < dueAmount) return "parcial";
-  return fechaVencimiento < todayKey() ? "vencida" : "pendiente";
+  const isOverdue = fechaVencimiento < todayKey();
+  if (amountKind === "missing") return "pendiente_indice";
+  if (isOverdue && paid > 0) return "parcial_vencida";
+  if (isOverdue) return "vencida";
+  return amountKind === "projected" ? "proyectada" : "calculada";
+}
+
+function latestKnownCacIndex(indexRows: IndiceCac[]) {
+  const sorted = [...indexRows].sort((a, b) => b.periodo.localeCompare(a.periodo));
+  const latest = sorted.find((item) => {
+    const value = toNumber(item.valor);
+    return value !== null && value > 0;
+  });
+  const value = latest ? toNumber(latest.valor) : null;
+  return latest && value !== null ? { periodo: latest.periodo, valor: value } : null;
 }
 
 function computeCuotaAmount(
   contrato: Contrato,
   cuota: Cuota,
-  indicesByPeriodo: Map<string, number>
+  indicesByPeriodo: Map<string, number>,
+  latestIndex: { periodo: string; valor: number } | null
 ) {
   const base = toNumber(cuota.importeBase) ?? 0;
-  if (contrato.modalidad !== "pesos_cac") return base;
+  if (contrato.modalidad !== "pesos_cac") {
+    return { amount: base, indiceCac: null, amountKind: "real" as const };
+  }
 
   const basePeriod = contrato.periodoBaseCac;
-  const cuotaPeriod = cuota.periodoCac ?? periodFromDate(cuota.fechaVencimiento);
-  const baseIndex = basePeriod ? indicesByPeriodo.get(basePeriod) : undefined;
+  const cuotaPeriod = cacPeriodForDueDate(cuota.fechaVencimiento);
+  const baseIndex = toNumber(contrato.indiceBaseCac) ??
+    (basePeriod ? indicesByPeriodo.get(basePeriod) : undefined);
   const cuotaIndex = indicesByPeriodo.get(cuotaPeriod);
-  if (!baseIndex || !cuotaIndex || baseIndex <= 0) return null;
+  if (!baseIndex || baseIndex <= 0) {
+    return { amount: null, indiceCac: null, amountKind: "missing" as const };
+  }
+  if (cuotaIndex && cuotaIndex > 0) {
+    return {
+      amount: base * (cuotaIndex / baseIndex),
+      indiceCac: cuotaIndex,
+      amountKind: "real" as const,
+    };
+  }
+  if (cuota.fechaVencimiento >= todayKey() && latestIndex) {
+    return {
+      amount: base * (latestIndex.valor / baseIndex),
+      indiceCac: latestIndex.valor,
+      amountKind: "projected" as const,
+    };
+  }
 
-  return base * (cuotaIndex / baseIndex);
+  return { amount: null, indiceCac: null, amountKind: "missing" as const };
 }
 
 export async function recomputeContratoCuotas(contratoId: number) {
@@ -159,24 +203,35 @@ export async function recomputeContratoCuotas(contratoId: number) {
   const indicesByPeriodo = new Map(
     indexRows.map((item) => [item.periodo, toNumber(item.valor) ?? 0])
   );
+  const latestIndex = latestKnownCacIndex(indexRows);
 
   for (const cuota of cuotaRows) {
     if (cuota.estado === "cancelada") continue;
     const cuotaPagos = pagoRows.filter((pago) => pago.cuotaId === cuota.id);
     const paid = sumActivePayments(cuotaPagos);
-    const dueAmount = computeCuotaAmount(contrato, cuota, indicesByPeriodo);
-    const saldo = dueAmount === null ? toNumber(cuota.saldo) ?? 0 : dueAmount - paid;
+    const computed = computeCuotaAmount(contrato, cuota, indicesByPeriodo, latestIndex);
+    const saldo = computed.amount === null
+      ? toNumber(cuota.saldo) ?? 0
+      : computed.amount - paid;
     const nextEstado = statusForCuota(
       cuota.fechaVencimiento,
       Math.max(saldo, 0),
-      dueAmount,
+      paid,
+      computed.amountKind,
       cuota.estado
     );
 
     await db
       .update(cuotas)
       .set({
-        importeAjustado: dueAmount === null ? null : moneyString(dueAmount),
+        periodoCac:
+          contrato.modalidad === "pesos_cac"
+            ? cacPeriodForDueDate(cuota.fechaVencimiento)
+            : null,
+        indiceCac:
+          computed.indiceCac === null ? null : moneyString(computed.indiceCac),
+        importeAjustado:
+          computed.amount === null ? null : moneyString(computed.amount),
         saldo: moneyString(saldo),
         estado: nextEstado,
         updatedAt: new Date(),
@@ -237,6 +292,18 @@ export async function createContratoForReserva(
     input.modalidad === "pesos_cac"
       ? input.periodoBaseCac ?? periodFromDate(fechaInicio)
       : null;
+  let indiceBaseCac: number | null = null;
+  if (input.modalidad === "pesos_cac") {
+    const [baseIndexRow] = await db
+      .select({ valor: indicesCac.valor })
+      .from(indicesCac)
+      .where(eq(indicesCac.periodo, periodoBaseCac!))
+      .limit(1);
+    indiceBaseCac = toNumber(baseIndexRow?.valor);
+    if (!indiceBaseCac || indiceBaseCac <= 0) {
+      return { kind: "missing-base-cac" as const };
+    }
+  }
   const monedaBase: MonedaPago = input.modalidad === "pesos_cac" ? "ars" : "usd";
   const conversionRate = input.modalidad === "pesos_cac" ? input.tipoCambioBna! : 1;
   const cuotaBase = cuotaBaseUsd * conversionRate;
@@ -256,6 +323,7 @@ export async function createContratoForReserva(
         cuotaBase: moneyString(cuotaBase),
         monedaBase,
         periodoBaseCac,
+        indiceBaseCac: indiceBaseCac === null ? null : moneyString(indiceBaseCac),
         requiereRevision: input.modalidad === "requiere_revision",
         observaciones: input.observaciones ?? null,
         creadoPor: userEmail,
@@ -274,7 +342,7 @@ export async function createContratoForReserva(
         numero: index + 1,
         fechaVencimiento,
         periodoCac:
-          input.modalidad === "pesos_cac" ? periodFromDate(fechaVencimiento) : null,
+          input.modalidad === "pesos_cac" ? cacPeriodForDueDate(fechaVencimiento) : null,
         importeBase: moneyString(cuotaBase),
         importeAjustado: input.modalidad === "usd_fijo" ? moneyString(cuotaBase) : null,
         moneda: monedaBase,
@@ -429,6 +497,7 @@ function buildPendingSummary(row: {
     cuotasPendientes: 0,
     cuotasVencidas: 0,
     cuotasPendienteIndice: 0,
+    cuotasProyectadas: 0,
     proximoVencimiento: null,
     proximaCuotaMonto: null,
     moneda: modalidad === "pesos_cac" ? "ars" : "usd",
@@ -482,6 +551,9 @@ function buildSummary(
     cuotasVencidas: overdueCuotas.length,
     cuotasPendienteIndice: cuotaRows.filter(
       (cuota) => cuota.estado === "pendiente_indice"
+    ).length,
+    cuotasProyectadas: cuotaRows.filter(
+      (cuota) => cuota.estado === "proyectada"
     ).length,
     proximoVencimiento: nextCuota?.fechaVencimiento ?? null,
     proximaCuotaMonto: nextCuota
