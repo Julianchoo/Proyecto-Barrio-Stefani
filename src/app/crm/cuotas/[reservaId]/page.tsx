@@ -98,7 +98,7 @@ type ReservaForCuenta = Pick<
 };
 
 const estadoColors: Record<string, string> = {
-  pendiente: "bg-gray-100 text-gray-700",
+  pendiente: "bg-muted text-muted-foreground",
   pendiente_indice: "bg-amber-100 text-amber-800",
   parcial: "bg-blue-100 text-blue-700",
   pagada: "bg-green-100 text-green-700",
@@ -106,7 +106,7 @@ const estadoColors: Record<string, string> = {
   calculada: "bg-emerald-100 text-emerald-800",
   proyectada: "bg-sky-100 text-sky-800",
   parcial_vencida: "bg-orange-100 text-orange-800",
-  cancelada: "bg-gray-100 text-gray-500",
+  cancelada: "bg-muted text-muted-foreground",
 };
 
 const estadoLabels: Record<string, string> = {
@@ -389,7 +389,7 @@ export default function CuentaDetallePage() {
         <CardHeader>
           <CardTitle className="text-base">Acceso restringido</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-gray-600">
+        <CardContent className="text-sm text-muted-foreground">
           Solo un administrador puede ver cuentas corrientes y cuotas.
         </CardContent>
       </Card>
@@ -406,7 +406,7 @@ export default function CuentaDetallePage() {
               Volver a cuotas
             </Link>
           </Button>
-          <h1 className="mt-2 text-2xl font-semibold text-gray-900">
+          <h1 className="mt-2 text-2xl font-semibold text-foreground">
             Cuenta corriente
           </h1>
         </div>
@@ -418,7 +418,7 @@ export default function CuentaDetallePage() {
 
       {loading ? (
         <Card>
-          <CardContent className="flex items-center gap-2 py-10 text-sm text-gray-500">
+          <CardContent className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando...
           </CardContent>
@@ -428,15 +428,15 @@ export default function CuentaDetallePage() {
           <CardHeader>
             <CardTitle className="text-base">Reserva de contado</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-gray-600">
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
               Esta reserva esta registrada como contado. No corresponde generar
               cuenta corriente ni cuotas.
             </p>
-            <div className="rounded-md border bg-gray-50 px-3 py-2">
-              <p className="font-medium text-gray-900">
+            <div className="rounded-md border bg-muted/40 px-3 py-2">
+              <p className="font-medium text-foreground">
                 Lote {reservaForCuenta.loteNumero}
-                <span className="ml-2 font-normal text-gray-500">
+                <span className="ml-2 font-normal text-muted-foreground">
                   Mz {reservaForCuenta.manzana ?? "-"} / Parc.{" "}
                   {reservaForCuenta.parcela ?? "-"}
                 </span>
@@ -453,7 +453,7 @@ export default function CuentaDetallePage() {
             <CardTitle className="text-base">Crear cuenta corriente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Esta reserva todavía no tiene contrato de cuotas. Solo se puede crear
               si la reserva está realizada y tiene datos suficientes de financiación.
             </p>
@@ -509,7 +509,7 @@ export default function CuentaDetallePage() {
                     {formatPeriod(periodoBaseCac)}
                   </Button>
                   {showPeriodPicker && (
-                    <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border bg-white p-3 shadow-lg">
+                    <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border bg-card p-3 shadow-lg">
                       <div className="mb-3 flex items-center justify-between">
                         <Button
                           type="button"
@@ -519,7 +519,7 @@ export default function CuentaDetallePage() {
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="text-sm font-semibold text-foreground">
                           {periodPickerYear}
                         </div>
                         <Button
@@ -557,7 +557,7 @@ export default function CuentaDetallePage() {
                           );
                         })}
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
                         Mes con CAC cargado
                       </div>
@@ -594,31 +594,31 @@ export default function CuentaDetallePage() {
               <CardHeader>
                 <CardTitle className="text-base">
                   Lote {detail.loteNumero}
-                  <span className="ml-2 text-sm font-normal text-gray-500">
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
                     Mz {detail.manzana ?? "-"} / Parc. {detail.parcela ?? "-"}
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-gray-500">Cliente</p>
-                  <p className="font-medium text-gray-900">{detail.comprador ?? "-"}</p>
+                  <p className="text-muted-foreground">Cliente</p>
+                  <p className="font-medium text-foreground">{detail.comprador ?? "-"}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Modalidad</p>
-                  <p className="font-medium text-gray-900">
+                  <p className="text-muted-foreground">Modalidad</p>
+                  <p className="font-medium text-foreground">
                     {modalidadLabels[detail.modalidad]}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Saldo pendiente</p>
-                  <p className="font-medium text-gray-900">
+                  <p className="text-muted-foreground">Saldo pendiente</p>
+                  <p className="font-medium text-foreground">
                     {formatMoney(detail.saldoPendiente, detail.moneda)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Vencido</p>
-                  <p className="font-medium text-gray-900">
+                  <p className="text-muted-foreground">Vencido</p>
+                  <p className="font-medium text-foreground">
                     {formatMoney(detail.totalVencido, detail.moneda)}
                   </p>
                 </div>
@@ -629,10 +629,10 @@ export default function CuentaDetallePage() {
                 <CardTitle className="text-base">Próxima cuota</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-semibold text-gray-900">
+                <p className="text-2xl font-semibold text-foreground">
                   {formatMoney(detail.proximaCuotaMonto, detail.moneda)}
                 </p>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {formatDate(detail.proximoVencimiento)}
                 </p>
               </CardContent>
@@ -650,7 +650,7 @@ export default function CuentaDetallePage() {
             </Card>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border bg-white">
+          <div className="overflow-x-auto rounded-lg border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -723,7 +723,7 @@ export default function CuentaDetallePage() {
             </CardHeader>
             <CardContent>
               {sortedPayments.length === 0 ? (
-                <p className="text-sm text-gray-500">Todavía no hay pagos registrados.</p>
+                <p className="text-sm text-muted-foreground">Todavía no hay pagos registrados.</p>
               ) : (
                 <div className="divide-y rounded-md border">
                   {sortedPayments.map((pago) => (

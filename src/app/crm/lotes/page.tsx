@@ -35,7 +35,7 @@ import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 const estadoColors: Record<EstadoParcela, string> = {
   disponible: "bg-green-100 text-green-700",
   reservado: "bg-yellow-100 text-yellow-700",
-  vendido: "bg-gray-100 text-gray-700",
+  vendido: "bg-muted text-muted-foreground",
   no_disponible: "bg-red-100 text-red-700",
 };
 
@@ -540,18 +540,18 @@ export default function LotesPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Lotes</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-semibold text-foreground">Lotes</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Gestión de parcelas del barrio
         </p>
       </div>
 
-      <div className="rounded-lg border bg-white p-4 space-y-4">
+      <div className="rounded-lg border bg-card p-4 space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">
+          <h2 className="text-base font-semibold text-foreground">
             Calculadora de cuota
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Cuota mensual: saldo x (1 + tasa mensual x plazo) / plazo.
           </p>
         </div>
@@ -592,7 +592,7 @@ export default function LotesPage() {
           ].map((item) => (
             <label key={item.key} className="space-y-2">
               <span className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-gray-700">{item.label}</span>
+                <span className="font-medium text-foreground">{item.label}</span>
                 <span className="flex items-center gap-2">
                   <Input
                     type="number"
@@ -605,7 +605,7 @@ export default function LotesPage() {
                     }}
                     className="h-8 w-28 text-right"
                   />
-                  <span className="w-10 text-left text-gray-500">
+                  <span className="w-10 text-left text-muted-foreground">
                     {item.suffix}
                   </span>
                 </span>
@@ -619,7 +619,7 @@ export default function LotesPage() {
                 onChange={(e) => {
                   updateCalculatorValue(item.key, Number(e.target.value));
                 }}
-                className="w-full accent-green-700"
+                className="w-full accent-primary"
               />
             </label>
           ))}
@@ -631,9 +631,9 @@ export default function LotesPage() {
             ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
             ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-md border bg-gray-50 px-3 py-2">
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-lg font-semibold text-gray-900">{value}</p>
+            <div key={label} className="rounded-md border bg-muted/40 px-3 py-2">
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-lg font-semibold text-foreground">{value}</p>
             </div>
           ))}
         </div>
@@ -729,11 +729,11 @@ export default function LotesPage() {
             )}
           </Button>
           {colPickerOpen && (
-            <div className="absolute z-50 top-full mt-1 left-0 bg-white border rounded-lg shadow-lg p-3 min-w-[200px] space-y-1">
+            <div className="absolute z-50 top-full mt-1 left-0 bg-card border rounded-lg shadow-lg p-3 min-w-[200px] space-y-1">
               {OPTIONAL_COLS.map((col, colIndex) => (
                 <label
                   key={col.key}
-                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/40 px-2 py-1 rounded"
                 >
                   <input
                     type="checkbox"
@@ -778,7 +778,7 @@ export default function LotesPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-white overflow-x-auto">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -826,7 +826,7 @@ export default function LotesPage() {
                   <TableRow
                     key={lote.id}
                     data-state={selected.has(lote.id) ? "selected" : undefined}
-                    className={selected.has(lote.id) ? "bg-blue-50" : undefined}
+                    className={selected.has(lote.id) ? "bg-muted" : undefined}
                   >
                     <TableCell>
                       <input
@@ -891,7 +891,7 @@ export default function LotesPage() {
                       </Select>
                     </TableCell>
                     {activeOptionalCols.map((col) => (
-                      <TableCell key={col.key} className="text-sm text-gray-600 max-w-[200px] truncate">
+                      <TableCell key={col.key} className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {getCellValue(lote, col.key)}
                       </TableCell>
                     ))}
@@ -916,7 +916,7 @@ export default function LotesPage() {
           </TableBody>
         </Table>
         {!loading && lotes.length === 0 && (
-          <p className="text-center text-sm text-gray-500 py-8">
+          <p className="text-center text-sm text-muted-foreground py-8">
             No se encontraron lotes
           </p>
         )}
@@ -924,8 +924,8 @@ export default function LotesPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-xl">
-          <span className="text-sm font-medium text-gray-700">
+        <div className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 rounded-xl border bg-card px-5 py-3 shadow-xl">
+          <span className="text-sm font-medium text-foreground">
             {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
           </span>
           <Select
@@ -952,7 +952,7 @@ export default function LotesPage() {
           </Button>
           {session?.user?.role === "admin" && (
             <>
-              <div className="h-8 w-px bg-gray-200" />
+              <div className="h-8 w-px bg-border" />
               <Select
                 value={bulkPriceMode}
                 onValueChange={(v) => setBulkPriceMode(v as "set" | "increase")}

@@ -285,10 +285,8 @@ export async function createContratoForReserva(
     return { kind: "missing-exchange-rate" as const };
   }
 
-  const diaVencimiento =
-    input.diaVencimiento ?? Number((input.fechaPrimerVencimiento ?? fechaInicio).slice(8, 10));
-  const fechaPrimerVencimiento =
-    input.fechaPrimerVencimiento ?? addMonthsOnDay(fechaInicio, 1, diaVencimiento);
+  const diaVencimiento = 10;
+  const fechaPrimerVencimiento = addMonthsOnDay(fechaInicio, 1, diaVencimiento);
   const periodoBaseCac =
     input.modalidad === "pesos_cac"
       ? input.periodoBaseCac ?? periodFromDate(fechaInicio)

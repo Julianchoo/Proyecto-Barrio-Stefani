@@ -165,7 +165,7 @@ export default function CuotasPage() {
         <CardHeader>
           <CardTitle className="text-base">Acceso restringido</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-gray-600">
+        <CardContent className="text-sm text-muted-foreground">
           Solo un administrador puede ver cuentas corrientes y cuotas.
         </CardContent>
       </Card>
@@ -321,14 +321,14 @@ export default function CuotasPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Cuotas</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-foreground">Cuotas</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Cuenta corriente por lote vendido
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
-            <CircleDollarSign className="h-4 w-4 text-green-700" />
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
+            <CircleDollarSign className="h-4 w-4 text-primary" />
             <span>{rows.length} cuentas activas</span>
           </div>
           <Button
@@ -347,7 +347,7 @@ export default function CuotasPage() {
         <CardContent className="pt-6">
           <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto]">
             <label className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -454,7 +454,7 @@ export default function CuotasPage() {
                   <TableBody>
                     {indices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="py-6 text-center text-sm text-gray-500">
+                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
                           No hay CAC cargados
                         </TableCell>
                       </TableRow>
@@ -492,7 +492,7 @@ export default function CuotasPage() {
                                 indice.fuente ?? indice.nota ?? "-"
                               )}
                             </TableCell>
-                            <TableCell className="text-sm text-gray-500">
+                            <TableCell className="text-sm text-muted-foreground">
                               {indice.creadoPor ?? "-"}
                             </TableCell>
                             <TableCell>
@@ -535,7 +535,7 @@ export default function CuotasPage() {
                                     onClick={() => deleteIndice(indice)}
                                     disabled={savingIndice}
                                     aria-label={`Borrar CAC ${indice.periodo}`}
-                                    className="text-red-600 hover:text-red-700"
+                                    className="text-destructive hover:text-destructive"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -554,7 +554,7 @@ export default function CuotasPage() {
         </Card>
       )}
 
-      <div className="overflow-x-auto rounded-lg border bg-white">
+      <div className="overflow-x-auto rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -573,13 +573,13 @@ export default function CuotasPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-sm text-gray-500">
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-sm text-gray-500">
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                   No hay cuentas corrientes para este filtro
                 </TableCell>
               </TableRow>
@@ -588,20 +588,20 @@ export default function CuotasPage() {
                 <TableRow key={row.reservaId}>
                   <TableCell className="font-mono text-sm">
                     {row.loteNumero}
-                    <span className="ml-2 font-sans text-xs text-gray-500">
+                    <span className="ml-2 font-sans text-xs text-muted-foreground">
                       Mz {row.manzana ?? "-"} / Parc. {row.parcela ?? "-"}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-foreground">
                       {row.comprador ?? "-"}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {row.dniCuit ?? row.email ?? row.telefono ?? "-"}
                     </div>
                   </TableCell>
                   <TableCell>{row.email ?? ""}</TableCell>
-                  <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-gray-600">
+                  <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-muted-foreground">
                     {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
                   </TableCell>
                   <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
@@ -616,7 +616,7 @@ export default function CuotasPage() {
                         {row.cuotasVencidas} Vencida(s)
                       </Badge>
                     ) : (
-                      <Badge className="gap-1 bg-green-100 text-green-700">
+                      <Badge className="gap-1 bg-emerald-100 text-emerald-800">
                         <CheckCircle2 className="h-3 w-3" />
                         Al dia
                       </Badge>
@@ -626,7 +626,7 @@ export default function CuotasPage() {
                   <TableCell>{formatMoney(row.saldoPendiente, row.moneda)}</TableCell>
                   <TableCell>
                     <div>{formatDate(row.proximoVencimiento)}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {formatMoney(row.proximaCuotaMonto, row.moneda)}
                     </div>
                   </TableCell>
