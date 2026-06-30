@@ -509,6 +509,7 @@ export type ParcelaConReserva = Parcela &
     >
   > & {
     reservaId: number | null;
+    reservaEstado?: Reserva["estado"] | null;
     leadEstado?: Lead["estado"] | null;
     leadAsignadoA?: string | null;
   };

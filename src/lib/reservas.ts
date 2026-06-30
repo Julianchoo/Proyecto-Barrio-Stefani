@@ -113,6 +113,7 @@ export function flattenParcelaReserva(
       ...parcela,
       ...EMPTY_RESERVA_FIELDS,
       reservaId: null,
+      reservaEstado: null,
       leadEstado: null,
       leadAsignadoA: null,
     };
@@ -145,6 +146,7 @@ export function flattenParcelaReserva(
   return {
     ...parcela,
     reservaId: reserva.id,
+    reservaEstado: reserva.estado,
     leadId: reserva.leadId,
     ...leadData,
     leadEstado: lead?.estado ?? null,

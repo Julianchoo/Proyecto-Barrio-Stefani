@@ -275,7 +275,7 @@ export default function LotesPage() {
   const handleEstadoChange = async (id: number, estado: EstadoParcela) => {
     const lote = lotes.find((l) => l.id === id);
     if (lote && !canEditLote(lote)) {
-      toast.error("Este lote fue reservado por otro comercial");
+      toast.error("Este lote está vendido o bloqueado");
       return;
     }
     const prev = lotes;
@@ -294,7 +294,7 @@ export default function LotesPage() {
   const handleCheckbox = (id: number, index: number, shiftKey: boolean) => {
     const target = lotes.find((lote) => lote.id === id);
     if (target && !canEditLote(target)) {
-      toast.error("Este lote fue reservado por otro comercial");
+      toast.error("Este lote está vendido o bloqueado");
       return;
     }
     setSelected((prev) => {
@@ -530,6 +530,8 @@ export default function LotesPage() {
   }
 
   function canEditLote(lote: ParcelaConReserva) {
+    if (lote.estado === "vendido" || lote.reservaEstado === "realizada") return false;
+
     return (
       lote.estado !== "reservado" ||
       session?.user?.role === "admin" ||

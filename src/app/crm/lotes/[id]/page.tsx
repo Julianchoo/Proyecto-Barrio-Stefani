@@ -6,7 +6,18 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { AlertCircle, ArrowLeft, ImageUp, Loader2, Lock } from "lucide-react";
+import { AlertCircle, ArrowLeft, ImageUp, Loader2, Lock, Pencil } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -305,6 +316,7 @@ export default function LoteDetailPage() {
   const [modalidadContrato, setModalidadContrato] =
     useState<ModalidadContratoInput>("requiere_revision");
   const [calculatorSaving, setCalculatorSaving] = useState(false);
+  const [soldEditUnlocked, setSoldEditUnlocked] = useState(false);
   const [calculator, setCalculator] = useState({
     precio: 15000,
     anticipo: 4500,
@@ -357,6 +369,7 @@ export default function LoteDetailPage() {
     const r = await fetch(`/api/crm/parcelas/${id}`);
     const data: ParcelaConReserva = await r.json();
     setLote(data);
+    setSoldEditUnlocked(false);
     setEntregaCuota(data.tipoEntrega === "cuota");
     setTipoPago(tipoPagoFromReserva(data));
     setModalidadContrato(modalidadFromReserva(data.modalidadContrato));
@@ -549,6 +562,7 @@ export default function LoteDetailPage() {
       tipoEntrega: useCuotaEntrega ? "cuota" : "saldo",
       mesEntrega: useCuotaEntrega ? String(calculatorResult.cuotaEntrega) : null,
       anioEntrega: null,
+      ...soldEditConfirmationPayload,
     };
 
     try {
@@ -598,6 +612,7 @@ export default function LoteDetailPage() {
     }
     payload.formaPago = paymentFields.formaPago;
     payload.modalidadContrato = paymentFields.modalidadContrato;
+    Object.assign(payload, soldEditConfirmationPayload);
     const hasReservaInput =
       values.estado === "reservado" ||
       entregaCuota ||
@@ -651,6 +666,7 @@ export default function LoteDetailPage() {
       payload[field] = value === "" ? null : value;
     }
     payload.anticipoPct = String(DEFAULT_ANTICIPO_PCT);
+    Object.assign(payload, soldEditConfirmationPayload);
     payload.tasaMensual = String(DEFAULT_TASA_MENSUAL);
     for (const [key, value] of Object.entries(derivedValues)) {
       payload[key] = value === "" ? null : value;
@@ -766,10 +782,16 @@ export default function LoteDetailPage() {
     );
   }
 
-  const isLocked =
+  const isReservedByOther =
     lote.estado === "reservado" &&
     session?.user?.role !== "admin" &&
     lote.reservadoPor !== session?.user?.email;
+  const isSoldRecord = lote.estado === "vendido" || lote.reservaEstado === "realizada";
+  const isSoldLocked = isSoldRecord && !soldEditUnlocked;
+  const isLocked = isReservedByOther || isSoldLocked;
+  const soldEditConfirmationPayload = isSoldRecord
+    ? { confirmarEdicionVendida: soldEditUnlocked }
+    : {};
   const canEditLoteParams =
     session?.user?.role === "admin" ||
     (session?.user?.role === "comercial" &&
@@ -849,6 +871,32 @@ export default function LoteDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {isSoldRecord && session?.user?.role === "admin" && !soldEditUnlocked && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar vendido
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    OJO! Est?s por cambiar datos de un lote o reserva ya vendido
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acci?n habilita cambios sobre datos ya marcados como vendidos. Revis? bien antes de guardar porque puede afectar reserva, boleto, cuenta corriente y reportes.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => setSoldEditUnlocked(true)}>
+                    Entiendo, habilitar edici?n
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <ReservaDialog parcela={lote} disabled={isLocked} />
           <BoletoDialog
             parcela={lote}
@@ -858,9 +906,7 @@ export default function LoteDetailPage() {
         </div>
       </div>
 
-      {lote.estado === "reservado" &&
-        session?.user?.role !== "admin" &&
-        lote.reservadoPor !== session?.user?.email && (
+      {isReservedByOther && (
           <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <Lock className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
@@ -868,6 +914,15 @@ export default function LoteDetailPage() {
             </span>
           </div>
         )}
+
+      {isSoldLocked && (
+        <div className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Este lote o reserva ya figura como vendido. Los datos est?n bloqueados; solo un administrador puede habilitar edici?n con confirmaci?n.
+          </span>
+        </div>
+      )}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6 min-w-0">
@@ -877,13 +932,13 @@ export default function LoteDetailPage() {
           <CardTitle className="text-base">Datos del lote</CardTitle>
         </CardHeader>
         <CardContent>
-          {canEditLoteParams ? (
+          {canEditLoteParams && !isLocked ? (
             <form onSubmit={form.handleSubmit(handleLoteParamsSubmit)} className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 {readonlyCatastralFields.map(({ key, label }) => (
                   <div key={key}>
                     <span className="text-gray-500">{label}</span>
-                    <p className="font-medium text-gray-900 mt-0.5">{lote[key] ?? "—"}</p>
+                    <p className="font-medium text-gray-900 mt-0.5">{lote[key] ?? "-"}</p>
                   </div>
                 ))}
                 <div>
@@ -891,13 +946,13 @@ export default function LoteDetailPage() {
                   <p className="font-medium text-gray-900 mt-0.5">
                     {lote.valuacionFiscal
                       ? `$ ${Number(lote.valuacionFiscal).toLocaleString("es-AR")}`
-                      : "—"}
+                      : "-"}
                   </p>
                 </div>
                 <div>
                   <span className="text-gray-500">VF al Acto</span>
                   <p className="font-medium text-gray-900 mt-0.5">
-                    {lote.vfAlActo ? `$ ${Number(lote.vfAlActo).toLocaleString("es-AR")}` : "—"}
+                    {lote.vfAlActo ? `$ ${Number(lote.vfAlActo).toLocaleString("es-AR")}` : "-"}
                   </p>
                 </div>
               </div>
@@ -950,7 +1005,7 @@ export default function LoteDetailPage() {
                     <div key={name}>
                       <span className="text-gray-500">{label}</span>
                       <p className="font-medium text-gray-900 mt-0.5">
-                        {value ? `${suffix} ${Number(value).toLocaleString("es-AR")}` : "—"}
+                        {value ? `${suffix} ${Number(value).toLocaleString("es-AR")}` : "-"}
                       </p>
                     </div>
                   );
@@ -968,27 +1023,27 @@ export default function LoteDetailPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               {[
-                ["Circunscripción", lote.circunscripcion ?? "—"],
-                ["Sección", lote.seccion ?? "—"],
-                ["Superficie", lote.superficieM2 ? `${lote.superficieM2} m²` : "—"],
-                ["Frente", lote.metrosFrente ? `${lote.metrosFrente} m` : "—"],
-                ["Fondo", lote.metrosFondo ? `${lote.metrosFondo} m` : "—"],
-                ["Calle de frente", lote.calleFrente ?? "—"],
-                ["Calle lindera 1", lote.calleLindera1 ?? "—"],
-                ["Calle lindera 2", lote.calleLindera2 ?? "—"],
-                ["Valor m²", lote.valorM2 ? `USD ${Number(lote.valorM2).toLocaleString("es-AR")}` : "—"],
-                ["Partida ARBA", lote.partidaArba ?? "—"],
-                ["Partida Municipal", lote.partidaMunicipal ?? "—"],
-                ["Escritura", lote.escritura ?? "—"],
-                ["Matrícula / Folio", lote.matriculaFolio ?? "—"],
-                ["Cert. Catastral", lote.certificadoCatastral ?? "—"],
-                ["Precio base", lote.precioBase ? `USD ${Number(lote.precioBase).toLocaleString("es-AR")}` : "—"],
+                ["Circunscripción", lote.circunscripcion ?? "-"],
+                ["Sección", lote.seccion ?? "-"],
+                ["Superficie", lote.superficieM2 ? `${lote.superficieM2} m²` : "-"],
+                ["Frente", lote.metrosFrente ? `${lote.metrosFrente} m` : "-"],
+                ["Fondo", lote.metrosFondo ? `${lote.metrosFondo} m` : "-"],
+                ["Calle de frente", lote.calleFrente ?? "-"],
+                ["Calle lindera 1", lote.calleLindera1 ?? "-"],
+                ["Calle lindera 2", lote.calleLindera2 ?? "-"],
+                ["Valor m²", lote.valorM2 ? `USD ${Number(lote.valorM2).toLocaleString("es-AR")}` : "-"],
+                ["Partida ARBA", lote.partidaArba ?? "-"],
+                ["Partida Municipal", lote.partidaMunicipal ?? "-"],
+                ["Escritura", lote.escritura ?? "-"],
+                ["Matrícula / Folio", lote.matriculaFolio ?? "-"],
+                ["Cert. Catastral", lote.certificadoCatastral ?? "-"],
+                ["Precio base", lote.precioBase ? `USD ${Number(lote.precioBase).toLocaleString("es-AR")}` : "-"],
                 ["Anticipo", `${DEFAULT_ANTICIPO_PCT}%`],
-                ["Anticipo USD", readonlyAnticipoUsd !== null ? `USD ${readonlyAnticipoUsd.toLocaleString("es-AR")}` : "—"],
+                ["Anticipo USD", readonlyAnticipoUsd !== null ? `USD ${readonlyAnticipoUsd.toLocaleString("es-AR")}` : "-"],
                 ["Tasa mensual", `${DEFAULT_TASA_MENSUAL}%`],
-                ["Saldo USD", readonlySaldoUsd !== null ? `USD ${readonlySaldoUsd.toLocaleString("es-AR")}` : "—"],
-                ["48 cuotas", readonlyCuotas48 !== null ? `USD ${readonlyCuotas48}` : "—"],
-                ["60 cuotas", readonlyCuotas60 !== null ? `USD ${readonlyCuotas60}` : "—"],
+                ["Saldo USD", readonlySaldoUsd !== null ? `USD ${readonlySaldoUsd.toLocaleString("es-AR")}` : "-"],
+                ["48 cuotas", readonlyCuotas48 !== null ? `USD ${readonlyCuotas48}` : "-"],
+                ["60 cuotas", readonlyCuotas60 !== null ? `USD ${readonlyCuotas60}` : "-"],
               ].map(([label, value]) => (
                 <div key={label}>
                   <span className="text-gray-500">{label}</span>
@@ -1093,7 +1148,7 @@ export default function LoteDetailPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isOcrLoading}
+                disabled={isOcrLoading || isLocked}
               >
                 {isOcrLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-1" />

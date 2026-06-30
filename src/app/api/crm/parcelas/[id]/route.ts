@@ -111,6 +111,7 @@ const updateSchema = z
     cuotas48: z.string().nullable().optional(),
     cuotas60: z.string().nullable().optional(),
     nota: z.string().nullable().optional(),
+    confirmarEdicionVendida: z.boolean().optional(),
   })
   .strict();
 
@@ -222,6 +223,14 @@ export async function PUT(
       if (!currentRow) return { kind: "not-found" as const };
 
       const { parcela: current, reserva: activeReserva } = currentRow;
+      const isSoldOrRealizada =
+        current.estado === "vendido" || activeReserva?.estado === "realizada";
+      if (
+        isSoldOrRealizada &&
+        (authResult.role !== "admin" || data.confirmarEdicionVendida !== true)
+      ) {
+        return { kind: "sold-confirmation-required" as const };
+      }
       if (authResult.role !== "admin" && activeReserva?.estado === "realizada") {
         return { kind: "admin-only-realizada" as const };
       }
@@ -360,6 +369,12 @@ export async function PUT(
         { status: 403 }
       );
     }
+    if (result.kind === "sold-confirmation-required") {
+      return NextResponse.json(
+        { error: "OJO! Estás por cambiar datos de un lote o reserva ya vendido" },
+        { status: 403 }
+      );
+    }
     if (result.kind === "admin-only-realizada") {
       return NextResponse.json(
         { error: "Solo un administrador puede editar una reserva realizada o su lote" },
@@ -368,13 +383,13 @@ export async function PUT(
     }
     if (result.kind === "missing-lead") {
       return NextResponse.json(
-        { error: "Seleccioná un lead antes de reservar el lote" },
+        { error: "SeleccionÃ¡ un lead antes de reservar el lote" },
         { status: 400 }
       );
     }
     if (result.kind === "invalid-lead") {
       return NextResponse.json(
-        { error: "El lead seleccionado no existe o no tenés permiso para usarlo" },
+        { error: "El lead seleccionado no existe o no tenÃ©s permiso para usarlo" },
         { status: 403 }
       );
     }

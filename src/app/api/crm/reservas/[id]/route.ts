@@ -10,6 +10,7 @@ const updateSchema = z
   .object({
     estado: z.enum(["activa", "cancelada", "vencida", "realizada"]).optional(),
     reservadoPor: z.string().email().optional(),
+    confirmarEdicionVendida: z.boolean().optional(),
   })
   .refine((data) => data.estado || data.reservadoPor, {
     message: "Debe indicar un cambio",
@@ -110,7 +111,16 @@ export async function PATCH(
 
       if (!current) return { kind: "not-found" as const };
 
-      const { reserva } = current;
+      const { reserva, parcela } = current;
+      const isSoldOrRealizada =
+        parcela.estado === "vendido" || reserva.estado === "realizada";
+
+      if (
+        isSoldOrRealizada &&
+        (authResult.role !== "admin" || data.confirmarEdicionVendida !== true)
+      ) {
+        return { kind: "sold-confirmation-required" as const };
+      }
 
       if (
         authResult.role !== "admin" &&
@@ -217,7 +227,13 @@ export async function PATCH(
     }
     if (result.kind === "forbidden") {
       return NextResponse.json(
-        { error: "Solo el comercial que tomó la reserva o un administrador puede modificarla" },
+        { error: "Solo el comercial que tomÃ³ la reserva o un administrador puede modificarla" },
+        { status: 403 }
+      );
+    }
+    if (result.kind === "sold-confirmation-required") {
+      return NextResponse.json(
+        { error: "OJO! Estás por cambiar datos de un lote o reserva ya vendido" },
         { status: 403 }
       );
     }
