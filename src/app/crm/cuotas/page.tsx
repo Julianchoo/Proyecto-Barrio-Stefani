@@ -20,6 +20,12 @@ import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -73,6 +79,54 @@ const modalidadLabels: Record<ModalidadContrato, string> = {
   requiere_revision: "Revisar",
 };
 
+type SummaryColKey =
+  | "lote"
+  | "cliente"
+  | "email"
+  | "mensaje"
+  | "modalidad"
+  | "estado"
+  | "vencido"
+  | "saldo"
+  | "proximoVencimiento";
+
+const SUMMARY_COLUMNS: { key: SummaryColKey; label: string }[] = [
+  { key: "lote", label: "Lote" },
+  { key: "cliente", label: "Cliente" },
+  { key: "email", label: "Email contacto" },
+  { key: "mensaje", label: "Mensaje" },
+  { key: "modalidad", label: "Modalidad" },
+  { key: "estado", label: "Estado" },
+  { key: "vencido", label: "Vencido" },
+  { key: "saldo", label: "Saldo" },
+  { key: "proximoVencimiento", label: "Proximo vencimiento" },
+];
+
+const DEFAULT_VISIBLE_SUMMARY_COLS: Record<SummaryColKey, boolean> = {
+  lote: true,
+  cliente: true,
+  email: true,
+  mensaje: false,
+  modalidad: true,
+  estado: true,
+  vencido: true,
+  saldo: true,
+  proximoVencimiento: true,
+};
+
+const SUMMARY_COLS_STORAGE_KEY = "cuotas-summary-visible-cols";
+
+function loadVisibleSummaryCols(): Record<SummaryColKey, boolean> {
+  try {
+    const raw = localStorage.getItem(SUMMARY_COLS_STORAGE_KEY);
+    if (!raw) return DEFAULT_VISIBLE_SUMMARY_COLS;
+    const parsed = JSON.parse(raw) as Partial<Record<SummaryColKey, boolean>>;
+    return { ...DEFAULT_VISIBLE_SUMMARY_COLS, ...parsed };
+  } catch {
+    return DEFAULT_VISIBLE_SUMMARY_COLS;
+  }
+}
+
 function formatMoney(value: number | null, moneda: MonedaPago) {
   if (value === null) return "-";
   const prefix = moneda === "usd" ? "USD" : "$";
@@ -110,6 +164,12 @@ export default function CuotasPage() {
   const [editingValor, setEditingValor] = useState("");
   const [editingFuente, setEditingFuente] = useState("");
   const [savingIndice, setSavingIndice] = useState(false);
+  const [visibleSummaryCols, setVisibleSummaryCols] = useState<Record<SummaryColKey, boolean>>(
+    DEFAULT_VISIBLE_SUMMARY_COLS
+  );
+
+  const visibleTableColumnCount =
+    SUMMARY_COLUMNS.filter((col) => visibleSummaryCols[col.key]).length + 1;
 
   const params = useMemo(() => {
     const next = new URLSearchParams();
@@ -146,6 +206,10 @@ export default function CuotasPage() {
     }
     setIndices(await res.json());
   }
+
+  useEffect(() => {
+    setVisibleSummaryCols(loadVisibleSummaryCols());
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -317,6 +381,14 @@ export default function CuotasPage() {
     );
   }
 
+  function setVisibleSummaryColumn(key: SummaryColKey, value: boolean) {
+    const next = { ...visibleSummaryCols, [key]: value };
+    setVisibleSummaryCols(next);
+    try {
+      localStorage.setItem(SUMMARY_COLS_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -331,6 +403,28 @@ export default function CuotasPage() {
             <CircleDollarSign className="h-4 w-4 text-primary" />
             <span>{rows.length} cuentas activas</span>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline">
+                Columnas
+                <ChevronDown className="ml-1 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {SUMMARY_COLUMNS.map((col) => (
+                <DropdownMenuCheckboxItem
+                  key={col.key}
+                  checked={visibleSummaryCols[col.key]}
+                  onCheckedChange={(checked) =>
+                    setVisibleSummaryColumn(col.key, Boolean(checked))
+                  }
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  {col.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             type="button"
             variant="outline"
@@ -558,78 +652,102 @@ export default function CuotasPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Lote</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Email contacto</TableHead>
-              <TableHead>Mensaje</TableHead>
-              <TableHead>Modalidad</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Vencido</TableHead>
-              <TableHead>Saldo</TableHead>
-              <TableHead>Proximo vencimiento</TableHead>
+              {visibleSummaryCols.lote && <TableHead>Lote</TableHead>}
+              {visibleSummaryCols.cliente && <TableHead>Cliente</TableHead>}
+              {visibleSummaryCols.email && <TableHead>Email contacto</TableHead>}
+              {visibleSummaryCols.mensaje && <TableHead>Mensaje</TableHead>}
+              {visibleSummaryCols.modalidad && <TableHead>Modalidad</TableHead>}
+              {visibleSummaryCols.estado && <TableHead>Estado</TableHead>}
+              {visibleSummaryCols.vencido && <TableHead>Vencido</TableHead>}
+              {visibleSummaryCols.saldo && <TableHead>Saldo</TableHead>}
+              {visibleSummaryCols.proximoVencimiento && (
+                <TableHead>Proximo vencimiento</TableHead>
+              )}
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={visibleTableColumnCount}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={visibleTableColumnCount}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   No hay cuentas corrientes para este filtro
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row) => (
                 <TableRow key={row.reservaId}>
-                  <TableCell className="font-mono text-sm">
-                    {row.loteNumero}
-                    <span className="ml-2 font-sans text-xs text-muted-foreground">
-                      Mz {row.manzana ?? "-"} / Parc. {row.parcela ?? "-"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-foreground">
-                      {row.comprador ?? "-"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {row.dniCuit ?? row.email ?? row.telefono ?? "-"}
-                    </div>
-                  </TableCell>
-                  <TableCell>{row.email ?? ""}</TableCell>
-                  <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-muted-foreground">
-                    {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
-                  </TableCell>
-                  <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
-                  <TableCell>
-                    {row.cuentaEstado === "pendiente" ? (
-                      <Badge className="gap-1 bg-amber-100 text-amber-800">
-                        <AlertTriangle className="h-3 w-3" />
-                        Pendiente creacion
-                      </Badge>
-                    ) : row.cuotasVencidas > 0 ? (
-                      <Badge className="bg-red-100 text-red-700">
-                        {row.cuotasVencidas} Vencida(s)
-                      </Badge>
-                    ) : (
-                      <Badge className="gap-1 bg-emerald-100 text-emerald-800">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Al dia
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{formatMoney(row.totalVencido, row.moneda)}</TableCell>
-                  <TableCell>{formatMoney(row.saldoPendiente, row.moneda)}</TableCell>
-                  <TableCell>
-                    <div>{formatDate(row.proximoVencimiento)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatMoney(row.proximaCuotaMonto, row.moneda)}
-                    </div>
-                  </TableCell>
+                  {visibleSummaryCols.lote && (
+                    <TableCell className="font-mono text-sm">
+                      {row.loteNumero}
+                      <span className="ml-2 font-sans text-xs text-muted-foreground">
+                        Mz {row.manzana ?? "-"} / Parc. {row.parcela ?? "-"}
+                      </span>
+                    </TableCell>
+                  )}
+                  {visibleSummaryCols.cliente && (
+                    <TableCell>
+                      <div className="font-medium text-foreground">
+                        {row.comprador ?? "-"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.dniCuit ?? row.email ?? row.telefono ?? "-"}
+                      </div>
+                    </TableCell>
+                  )}
+                  {visibleSummaryCols.email && <TableCell>{row.email ?? ""}</TableCell>}
+                  {visibleSummaryCols.mensaje && (
+                    <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-muted-foreground">
+                      {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
+                    </TableCell>
+                  )}
+                  {visibleSummaryCols.modalidad && (
+                    <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
+                  )}
+                  {visibleSummaryCols.estado && (
+                    <TableCell>
+                      {row.cuentaEstado === "pendiente" ? (
+                        <Badge className="gap-1 bg-amber-100 text-amber-800">
+                          <AlertTriangle className="h-3 w-3" />
+                          Pendiente creacion
+                        </Badge>
+                      ) : row.cuotasVencidas > 0 ? (
+                        <Badge className="bg-red-100 text-red-700">
+                          {row.cuotasVencidas} Vencida(s)
+                        </Badge>
+                      ) : (
+                        <Badge className="gap-1 bg-emerald-100 text-emerald-800">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Al dia
+                        </Badge>
+                      )}
+                    </TableCell>
+                  )}
+                  {visibleSummaryCols.vencido && (
+                    <TableCell>{formatMoney(row.totalVencido, row.moneda)}</TableCell>
+                  )}
+                  {visibleSummaryCols.saldo && (
+                    <TableCell>{formatMoney(row.saldoPendiente, row.moneda)}</TableCell>
+                  )}
+                  {visibleSummaryCols.proximoVencimiento && (
+                    <TableCell>
+                      <div>{formatDate(row.proximoVencimiento)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatMoney(row.proximaCuotaMonto, row.moneda)}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/crm/cuotas/${row.reservaId}`}>
