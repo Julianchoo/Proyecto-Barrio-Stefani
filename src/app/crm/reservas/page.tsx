@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, FileText, Filter, List, Lock, Mail, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, FileText, Filter, List, Lock, Mail, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
 import { ReservaDialog } from "@/components/crm/reserva-dialog";
@@ -256,7 +256,6 @@ export default function ReservasPage() {
   const [view, setView] = useState<"lista" | "calendario">("lista");
   const [monthKey, setMonthKey] = useState(getMonthKey(new Date()));
   const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [sendingSummary, setSendingSummary] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [usuarios, setUsuarios] = useState<UsuarioRow[]>([]);
@@ -541,31 +540,6 @@ export default function ReservasPage() {
     }
   }
 
-  async function handleDeleteReserva(reserva: ReservaRow) {
-    if (session?.user?.role !== "admin") return;
-    const comprador = reserva.nombreComprador ?? `lote ${reserva.loteNumero}`;
-    if (!window.confirm(`Borrar la reserva de ${comprador}?`)) return;
-
-    setDeletingId(reserva.id);
-    try {
-      const res = await fetch(`/api/crm/reservas/${reserva.id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Reserva borrada");
-        await fetchReservas();
-        return;
-      }
-
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      toast.error(data?.error ?? "No se pudo borrar la reserva");
-    } catch {
-      toast.error("No se pudo borrar la reserva");
-    } finally {
-      setDeletingId(null);
-    }
-  }
 
   function openFilters() {
     setDraftFilters(filters);
@@ -1082,18 +1056,6 @@ export default function ReservasPage() {
                                 <CreditCard className="mr-1 h-4 w-4" />
                                 Cuenta
                               </Link>
-                            </Button>
-                          )}
-                          {session?.user?.role === "admin" && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteReserva(reserva)}
-                              disabled={deletingId === reserva.id}
-                              aria-label={`Borrar reserva ${reserva.id}`}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
                           )}
                         </div>
