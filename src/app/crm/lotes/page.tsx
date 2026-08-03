@@ -30,6 +30,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, Lock, Pencil } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import {
+  ANTICIPO_STEP_USD,
+  getMinimumAnticipoUsd,
+} from "@/lib/financiacion";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
 const estadoColors: Record<EstadoParcela, string> = {
@@ -493,6 +497,8 @@ export default function LotesPage() {
 
   const activeOptionalCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
 
+  const minimumAnticipo = getMinimumAnticipoUsd(calculator.precio);
+
   const calculatorResult = useMemo(() => {
     const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
     const plazo = Math.max(calculator.plazo, 1);
@@ -515,15 +521,30 @@ export default function LotesPage() {
 
   function updateCalculatorValue(
     key: keyof typeof calculator,
-    value: number
+    value: number,
+    enforceAnticipoMinimum = true
   ) {
     setCalculator((current) => {
       const next = { ...current, [key]: Math.max(value, key === "plazo" ? 1 : 0) };
       if (key === "precio" && next.anticipo > value) {
         next.anticipo = value;
       }
-      if (key === "anticipo" && value > current.precio) {
-        next.anticipo = current.precio;
+      if (key === "precio") {
+        next.anticipo = Math.max(
+          next.anticipo,
+          getMinimumAnticipoUsd(value)
+        );
+      }
+      if (key === "anticipo") {
+        next.anticipo = Math.min(
+          Math.max(
+            value,
+            enforceAnticipoMinimum
+              ? getMinimumAnticipoUsd(current.precio)
+              : 0
+          ),
+          current.precio
+        );
       }
       return next;
     });
@@ -570,9 +591,9 @@ export default function LotesPage() {
             {
               key: "anticipo" as const,
               label: "Anticipo",
-              min: 0,
+              min: minimumAnticipo,
               max: calculator.precio,
-              step: 500,
+              step: ANTICIPO_STEP_USD,
               suffix: "USD",
             },
             {
@@ -600,12 +621,25 @@ export default function LotesPage() {
                     type="number"
                     min={item.min}
                     max={item.max}
-                    step={item.step}
+                    step={item.key === "anticipo" ? "any" : item.step}
                     value={calculator[item.key]}
                     onChange={(e) => {
-                      updateCalculatorValue(item.key, Number(e.target.value));
+                      updateCalculatorValue(
+                        item.key,
+                        Number(e.target.value),
+                        item.key !== "anticipo"
+                      );
                     }}
-                    className="h-8 w-28 text-right"
+                    aria-invalid={
+                      item.key === "anticipo" &&
+                      calculator.anticipo < minimumAnticipo
+                    }
+                    className={`h-8 w-28 text-right ${
+                      item.key === "anticipo" &&
+                      calculator.anticipo < minimumAnticipo
+                        ? "border-red-500 focus-visible:ring-red-500"
+                        : ""
+                    }`}
                   />
                   <span className="w-10 text-left text-muted-foreground">
                     {item.suffix}
@@ -623,6 +657,12 @@ export default function LotesPage() {
                 }}
                 className="w-full accent-primary"
               />
+              {item.key === "anticipo" &&
+                calculator.anticipo < minimumAnticipo && (
+                  <p className="text-xs font-medium text-red-600" role="alert">
+                    Mínimo: {formatUsd(minimumAnticipo)}
+                  </p>
+                )}
             </label>
           ))}
         </div>

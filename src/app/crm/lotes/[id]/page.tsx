@@ -44,6 +44,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useSession } from "@/lib/auth-client";
+import {
+  ANTICIPO_STEP_USD,
+  getMinimumAnticipoUsd,
+} from "@/lib/financiacion";
 import { amountToSpanishWords } from "@/lib/number-words";
 import type { ParcelaConReserva } from "@/lib/schema";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
@@ -477,7 +481,8 @@ export default function LoteDetailPage() {
 
   function updateCalculatorValue(
     key: keyof typeof calculator,
-    value: number
+    value: number,
+    enforceAnticipoMinimum = true
   ) {
     setCalculator((current) => {
       const next = {
@@ -487,8 +492,22 @@ export default function LoteDetailPage() {
       if (key === "precio" && next.anticipo > value) {
         next.anticipo = value;
       }
-      if (key === "anticipo" && value > current.precio) {
-        next.anticipo = current.precio;
+      if (key === "precio") {
+        next.anticipo = Math.max(
+          next.anticipo,
+          getMinimumAnticipoUsd(value)
+        );
+      }
+      if (key === "anticipo") {
+        next.anticipo = Math.min(
+          Math.max(
+            value,
+            enforceAnticipoMinimum
+              ? getMinimumAnticipoUsd(current.precio)
+              : 0
+          ),
+          current.precio
+        );
       }
       return next;
     });
@@ -805,7 +824,11 @@ export default function LoteDetailPage() {
   const editableCalculatorFields =
     session?.user?.role === "admin"
       ? (["precio", "anticipo", "tasa", "plazo"] as const)
-      : (["plazo"] as const);
+      : (["anticipo", "plazo"] as const);
+  const calculatorDisabled =
+    isLocked ||
+    calculatorSaving ||
+    (session?.user?.role !== "admin" && Boolean(lote.reservaId));
   const selectedLeadId = form.watch("leadId") ?? lote.leadId ?? null;
   const leadValue = (field: keyof Pick<
     FormValues,
@@ -1495,7 +1518,7 @@ export default function LoteDetailPage() {
               <CalculatorContent
                 calculator={calculator}
                 calculatorResult={calculatorResult}
-                disabled={isLocked || calculatorSaving}
+                disabled={calculatorDisabled}
                 editableFields={editableCalculatorFields}
                 saving={calculatorSaving}
                 onChange={updateCalculatorValue}
@@ -1538,9 +1561,15 @@ function CalculatorContent({
   disabled: boolean;
   editableFields: readonly (keyof CalculatorState)[];
   saving: boolean;
-  onChange: (key: keyof CalculatorState, value: number) => void;
+  onChange: (
+    key: keyof CalculatorState,
+    value: number,
+    enforceAnticipoMinimum?: boolean
+  ) => void;
   onApply: () => void;
 }) {
+  const minimumAnticipo = getMinimumAnticipoUsd(calculator.precio);
+  const anticipoInvalid = calculator.anticipo < minimumAnticipo;
   const fields = [
     {
       key: "precio" as const,
@@ -1553,9 +1582,9 @@ function CalculatorContent({
     {
       key: "anticipo" as const,
       label: "Anticipo",
-      min: 0,
+      min: minimumAnticipo,
       max: calculator.precio,
-      step: 500,
+      step: ANTICIPO_STEP_USD,
       suffix: "USD",
     },
     {
@@ -1591,11 +1620,22 @@ function CalculatorContent({
                   type="number"
                   min={item.min}
                   max={item.max}
-                  step={item.step}
+                  step={item.key === "anticipo" ? "any" : item.step}
                   value={calculator[item.key]}
-                  onChange={(e) => onChange(item.key, Number(e.target.value))}
+                  onChange={(e) =>
+                    onChange(
+                      item.key,
+                      Number(e.target.value),
+                      item.key !== "anticipo"
+                    )
+                  }
                   disabled={fieldDisabled}
-                  className="h-8 w-28 text-right"
+                  aria-invalid={item.key === "anticipo" && anticipoInvalid}
+                  className={`h-8 w-28 text-right ${
+                    item.key === "anticipo" && anticipoInvalid
+                      ? "border-red-500 focus-visible:ring-red-500"
+                      : ""
+                  }`}
                 />
                 <span className="w-10 text-left text-xs text-gray-500">
                   {item.suffix}
@@ -1612,6 +1652,11 @@ function CalculatorContent({
               disabled={fieldDisabled}
               className="w-full accent-green-700"
             />
+            {item.key === "anticipo" && anticipoInvalid && (
+              <p className="text-xs font-medium text-red-600" role="alert">
+                Mínimo: {formatUsd(minimumAnticipo)}
+              </p>
+            )}
           </label>
           );
         })}
@@ -1635,7 +1680,7 @@ function CalculatorContent({
       <Button
         type="button"
         onClick={onApply}
-        disabled={disabled}
+        disabled={disabled || anticipoInvalid}
         className="w-full bg-green-700 hover:bg-green-800 text-white"
       >
         {saving ? "Aplicando..." : "Aplicar a reserva"}

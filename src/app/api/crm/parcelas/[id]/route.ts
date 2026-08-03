@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { getMinimumAnticipoUsd } from "@/lib/financiacion";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import {
@@ -223,6 +224,31 @@ export async function PUT(
       if (!currentRow) return { kind: "not-found" as const };
 
       const { parcela: current, reserva: activeReserva } = currentRow;
+      const requestedFormaPago = data.formaPago ?? activeReserva?.formaPago;
+      const requestedAnticipo = numericValue(data.anticipoNum);
+      const currentAnticipo = numericValue(activeReserva?.anticipoNum);
+      const changesAnticipo =
+        "anticipoNum" in data && requestedAnticipo !== currentAnticipo;
+      const shouldValidateAnticipo =
+        requestedFormaPago !== "contado" &&
+        "anticipoNum" in data &&
+        (!activeReserva || changesAnticipo);
+
+      if (shouldValidateAnticipo) {
+        const precioLista = numericValue(current.precioBase ?? current.precioEtapa1);
+        if (precioLista === null) {
+          return { kind: "missing-list-price" as const };
+        }
+
+        const minimumAnticipo = getMinimumAnticipoUsd(precioLista);
+        if (requestedAnticipo === null || requestedAnticipo < minimumAnticipo) {
+          return {
+            kind: "invalid-anticipo" as const,
+            minimumAnticipo,
+          };
+        }
+      }
+
       const isSoldOrRealizada =
         current.estado === "vendido" || activeReserva?.estado === "realizada";
       if (
@@ -391,6 +417,21 @@ export async function PUT(
       return NextResponse.json(
         { error: "El lead seleccionado no existe o no tenÃ©s permiso para usarlo" },
         { status: 403 }
+      );
+    }
+
+    if (result.kind === "missing-list-price") {
+      return NextResponse.json(
+        { error: "El lote no tiene un precio de lista para validar el anticipo" },
+        { status: 400 }
+      );
+    }
+    if (result.kind === "invalid-anticipo") {
+      return NextResponse.json(
+        {
+          error: `El anticipo no puede ser menor a USD ${result.minimumAnticipo}`,
+        },
+        { status: 400 }
       );
     }
 
