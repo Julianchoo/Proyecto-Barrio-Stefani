@@ -149,7 +149,10 @@ function reservationsTable(reservations: Parcela[]): string {
         </tr>
         ${rows}
       </table>
-    </div>`;
+    </div>
+    <p style="margin:10px 0 0;color:#6b7280;font-size:12px;line-height:1.5;">
+      <strong>Aclaraci&oacute;n:</strong> el porcentaje de anticipo se calcula sobre el total de pagos a realizar seg&uacute;n la reserva, no sobre el precio de lista del lote.
+    </p>`;
 }
 
 export function buildDailyReportHtml(data: {
