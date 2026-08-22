@@ -29,11 +29,55 @@ function fmt(val: string | null | undefined, fallback = "&mdash;"): string {
   return val ?? fallback;
 }
 
+function parseAmount(val: string | null | undefined): number | null {
+  if (!val) return null;
+  const cleaned = val.replace(/[^0-9,.-]/g, "");
+  if (!cleaned) return null;
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  let normalized = cleaned;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? /\./g : /,/g;
+    normalized = cleaned.replace(thousandsSeparator, "").replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    normalized = cleaned.replace(/\./g, "");
+  }
+
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : null;
+}
+
 function fmtMoney(val: string | null | undefined): string {
   if (!val) return "&mdash;";
-  const num = parseFloat(val);
-  if (isNaN(num)) return val;
+  const num = parseAmount(val);
+  if (num === null) return val;
   return "USD " + num.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function paymentTerms(parcela: Parcela): string {
+  if (parcela.formaPago?.toLowerCase() === "contado") {
+    return "100% contado";
+  }
+
+  const installments = Number.parseInt(parcela.cantidadCuotas ?? "", 10);
+  const total = parseAmount(parcela.precioTotalNum);
+  const advance = parseAmount(parcela.anticipoNum);
+
+  if (!Number.isFinite(installments) || installments <= 0 || total === null || total <= 0 || advance === null) {
+    return "&mdash;";
+  }
+
+  const percentage = (advance / total) * 100;
+  const formattedPercentage = Number.isInteger(percentage)
+    ? percentage.toLocaleString("es-AR", { maximumFractionDigits: 0 })
+    : percentage.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  return `${formattedPercentage}% anticipo y ${installments} cuotas`;
 }
 
 function fmtDate(val: string | null | undefined): string {
@@ -83,7 +127,8 @@ function reservationsTable(reservations: Parcela[]): string {
       <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${fmt(p.numero?.toString())}</td>
       <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${fmt(p.manzana)}</td>
       <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${p.superficieM2 ? parseFloat(p.superficieM2).toLocaleString("es-AR") + " m&sup2;" : "&mdash;"}</td>
-      <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${fmtMoney(p.precioEtapa1)}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${fmtMoney(p.precioTotalNum)}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${paymentTerms(p)}</td>
       <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;font-weight:500;">${fmt(p.nombreComprador)}</td>
       <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${fmtDate(p.fechaReserva)}</td>
       <td style="padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#374151;">${fmtDate(p.fechaVencimiento)}</td>
@@ -91,12 +136,13 @@ function reservationsTable(reservations: Parcela[]): string {
 
   return `
     <div style="overflow-x:auto;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e4e4e7;border-radius:8px;overflow:hidden;min-width:560px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e4e4e7;border-radius:8px;overflow:hidden;min-width:700px;">
         <tr>
           <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">N&deg;</th>
           <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">Manzana</th>
           <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">Superficie</th>
-          <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">Precio</th>
+          <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">Precio acordado</th>
+          <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">Forma de pago</th>
           <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">Comprador</th>
           <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">F. Reserva</th>
           <th style="text-align:left;padding:9px 12px;background:#f8f8fa;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:600;">F. Venc.</th>
