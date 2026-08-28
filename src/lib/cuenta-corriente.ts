@@ -508,30 +508,30 @@ export function buildMensajeCuentaCorriente(
   summary: Pick<
     CuentaCorrienteSummary,
     | "comprador"
-    | "loteNumero"
+    | "manzana"
+    | "parcela"
     | "totalVencido"
-    | "saldoPendiente"
     | "moneda"
     | "proximoVencimiento"
     | "proximaCuotaMonto"
   >
 ) {
   const comprador = summary.comprador ?? "cliente";
+  const lote = summary.parcela ?? "-";
+  const manzana = summary.manzana ?? "-";
   if (summary.totalVencido > 0) {
     return [
-      `Hola ${comprador}, te escribimos por el estado de cuenta del lote ${summary.loteNumero}.`,
+      `Hola ${comprador}, te escribimos por el estado de cuenta del Lote ${lote} de la manzana ${manzana}.`,
       `A la fecha registra un saldo vencido de ${formatCuentaMoney(summary.totalVencido, summary.moneda)}.`,
-      `El saldo total pendiente es ${formatCuentaMoney(summary.saldoPendiente, summary.moneda)}.`,
       "Por favor avisanos cuando realices el pago para registrarlo en la cuenta corriente.",
     ].join("\n");
   }
 
   return [
-    `Hola ${comprador}, te escribimos por el estado de cuenta del lote ${summary.loteNumero}.`,
+    `Hola ${comprador}, te escribimos por el estado de cuenta del Lote ${lote} de la manzana ${manzana}.`,
     summary.proximoVencimiento && summary.proximaCuotaMonto !== null
       ? `La proxima cuota vence el ${summary.proximoVencimiento} por ${formatCuentaMoney(summary.proximaCuotaMonto, summary.moneda)}.`
       : "No registra cuotas pendientes a la fecha.",
-    `El saldo total pendiente es ${formatCuentaMoney(summary.saldoPendiente, summary.moneda)}.`,
   ].join("\n");
 }
 
