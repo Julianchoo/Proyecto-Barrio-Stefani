@@ -1,6 +1,5 @@
 import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ensureCurrentBnaRate } from "@/lib/tipos-cambio";
 import { contratos, cuotas, indicesCac, leads, pagos, parcelas, reservas } from "@/lib/schema";
 import type {
   Contrato,
@@ -12,6 +11,7 @@ import type {
   Pago,
   Reserva,
 } from "@/lib/schema";
+import { argentinaTodayKey, ensureCurrentBnaRate } from "@/lib/tipos-cambio";
 
 export type CuentaCorrienteSummary = {
   contratoId: number | null;
@@ -40,6 +40,16 @@ export type CuentaCorrienteSummary = {
   mensajeCuotas: string;
 };
 
+type MensajeCuentaCorrienteInput = Pick<
+  CuentaCorrienteSummary,
+  "comprador" | "manzana" | "parcela" | "modalidad"
+> & {
+  contrato: Pick<Contrato, "indiceBaseCac">;
+  cuotas: Cuota[];
+  tipoCambioActual: number | null;
+  fechaTipoCambioActual: string | null;
+};
+
 export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
   contrato: Contrato;
   reserva: Reserva;
@@ -50,6 +60,7 @@ export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
   totalFuturoUsd: number | null;
   anticipoCobradoUsd: number;
   tipoCambioActual: number | null;
+  fechaTipoCambioActual: string | null;
   fechasPagoSinTipoCambio: string[];
 };
 
@@ -79,7 +90,7 @@ function moneyString(value: number) {
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return argentinaTodayKey();
 }
 
 function periodFromDate(value: string) {
@@ -365,7 +376,7 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
     db.select().from(indicesCac).orderBy(asc(indicesCac.periodo)),
   ]);
 
-  const summary = buildSummary(row, cuotaRows);
+  const summary = buildSummary(row, cuotaRows, currentRate);
   const activePayments = pagoRows.filter((pago) => pago.estado === "activo");
   const fechasPagoSinTipoCambio = Array.from(
     new Set(
@@ -404,6 +415,7 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
     totalFuturoUsd,
     anticipoCobradoUsd,
     tipoCambioActual,
+    fechaTipoCambioActual: currentRate?.fecha ?? null,
     fechasPagoSinTipoCambio,
   };
 }
@@ -451,6 +463,8 @@ export async function getCuentasCorrientesSummaries() {
 
   if (rows.length === 0) return pendingSummaries;
 
+  const currentRate = await ensureCurrentBnaRate();
+
   const contratoIds = rows.map((row) => row.contrato.id);
   const cuotaRows = await db
     .select()
@@ -465,7 +479,9 @@ export async function getCuentasCorrientesSummaries() {
   }
 
   return [
-    ...rows.map((row) => buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? [])),
+    ...rows.map((row) =>
+      buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? [], currentRate)
+    ),
     ...pendingSummaries,
   ].sort((a, b) => a.loteNumero - b.loteNumero);
 }
@@ -504,35 +520,143 @@ function buildPendingSummary(row: {
   };
 }
 
-export function buildMensajeCuentaCorriente(
-  summary: Pick<
-    CuentaCorrienteSummary,
-    | "comprador"
-    | "manzana"
-    | "parcela"
-    | "totalVencido"
-    | "moneda"
-    | "proximoVencimiento"
-    | "proximaCuotaMonto"
-  >
-) {
-  const comprador = summary.comprador ?? "cliente";
-  const lote = summary.parcela ?? "-";
-  const manzana = summary.manzana ?? "-";
-  if (summary.totalVencido > 0) {
+const DATOS_CUENTA = [
+  "Los datos de la cuenta Bancaria para TRANSFERIR son:",
+  "Nombre: Edgardo Fernando Pashkowec",
+  "CUIT: 20-31144417-5",
+  "Alias: zuaque.cubren.zanoni",
+  "CVU: 0000397900000000001317",
+].join("\n");
+
+function formatNumber(value: number, maximumFractionDigits = 2) {
+  return value.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  });
+}
+
+function formatCommunicationDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(Date.UTC(year!, month! - 1, day!)));
+}
+
+function formatCommunicationPeriod(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  const monthName = new Intl.DateTimeFormat("es-AR", {
+    timeZone: "UTC",
+    month: "short",
+  })
+    .format(new Date(Date.UTC(year!, month! - 1, 1)))
+    .replace(".", "");
+  return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}${String(year).slice(-2)}`;
+}
+
+function selectCuotaForCommunication(items: Cuota[]) {
+  const today = todayKey();
+  const calculated = items.filter(
+    (cuota) =>
+      !FINAL_CUOTA_STATES.includes(cuota.estado) &&
+      cuota.estado !== "proyectada" &&
+      cuota.importeAjustado !== null
+  );
+  return (
+    calculated
+      .filter((cuota) => cuota.fechaVencimiento >= today)
+      .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))[0] ??
+    calculated
+      .filter((cuota) => cuota.fechaVencimiento < today)
+      .sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento))[0] ??
+    null
+  );
+}
+
+export function buildMensajeCuentaCorriente(input: MensajeCuentaCorrienteInput) {
+  const comprador = input.comprador ?? "cliente";
+  const lote = input.parcela ?? "-";
+  const manzana = input.manzana ?? "-";
+  const encabezado = `Estimado/a ${comprador} (M${manzana}-L${lote}):`;
+  const introduccion =
+    "Antes que nada, le agradecemos la confianza depositada al acompañarnos en este proyecto.";
+  const cuota = selectCuotaForCommunication(input.cuotas);
+
+  if (input.modalidad === "requiere_revision") {
     return [
-      `Hola ${comprador}, te escribimos por el estado de cuenta del Lote ${lote} de la manzana ${manzana}.`,
-      `A la fecha registra un saldo vencido de ${formatCuentaMoney(summary.totalVencido, summary.moneda)}.`,
-      "Por favor avisanos cuando realices el pago para registrarlo en la cuenta corriente.",
-    ].join("\n");
+      encabezado,
+      introduccion,
+      "No se pudo generar la liquidación porque la modalidad del contrato requiere revisión.",
+    ].join("\n\n");
   }
 
+  if (!cuota) {
+    const hasPendingCuotas = input.cuotas.some(
+      (item) => !FINAL_CUOTA_STATES.includes(item.estado)
+    );
+    return [
+      encabezado,
+      introduccion,
+      hasPendingCuotas
+        ? "La próxima cuota se encuentra pendiente de cálculo por falta del índice CAC correspondiente."
+        : "No registra cuotas pendientes a la fecha.",
+    ].join("\n\n");
+  }
+
+  const period = formatCommunicationPeriod(cuota.fechaVencimiento.slice(0, 7));
+  const dueDate = formatCommunicationDate(cuota.fechaVencimiento);
+  const adjustedAmount = toNumber(cuota.importeAjustado);
+  if (adjustedAmount === null) {
+    return [encabezado, introduccion, "No se pudo determinar el importe de la cuota."].join(
+      "\n\n"
+    );
+  }
+
+  if (input.modalidad === "pesos_cac") {
+    const baseAmount = toNumber(cuota.importeBase);
+    const baseIndex = toNumber(input.contrato.indiceBaseCac);
+    const currentIndex = toNumber(cuota.indiceCac);
+    if (baseAmount === null || baseIndex === null || currentIndex === null) {
+      return [
+        encabezado,
+        introduccion,
+        "La próxima cuota se encuentra pendiente de cálculo por falta del índice CAC correspondiente.",
+      ].join("\n\n");
+    }
+    return [
+      encabezado,
+      introduccion,
+      `El valor de la cuota ${period}, con vencimiento el ${dueDate}, es de $${formatNumber(adjustedAmount)} pesos.`,
+      [
+        "Detalle de liquidación:",
+        `Monto Base = $${formatNumber(baseAmount)}`,
+        `Índice Base = ${formatNumber(baseIndex, 3)}`,
+        `Índice Actual = ${formatNumber(currentIndex, 3)}`,
+        `Cuota Actual = Índice Actual / Índice Base * Monto Base = $${formatNumber(adjustedAmount)}`,
+      ].join("\n"),
+      DATOS_CUENTA,
+      "Por otro lado, les recordamos que para aquellos casos de fuerza mayor en los que se tenga que abonar en pesos en efectivo, deberán coordinar la visita presencial con un mínimo de 48 horas de anticipación.",
+    ].join("\n\n");
+  }
+
+  if (!input.tipoCambioActual || !input.fechaTipoCambioActual) {
+    return [
+      encabezado,
+      introduccion,
+      "No se pudo generar la liquidación porque falta el Tipo de Cambio BNA vendedor del día.",
+    ].join("\n\n");
+  }
+  const amountArs = adjustedAmount * input.tipoCambioActual;
   return [
-    `Hola ${comprador}, te escribimos por el estado de cuenta del Lote ${lote} de la manzana ${manzana}.`,
-    summary.proximoVencimiento && summary.proximaCuotaMonto !== null
-      ? `La proxima cuota vence el ${summary.proximoVencimiento} por ${formatCuentaMoney(summary.proximaCuotaMonto, summary.moneda)}.`
-      : "No registra cuotas pendientes a la fecha.",
-  ].join("\n");
+    encabezado,
+    introduccion,
+    `El valor de la cuota ${period}, con vencimiento el ${dueDate}, es de $${formatNumber(amountArs)} pesos. Correspondiente a ${formatNumber(adjustedAmount)} USD a ${formatNumber(input.tipoCambioActual)} Tipo de Cambio BNA del día ${formatCommunicationDate(input.fechaTipoCambioActual)}.`,
+    DATOS_CUENTA,
+    "Por otro lado, les recordamos que para aquellos casos de fuerza mayor en los que se tenga que abonar en dólares en efectivo, deberán coordinar la visita presencial con un mínimo de 48 horas de anticipación.",
+    "Les recordamos que los únicos medios habilitados de comunicación oficial para recepción de LOS COMPROBANTES DE TRANSFERENCIA Y LA COORDINACIÓN DE LA VISITA PARA PAGO son el correo electrónico INFO@EULERDESARROLLOS.COM.AR",
+  ].join("\n\n");
 }
 
 function buildSummary(
@@ -542,7 +666,8 @@ function buildSummary(
     parcela: typeof parcelas.$inferSelect;
     lead: typeof leads.$inferSelect | null;
   },
-  cuotaRows: Cuota[]
+  cuotaRows: Cuota[],
+  currentRate: { valor: unknown; fecha: string } | null = null
 ): CuentaCorrienteSummary {
   const today = todayKey();
   const activeCuotas = cuotaRows.filter((cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado));
@@ -582,7 +707,13 @@ function buildSummary(
 
   return {
     ...summary,
-    mensajeCuotas: buildMensajeCuentaCorriente(summary),
+    mensajeCuotas: buildMensajeCuentaCorriente({
+      ...summary,
+      contrato: row.contrato,
+      cuotas: cuotaRows,
+      tipoCambioActual: toNumber(currentRate?.valor),
+      fechaTipoCambioActual: currentRate?.fecha ?? null,
+    }),
   };
 }
 
