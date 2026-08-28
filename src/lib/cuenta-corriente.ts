@@ -298,6 +298,8 @@ export async function createContratoForReserva(
         saldoInicial: moneyString(saldoInicial),
         cuotaBase: moneyString(cuotaBase),
         monedaBase,
+        tipoCambioBna:
+          input.modalidad === "pesos_cac" ? moneyString(conversionRate) : null,
         periodoBaseCac,
         indiceBaseCac: indiceBaseCac === null ? null : moneyString(indiceBaseCac),
         requiereRevision: input.modalidad === "requiere_revision",

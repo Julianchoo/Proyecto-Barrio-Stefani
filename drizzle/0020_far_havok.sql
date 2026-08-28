@@ -1,0 +1,1 @@
+ALTER TABLE "contratos" ADD COLUMN "tipo_cambio_bna" numeric;

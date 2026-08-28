@@ -346,6 +346,7 @@ export const contratos = pgTable(
     saldoInicial: numeric("saldo_inicial").notNull(),
     cuotaBase: numeric("cuota_base").notNull(),
     monedaBase: monedaPagoEnum("moneda_base").notNull(),
+    tipoCambioBna: numeric("tipo_cambio_bna"),
     periodoBaseCac: text("periodo_base_cac"),
     indiceBaseCac: numeric("indice_base_cac"),
     requiereRevision: boolean("requiere_revision").default(false).notNull(),

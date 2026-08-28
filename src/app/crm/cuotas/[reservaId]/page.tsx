@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Clipboard,
   CreditCard,
+  Edit2,
   Loader2,
   Plus,
   RefreshCw,
@@ -752,10 +753,48 @@ export default function CuentaDetallePage() {
                 </div>
                 <p className="text-muted-foreground text-xs">
                   Para pagos sin cotización exacta se usa la última fecha anterior cargada.
-                  {savedRates[0]
-                    ? ` Última carga: ${formatDate(savedRates[0].fecha)} — $ ${Number(savedRates[0].valor).toLocaleString("es-AR")}.`
-                    : " Todavía no hay cotizaciones guardadas."}
                 </p>
+                {savedRates.length === 0 ? (
+                  <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+                    Todavía no hay cotizaciones guardadas.
+                  </p>
+                ) : (
+                  <div className="max-h-44 overflow-y-auto rounded-md border">
+                    {savedRates.map((rate) => (
+                      <div
+                        key={rate.id}
+                        className="flex items-center justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0"
+                      >
+                        <div>
+                          <p className="font-medium">{formatDate(rate.fecha)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {rate.fuente ?? "Sin fuente"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold tabular-nums">
+                            $ {Number(rate.valor).toLocaleString("es-AR")}
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setRateDate(rate.fecha);
+                              setRateValue(String(rate.valor));
+                            }}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            <span className="sr-only">
+                              Editar cotización del {formatDate(rate.fecha)}
+                            </span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

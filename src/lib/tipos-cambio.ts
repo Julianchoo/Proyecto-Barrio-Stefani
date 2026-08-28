@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { getBnaBilleteVendedor } from "@/lib/bna-exchange-rate";
 import { db } from "@/lib/db";
-import { pagos, tiposCambio } from "@/lib/schema";
+import { contratos, cuotas, pagos, reservas, tiposCambio } from "@/lib/schema";
 
 export const BNA_VENDEDOR = "bna_vendedor";
 
@@ -62,7 +62,74 @@ export async function saveTipoCambioBna(input: {
     .returning();
 
   await refreshPagoUsdValues();
+  await refreshUnpaidContractsForSigningDate(input.fecha, input.valor);
   return row;
+}
+
+async function refreshUnpaidContractsForSigningDate(fecha: string, tipoCambio: number) {
+  const rows = await db
+    .select({ contrato: contratos, reserva: reservas })
+    .from(contratos)
+    .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
+    .where(
+      and(
+        eq(contratos.modalidad, "pesos_cac"),
+        eq(reservas.fechaFirma, fecha)
+      )
+    );
+  const updatedContractIds: number[] = [];
+
+  for (const row of rows) {
+    const activePayments = await db
+      .select({ id: pagos.id })
+      .from(pagos)
+      .where(and(eq(pagos.contratoId, row.contrato.id), eq(pagos.estado, "activo")))
+      .limit(1);
+    if (activePayments.length > 0) continue;
+
+    const cuotaBaseUsd = Number(row.reserva.cuotaMensual);
+    const saldoInicialUsd = Number(row.reserva.saldoNum);
+    if (
+      !Number.isFinite(cuotaBaseUsd) ||
+      cuotaBaseUsd <= 0 ||
+      !Number.isFinite(saldoInicialUsd) ||
+      saldoInicialUsd <= 0
+    ) {
+      continue;
+    }
+
+    const cuotaBase = cuotaBaseUsd * tipoCambio;
+    const saldoInicial = saldoInicialUsd * tipoCambio;
+    await db.transaction(async (tx) => {
+      await tx
+        .update(contratos)
+        .set({
+          tipoCambioBna: moneyString(tipoCambio),
+          cuotaBase: moneyString(cuotaBase),
+          saldoInicial: moneyString(saldoInicial),
+          updatedAt: new Date(),
+        })
+        .where(eq(contratos.id, row.contrato.id));
+      await tx
+        .update(cuotas)
+        .set({
+          importeBase: moneyString(cuotaBase),
+          importeAjustado: null,
+          saldo: moneyString(cuotaBase),
+          estado: "pendiente_indice",
+          updatedAt: new Date(),
+        })
+        .where(eq(cuotas.contratoId, row.contrato.id));
+    });
+    updatedContractIds.push(row.contrato.id);
+  }
+
+  if (updatedContractIds.length > 0) {
+    const { recomputeContratoCuotas } = await import("@/lib/cuenta-corriente");
+    for (const contratoId of updatedContractIds) {
+      await recomputeContratoCuotas(contratoId);
+    }
+  }
 }
 
 export async function ensureCurrentBnaRate() {

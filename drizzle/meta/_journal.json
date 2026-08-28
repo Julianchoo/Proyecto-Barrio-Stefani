@@ -141,6 +141,13 @@
       "when": 1787926928356,
       "tag": "0019_colossal_hardball",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787929099710,
+      "tag": "0020_far_havok",
+      "breakpoints": true
     }
   ]
 }
