@@ -20,6 +20,17 @@ type ExchangeRateResponse = {
   available?: unknown;
 };
 
+type BlueRateState =
+  | { status: "idle" | "unavailable" }
+  | { status: "ready"; buy: number; sell: number; average: number };
+
+type BlueRateResponse = {
+  buy?: unknown;
+  sell?: unknown;
+  average?: unknown;
+  available?: unknown;
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
@@ -52,6 +63,7 @@ export function BnaExchangeRateIndicator({
   const [exchangeRate, setExchangeRate] = useState<ExchangeRateState>({
     status: "idle",
   });
+  const [blueRate, setBlueRate] = useState<BlueRateState>({ status: "idle" });
 
   useEffect(() => {
     if (!enabled) return;
@@ -88,6 +100,34 @@ export function BnaExchangeRateIndicator({
         if (!cancelled) setExchangeRate({ status: "unavailable" });
       });
 
+    fetch("/api/tipo-cambio/ambito-blue")
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as BlueRateResponse;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (
+          !data ||
+          data.available !== true ||
+          typeof data.buy !== "number" ||
+          typeof data.sell !== "number" ||
+          typeof data.average !== "number"
+        ) {
+          setBlueRate({ status: "unavailable" });
+          return;
+        }
+        setBlueRate({
+          status: "ready",
+          buy: data.buy,
+          sell: data.sell,
+          average: data.average,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setBlueRate({ status: "unavailable" });
+      });
+
     return () => {
       cancelled = true;
     };
@@ -95,9 +135,23 @@ export function BnaExchangeRateIndicator({
 
   if (!enabled || exchangeRate.status === "idle") return null;
 
+  const blueReference =
+    blueRate.status === "ready" ? (
+      <div className="border-b border-current/10 pb-1.5 text-slate-500 dark:text-slate-400">
+        <span className="block text-[11px] font-medium">
+          Ámbito Blue promedio:{" "}
+          <span className="font-semibold">{formatCurrency(blueRate.average)}</span>
+        </span>
+        <span className="block text-[10px] opacity-75">
+          C {formatCurrency(blueRate.buy)} / V {formatCurrency(blueRate.sell)}
+        </span>
+      </div>
+    ) : null;
+
   if (exchangeRate.status === "unavailable") {
     return (
-      <div className={className}>
+      <div className={cn("space-y-1.5 leading-tight", className)}>
+        {blueReference}
         <span className="text-xs font-medium text-current/70">
           BNA billete vendedor no disponible
         </span>
@@ -108,7 +162,8 @@ export function BnaExchangeRateIndicator({
   const updatedAt = formatUpdatedAt(exchangeRate.updatedAt);
 
   return (
-    <div className={cn("leading-tight", className)}>
+    <div className={cn("space-y-1.5 leading-tight", className)}>
+      {blueReference}
       <span className="text-xs font-medium text-current/70">
         {exchangeRate.label}:{" "}
         <span className="font-semibold text-current">
