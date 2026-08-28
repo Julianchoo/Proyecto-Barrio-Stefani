@@ -1,6 +1,4 @@
-import {
-  sql,
-} from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   pgEnum,
@@ -409,6 +407,8 @@ export const pagos = pgTable(
     fechaPago: date("fecha_pago").notNull(),
     monto: numeric("monto").notNull(),
     moneda: monedaPagoEnum("moneda").notNull(),
+    tipoCambioAplicado: numeric("tipo_cambio_aplicado"),
+    montoUsd: numeric("monto_usd"),
     medio: text("medio"),
     observacion: text("observacion"),
     estado: estadoPagoEnum("estado").default("activo").notNull(),
@@ -424,6 +424,24 @@ export const pagos = pgTable(
     index("pagos_cuota_idx").on(table.cuotaId),
     index("pagos_fecha_idx").on(table.fechaPago),
   ]
+);
+
+export const tiposCambio = pgTable(
+  "tipos_cambio",
+  {
+    id: serial("id").primaryKey(),
+    fecha: date("fecha").notNull(),
+    tipo: text("tipo").default("bna_vendedor").notNull(),
+    valor: numeric("valor").notNull(),
+    fuente: text("fuente"),
+    creadoPor: text("creado_por"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [uniqueIndex("tipos_cambio_fecha_tipo_idx").on(table.fecha, table.tipo)]
 );
 
 export const indicesCac = pgTable(
@@ -453,6 +471,7 @@ export type Reserva = typeof reservas.$inferSelect;
 export type Contrato = typeof contratos.$inferSelect;
 export type Cuota = typeof cuotas.$inferSelect;
 export type Pago = typeof pagos.$inferSelect;
+export type TipoCambio = typeof tiposCambio.$inferSelect;
 export type IndiceCac = typeof indicesCac.$inferSelect;
 export type EstadoParcela = (typeof estadoParcelaEnum.enumValues)[number];
 export type EstadoLead = (typeof estadoLeadEnum.enumValues)[number];

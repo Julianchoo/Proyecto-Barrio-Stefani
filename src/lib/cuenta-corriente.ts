@@ -1,14 +1,7 @@
 import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import {
-  contratos,
-  cuotas,
-  indicesCac,
-  leads,
-  pagos,
-  parcelas,
-  reservas,
-} from "@/lib/schema";
+import { ensureCurrentBnaRate } from "@/lib/tipos-cambio";
+import { contratos, cuotas, indicesCac, leads, pagos, parcelas, reservas } from "@/lib/schema";
 import type {
   Contrato,
   Cuota,
@@ -53,6 +46,11 @@ export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
   cuotas: Cuota[];
   pagos: Pago[];
   indices: IndiceCac[];
+  totalCobradoUsd: number | null;
+  totalFuturoUsd: number | null;
+  anticipoCobradoUsd: number;
+  tipoCambioActual: number | null;
+  fechasPagoSinTipoCambio: string[];
 };
 
 export type CreateContratoInput = {
@@ -161,8 +159,8 @@ function computeCuotaAmount(
 
   const basePeriod = contrato.periodoBaseCac;
   const cuotaPeriod = cacPeriodForDueDate(cuota.fechaVencimiento);
-  const baseIndex = toNumber(contrato.indiceBaseCac) ??
-    (basePeriod ? indicesByPeriodo.get(basePeriod) : undefined);
+  const baseIndex =
+    toNumber(contrato.indiceBaseCac) ?? (basePeriod ? indicesByPeriodo.get(basePeriod) : undefined);
   const cuotaIndex = indicesByPeriodo.get(cuotaPeriod);
   if (!baseIndex || baseIndex <= 0) {
     return { amount: null, indiceCac: null, amountKind: "missing" as const };
@@ -186,18 +184,11 @@ function computeCuotaAmount(
 }
 
 export async function recomputeContratoCuotas(contratoId: number) {
-  const [contrato] = await db
-    .select()
-    .from(contratos)
-    .where(eq(contratos.id, contratoId));
+  const [contrato] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
   if (!contrato) return;
 
   const [cuotaRows, pagoRows, indexRows] = await Promise.all([
-    db
-      .select()
-      .from(cuotas)
-      .where(eq(cuotas.contratoId, contratoId))
-      .orderBy(asc(cuotas.numero)),
+    db.select().from(cuotas).where(eq(cuotas.contratoId, contratoId)).orderBy(asc(cuotas.numero)),
     db.select().from(pagos).where(eq(pagos.contratoId, contratoId)),
     db.select().from(indicesCac),
   ]);
@@ -211,9 +202,7 @@ export async function recomputeContratoCuotas(contratoId: number) {
     const cuotaPagos = pagoRows.filter((pago) => pago.cuotaId === cuota.id);
     const paid = sumActivePayments(cuotaPagos);
     const computed = computeCuotaAmount(contrato, cuota, indicesByPeriodo, latestIndex);
-    const saldo = computed.amount === null
-      ? toNumber(cuota.saldo) ?? 0
-      : computed.amount - paid;
+    const saldo = computed.amount === null ? (toNumber(cuota.saldo) ?? 0) : computed.amount - paid;
     const nextEstado = statusForCuota(
       cuota.fechaVencimiento,
       Math.max(saldo, 0),
@@ -226,13 +215,9 @@ export async function recomputeContratoCuotas(contratoId: number) {
       .update(cuotas)
       .set({
         periodoCac:
-          contrato.modalidad === "pesos_cac"
-            ? cacPeriodForDueDate(cuota.fechaVencimiento)
-            : null,
-        indiceCac:
-          computed.indiceCac === null ? null : moneyString(computed.indiceCac),
-        importeAjustado:
-          computed.amount === null ? null : moneyString(computed.amount),
+          contrato.modalidad === "pesos_cac" ? cacPeriodForDueDate(cuota.fechaVencimiento) : null,
+        indiceCac: computed.indiceCac === null ? null : moneyString(computed.indiceCac),
+        importeAjustado: computed.amount === null ? null : moneyString(computed.amount),
         saldo: moneyString(saldo),
         estado: nextEstado,
         updatedAt: new Date(),
@@ -257,10 +242,7 @@ export async function createContratoForReserva(
   input: CreateContratoInput,
   userEmail: string
 ) {
-  const [reserva] = await db
-    .select()
-    .from(reservas)
-    .where(eq(reservas.id, reservaId));
+  const [reserva] = await db.select().from(reservas).where(eq(reservas.id, reservaId));
   if (!reserva) return { kind: "not-found" as const };
   if (reserva.estado !== "realizada") return { kind: "not-realizada" as const };
 
@@ -278,19 +260,14 @@ export async function createContratoForReserva(
   if (!cantidadCuotas || !cuotaBaseUsd || !saldoInicialUsd || !fechaInicio) {
     return { kind: "missing-data" as const };
   }
-  if (
-    input.modalidad === "pesos_cac" &&
-    (!input.tipoCambioBna || input.tipoCambioBna <= 0)
-  ) {
+  if (input.modalidad === "pesos_cac" && (!input.tipoCambioBna || input.tipoCambioBna <= 0)) {
     return { kind: "missing-exchange-rate" as const };
   }
 
   const diaVencimiento = 10;
   const fechaPrimerVencimiento = addMonthsOnDay(fechaInicio, 1, diaVencimiento);
   const periodoBaseCac =
-    input.modalidad === "pesos_cac"
-      ? input.periodoBaseCac ?? periodFromDate(fechaInicio)
-      : null;
+    input.modalidad === "pesos_cac" ? (input.periodoBaseCac ?? periodFromDate(fechaInicio)) : null;
   let indiceBaseCac: number | null = null;
   if (input.modalidad === "pesos_cac") {
     const [baseIndexRow] = await db
@@ -331,25 +308,18 @@ export async function createContratoForReserva(
     if (!contrato) throw new Error("No se pudo crear el contrato");
 
     const cuotaValues = Array.from({ length: cantidadCuotas }, (_, index) => {
-      const fechaVencimiento = addMonthsOnDay(
-        fechaPrimerVencimiento,
-        index,
-        diaVencimiento
-      );
+      const fechaVencimiento = addMonthsOnDay(fechaPrimerVencimiento, index, diaVencimiento);
       return {
         contratoId: contrato.id,
         numero: index + 1,
         fechaVencimiento,
-        periodoCac:
-          input.modalidad === "pesos_cac" ? cacPeriodForDueDate(fechaVencimiento) : null,
+        periodoCac: input.modalidad === "pesos_cac" ? cacPeriodForDueDate(fechaVencimiento) : null,
         importeBase: moneyString(cuotaBase),
         importeAjustado: input.modalidad === "usd_fijo" ? moneyString(cuotaBase) : null,
         moneda: monedaBase,
         saldo: moneyString(cuotaBase),
         estado:
-          input.modalidad === "pesos_cac"
-            ? ("pendiente_indice" as const)
-            : ("pendiente" as const),
+          input.modalidad === "pesos_cac" ? ("pendiente_indice" as const) : ("pendiente" as const),
       };
     });
 
@@ -378,6 +348,7 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
 
   if (!row) return null;
 
+  const currentRate = await ensureCurrentBnaRate();
   const [cuotaRows, pagoRows, indexRows] = await Promise.all([
     db
       .select()
@@ -393,6 +364,32 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
   ]);
 
   const summary = buildSummary(row, cuotaRows);
+  const activePayments = pagoRows.filter((pago) => pago.estado === "activo");
+  const fechasPagoSinTipoCambio = Array.from(
+    new Set(
+      activePayments
+        .filter((pago) => pago.moneda === "ars" && toNumber(pago.montoUsd) === null)
+        .map((pago) => pago.fechaPago)
+    )
+  ).sort();
+  const anticipoCobradoUsd = toNumber(row.reserva.anticipoNum) ?? 0;
+  const pagosCobradosUsd = activePayments.reduce((total, pago) => {
+    if (pago.moneda === "usd") return total + (toNumber(pago.monto) ?? 0);
+    return total + (toNumber(pago.montoUsd) ?? 0);
+  }, 0);
+  const tipoCambioActual = toNumber(currentRate?.valor);
+  const hasPendingArs = cuotaRows.some(
+    (cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado) && cuota.moneda === "ars"
+  );
+  const totalFuturoUsd =
+    hasPendingArs && (!tipoCambioActual || tipoCambioActual <= 0)
+      ? null
+      : cuotaRows
+          .filter((cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado))
+          .reduce((total, cuota) => {
+            const saldo = toNumber(cuota.saldo) ?? 0;
+            return total + (cuota.moneda === "ars" ? saldo / tipoCambioActual! : saldo);
+          }, 0);
   return {
     ...summary,
     contrato: row.contrato,
@@ -400,6 +397,12 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
     cuotas: cuotaRows,
     pagos: pagoRows,
     indices: indexRows,
+    totalCobradoUsd:
+      fechasPagoSinTipoCambio.length > 0 ? null : anticipoCobradoUsd + pagosCobradosUsd,
+    totalFuturoUsd,
+    anticipoCobradoUsd,
+    tipoCambioActual,
+    fechasPagoSinTipoCambio,
   };
 }
 
@@ -438,11 +441,7 @@ export async function getCuentasCorrientesSummaries() {
     .leftJoin(leads, eq(reservas.leadId, leads.id))
     .leftJoin(contratos, eq(contratos.reservaId, reservas.id))
     .where(
-      and(
-        eq(reservas.estado, "realizada"),
-        ne(reservas.formaPago, "contado"),
-        isNull(contratos.id)
-      )
+      and(eq(reservas.estado, "realizada"), ne(reservas.formaPago, "contado"), isNull(contratos.id))
     )
     .orderBy(asc(parcelas.numero));
 
@@ -464,9 +463,7 @@ export async function getCuentasCorrientesSummaries() {
   }
 
   return [
-    ...rows.map((row) =>
-      buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? [])
-    ),
+    ...rows.map((row) => buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? [])),
     ...pendingSummaries,
   ].sort((a, b) => a.loteNumero - b.loteNumero);
 }
@@ -505,16 +502,18 @@ function buildPendingSummary(row: {
   };
 }
 
-export function buildMensajeCuentaCorriente(summary: Pick<
-  CuentaCorrienteSummary,
-  | "comprador"
-  | "loteNumero"
-  | "totalVencido"
-  | "saldoPendiente"
-  | "moneda"
-  | "proximoVencimiento"
-  | "proximaCuotaMonto"
->) {
+export function buildMensajeCuentaCorriente(
+  summary: Pick<
+    CuentaCorrienteSummary,
+    | "comprador"
+    | "loteNumero"
+    | "totalVencido"
+    | "saldoPendiente"
+    | "moneda"
+    | "proximoVencimiento"
+    | "proximaCuotaMonto"
+  >
+) {
   const comprador = summary.comprador ?? "cliente";
   if (summary.totalVencido > 0) {
     return [
@@ -544,12 +543,8 @@ function buildSummary(
   cuotaRows: Cuota[]
 ): CuentaCorrienteSummary {
   const today = todayKey();
-  const activeCuotas = cuotaRows.filter(
-    (cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado)
-  );
-  const overdueCuotas = activeCuotas.filter(
-    (cuota) => cuota.fechaVencimiento < today
-  );
+  const activeCuotas = cuotaRows.filter((cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado));
+  const overdueCuotas = activeCuotas.filter((cuota) => cuota.fechaVencimiento < today);
   const nextCuota = activeCuotas
     .filter((cuota) => cuota.fechaVencimiento >= today)
     .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))[0];
@@ -568,25 +563,15 @@ function buildSummary(
     reservadoPor: row.reserva.reservadoPor,
     modalidad: row.contrato.modalidad,
     requiereRevision: row.contrato.requiereRevision,
-    totalVencido: overdueCuotas.reduce(
-      (total, cuota) => total + (toNumber(cuota.saldo) ?? 0),
-      0
-    ),
-    saldoPendiente: activeCuotas.reduce(
-      (total, cuota) => total + (toNumber(cuota.saldo) ?? 0),
-      0
-    ),
+    totalVencido: overdueCuotas.reduce((total, cuota) => total + (toNumber(cuota.saldo) ?? 0), 0),
+    saldoPendiente: activeCuotas.reduce((total, cuota) => total + (toNumber(cuota.saldo) ?? 0), 0),
     cuotasPendientes: activeCuotas.length,
     cuotasVencidas: overdueCuotas.length,
-    cuotasPendienteIndice: cuotaRows.filter(
-      (cuota) => cuota.estado === "pendiente_indice"
-    ).length,
-    cuotasProyectadas: cuotaRows.filter(
-      (cuota) => cuota.estado === "proyectada"
-    ).length,
+    cuotasPendienteIndice: cuotaRows.filter((cuota) => cuota.estado === "pendiente_indice").length,
+    cuotasProyectadas: cuotaRows.filter((cuota) => cuota.estado === "proyectada").length,
     proximoVencimiento: nextCuota?.fechaVencimiento ?? null,
     proximaCuotaMonto: nextCuota
-      ? toNumber(nextCuota.importeAjustado) ?? toNumber(nextCuota.importeBase)
+      ? (toNumber(nextCuota.importeAjustado) ?? toNumber(nextCuota.importeBase))
       : null,
     moneda: row.contrato.monedaBase,
     cuentaEstado: "creada",

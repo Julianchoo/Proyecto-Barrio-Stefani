@@ -13,6 +13,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ import type {
   Pago,
   Reserva,
   IndiceCac,
+  TipoCambio,
 } from "@/lib/schema";
 
 type CuentaDetail = {
@@ -81,16 +83,16 @@ type CuentaDetail = {
   cuotas: Cuota[];
   pagos: Pago[];
   indices: IndiceCac[];
+  totalCobradoUsd: number | null;
+  totalFuturoUsd: number | null;
+  anticipoCobradoUsd: number;
+  tipoCambioActual: number | null;
+  fechasPagoSinTipoCambio: string[];
 };
 
 type ReservaForCuenta = Pick<
   Reserva,
-  | "id"
-  | "estado"
-  | "formaPago"
-  | "modalidadContrato"
-  | "nombreComprador"
-  | "reservadoPor"
+  "id" | "estado" | "formaPago" | "modalidadContrato" | "nombreComprador" | "reservadoPor"
 > & {
   loteNumero: number;
   manzana: string | null;
@@ -196,8 +198,7 @@ export default function CuentaDetallePage() {
   const { reservaId } = useParams<{ reservaId: string }>();
   const { data: session } = useSession();
   const [detail, setDetail] = useState<CuentaDetail | null>(null);
-  const [reservaForCuenta, setReservaForCuenta] =
-    useState<ReservaForCuenta | null>(null);
+  const [reservaForCuenta, setReservaForCuenta] = useState<ReservaForCuenta | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -205,13 +206,17 @@ export default function CuentaDetallePage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayKey());
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [createModalidad, setCreateModalidad] =
-    useState<ModalidadContrato>("requiere_revision");
+  const [registeringPayment, setRegisteringPayment] = useState(false);
+  const [createModalidad, setCreateModalidad] = useState<ModalidadContrato>("requiere_revision");
   const [periodoBaseCac, setPeriodoBaseCac] = useState("");
   const [indicesCac, setIndicesCac] = useState<IndiceCac[]>([]);
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [periodPickerYear, setPeriodPickerYear] = useState(currentYear());
   const [tipoCambioBna, setTipoCambioBna] = useState("");
+  const [rateDate, setRateDate] = useState(todayKey());
+  const [rateValue, setRateValue] = useState("");
+  const [savingRate, setSavingRate] = useState(false);
+  const [savedRates, setSavedRates] = useState<TipoCambio[]>([]);
 
   const sortedPayments = useMemo(
     () => [...(detail?.pagos ?? [])].sort((a, b) => b.fechaPago.localeCompare(a.fechaPago)),
@@ -228,7 +233,7 @@ export default function CuentaDetallePage() {
   const baseCacValue =
     detail?.contrato.indiceBaseCac ??
     (detail?.contrato.periodoBaseCac
-      ? cacByPeriod.get(detail.contrato.periodoBaseCac) ?? null
+      ? (cacByPeriod.get(detail.contrato.periodoBaseCac) ?? null)
       : null);
 
   async function fetchIndicesCac() {
@@ -241,6 +246,38 @@ export default function CuentaDetallePage() {
     const rows = data as IndiceCac[];
     setIndicesCac(rows);
     return rows;
+  }
+
+  async function fetchSavedRates() {
+    const res = await fetch("/api/crm/tipos-cambio");
+    if (!res.ok) return;
+    setSavedRates(await res.json());
+  }
+
+  async function saveRate() {
+    const numericValue = Number(rateValue);
+    if (!rateDate || !Number.isFinite(numericValue) || numericValue <= 0) {
+      toast.error("Ingresá fecha y BNA vendedor");
+      return;
+    }
+    setSavingRate(true);
+    try {
+      const res = await fetch("/api/crm/tipos-cambio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fecha: rateDate, valor: numericValue, fuente: "Carga manual" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error ?? "No se pudo guardar el tipo de cambio");
+        return;
+      }
+      toast.success("BNA vendedor guardado");
+      setRateValue("");
+      await Promise.all([fetchSavedRates(), fetchDetail()]);
+    } finally {
+      setSavingRate(false);
+    }
   }
 
   async function fetchReservaForCuenta() {
@@ -275,9 +312,7 @@ export default function CuentaDetallePage() {
         if (reserva.modalidadContrato === "pesos_cac") {
           await fetchTipoCambioBna();
           const rows = await fetchIndicesCac();
-          setPeriodPickerYear(
-            rows[0]?.periodo ? yearFromPeriod(rows[0].periodo) : currentYear()
-          );
+          setPeriodPickerYear(rows[0]?.periodo ? yearFromPeriod(rows[0].periodo) : currentYear());
         }
         setMissing(true);
         setDetail(null);
@@ -302,6 +337,7 @@ export default function CuentaDetallePage() {
   useEffect(() => {
     if (!session || session.user.role !== "admin") return;
     fetchDetail();
+    void fetchSavedRates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservaId, session]);
 
@@ -323,8 +359,7 @@ export default function CuentaDetallePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           modalidad: createModalidad,
-          tipoCambioBna:
-            createModalidad === "pesos_cac" ? parsedTipoCambioBna : null,
+          tipoCambioBna: createModalidad === "pesos_cac" ? parsedTipoCambioBna : null,
           periodoBaseCac: createModalidad === "pesos_cac" ? periodoBaseCac || null : null,
         }),
       });
@@ -341,33 +376,38 @@ export default function CuentaDetallePage() {
   }
 
   async function registerPayment() {
-    if (!payingCuota || !detail) return;
+    if (!payingCuota || !detail || registeringPayment) return;
     const amount = Number(paymentAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("Ingresá un monto válido");
       return;
     }
 
-    const res = await fetch(`/api/crm/cuotas/${payingCuota.id}/pagos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fechaPago: paymentDate,
-        monto: amount,
-        moneda: detail.moneda,
-        medio: paymentMethod || null,
-      }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      toast.error(data?.error ?? "No se pudo registrar el pago");
-      return;
+    setRegisteringPayment(true);
+    try {
+      const res = await fetch(`/api/crm/cuotas/${payingCuota.id}/pagos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fechaPago: paymentDate,
+          monto: amount,
+          moneda: detail.moneda,
+          medio: paymentMethod || null,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error ?? "No se pudo registrar el pago");
+        return;
+      }
+      toast.success("Pago registrado");
+      setPayingCuota(null);
+      setPaymentAmount("");
+      setPaymentMethod("");
+      await fetchDetail();
+    } finally {
+      setRegisteringPayment(false);
     }
-    toast.success("Pago registrado");
-    setPayingCuota(null);
-    setPaymentAmount("");
-    setPaymentMethod("");
-    await fetchDetail();
   }
 
   async function copyMessage() {
@@ -389,7 +429,7 @@ export default function CuentaDetallePage() {
         <CardHeader>
           <CardTitle className="text-base">Acceso restringido</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="text-muted-foreground text-sm">
           Solo un administrador puede ver cuentas corrientes y cuotas.
         </CardContent>
       </Card>
@@ -406,9 +446,7 @@ export default function CuentaDetallePage() {
               Volver a cuotas
             </Link>
           </Button>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground">
-            Cuenta corriente
-          </h1>
+          <h1 className="text-foreground mt-2 text-2xl font-semibold">Cuenta corriente</h1>
         </div>
         <Button type="button" variant="outline" onClick={fetchDetail}>
           <RefreshCw className="mr-1 h-4 w-4" />
@@ -418,7 +456,7 @@ export default function CuentaDetallePage() {
 
       {loading ? (
         <Card>
-          <CardContent className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+          <CardContent className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando...
           </CardContent>
@@ -428,22 +466,19 @@ export default function CuentaDetallePage() {
           <CardHeader>
             <CardTitle className="text-base">Reserva de contado</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <CardContent className="text-muted-foreground space-y-3 text-sm">
             <p>
-              Esta reserva esta registrada como contado. No corresponde generar
-              cuenta corriente ni cuotas.
+              Esta reserva esta registrada como contado. No corresponde generar cuenta corriente ni
+              cuotas.
             </p>
-            <div className="rounded-md border bg-muted/40 px-3 py-2">
-              <p className="font-medium text-foreground">
+            <div className="bg-muted/40 rounded-md border px-3 py-2">
+              <p className="text-foreground font-medium">
                 Lote {reservaForCuenta.loteNumero}
-                <span className="ml-2 font-normal text-muted-foreground">
-                  Mz {reservaForCuenta.manzana ?? "-"} / Parc.{" "}
-                  {reservaForCuenta.parcela ?? "-"}
+                <span className="text-muted-foreground ml-2 font-normal">
+                  Mz {reservaForCuenta.manzana ?? "-"} / Parc. {reservaForCuenta.parcela ?? "-"}
                 </span>
               </p>
-              <p className="mt-1">
-                {reservaForCuenta.nombreComprador ?? "Comprador sin nombre"}
-              </p>
+              <p className="mt-1">{reservaForCuenta.nombreComprador ?? "Comprador sin nombre"}</p>
             </div>
           </CardContent>
         </Card>
@@ -453,9 +488,9 @@ export default function CuentaDetallePage() {
             <CardTitle className="text-base">Crear cuenta corriente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Esta reserva todavía no tiene contrato de cuotas. Solo se puede crear
-              si la reserva está realizada y tiene datos suficientes de financiación.
+            <p className="text-muted-foreground text-sm">
+              Esta reserva todavía no tiene contrato de cuotas. Solo se puede crear si la reserva
+              está realizada y tiene datos suficientes de financiación.
             </p>
             <div className="grid gap-3 sm:grid-cols-[220px_180px_180px_auto] sm:items-end">
               <div className="grid gap-2">
@@ -471,9 +506,7 @@ export default function CuentaDetallePage() {
                     if (next === "pesos_cac" && indicesCac.length === 0) {
                       void fetchIndicesCac().then((rows) => {
                         setPeriodPickerYear(
-                          rows[0]?.periodo
-                            ? yearFromPeriod(rows[0].periodo)
-                            : currentYear()
+                          rows[0]?.periodo ? yearFromPeriod(rows[0].periodo) : currentYear()
                         );
                       });
                     }
@@ -498,9 +531,7 @@ export default function CuentaDetallePage() {
                     className="justify-start"
                     onClick={() => {
                       setPeriodPickerYear(
-                        periodoBaseCac
-                          ? yearFromPeriod(periodoBaseCac)
-                          : periodPickerYear
+                        periodoBaseCac ? yearFromPeriod(periodoBaseCac) : periodPickerYear
                       );
                       setShowPeriodPicker((value) => !value);
                     }}
@@ -509,7 +540,7 @@ export default function CuentaDetallePage() {
                     {formatPeriod(periodoBaseCac)}
                   </Button>
                   {showPeriodPicker && (
-                    <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-md border bg-card p-3 shadow-lg">
+                    <div className="bg-card absolute top-full left-0 z-10 mt-2 w-72 rounded-md border p-3 shadow-lg">
                       <div className="mb-3 flex items-center justify-between">
                         <Button
                           type="button"
@@ -519,7 +550,7 @@ export default function CuentaDetallePage() {
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <div className="text-sm font-semibold text-foreground">
+                        <div className="text-foreground text-sm font-semibold">
                           {periodPickerYear}
                         </div>
                         <Button
@@ -557,7 +588,7 @@ export default function CuentaDetallePage() {
                           );
                         })}
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="text-muted-foreground mt-3 flex items-center gap-2 text-xs">
                         <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
                         Mes con CAC cargado
                       </div>
@@ -580,7 +611,7 @@ export default function CuentaDetallePage() {
                 type="button"
                 onClick={createContrato}
                 disabled={creating}
-                className="bg-green-700 hover:bg-green-800 text-white"
+                className="bg-green-700 text-white hover:bg-green-800"
               >
                 {creating ? "Creando..." : "Crear cuenta"}
               </Button>
@@ -594,7 +625,7 @@ export default function CuentaDetallePage() {
               <CardHeader>
                 <CardTitle className="text-base">
                   Lote {detail.loteNumero}
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  <span className="text-muted-foreground ml-2 text-sm font-normal">
                     Mz {detail.manzana ?? "-"} / Parc. {detail.parcela ?? "-"}
                   </span>
                 </CardTitle>
@@ -602,23 +633,21 @@ export default function CuentaDetallePage() {
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <p className="text-muted-foreground">Cliente</p>
-                  <p className="font-medium text-foreground">{detail.comprador ?? "-"}</p>
+                  <p className="text-foreground font-medium">{detail.comprador ?? "-"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Modalidad</p>
-                  <p className="font-medium text-foreground">
-                    {modalidadLabels[detail.modalidad]}
-                  </p>
+                  <p className="text-foreground font-medium">{modalidadLabels[detail.modalidad]}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Saldo pendiente</p>
-                  <p className="font-medium text-foreground">
+                  <p className="text-foreground font-medium">
                     {formatMoney(detail.saldoPendiente, detail.moneda)}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Vencido</p>
-                  <p className="font-medium text-foreground">
+                  <p className="text-foreground font-medium">
                     {formatMoney(detail.totalVencido, detail.moneda)}
                   </p>
                 </div>
@@ -629,10 +658,10 @@ export default function CuentaDetallePage() {
                 <CardTitle className="text-base">Próxima cuota</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-foreground text-2xl font-semibold">
                   {formatMoney(detail.proximaCuotaMonto, detail.moneda)}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="text-muted-foreground mt-1 text-sm">
                   {formatDate(detail.proximoVencimiento)}
                 </p>
               </CardContent>
@@ -650,7 +679,88 @@ export default function CuentaDetallePage() {
             </Card>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.35fr]">
+            <Card className="border-emerald-200 bg-emerald-50/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-emerald-900">
+                  Total cobrado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold tracking-tight text-emerald-950">
+                  {formatMoney(detail.totalCobradoUsd, "usd")}
+                </p>
+                <p className="mt-2 text-xs text-emerald-800">
+                  Incluye anticipo de {formatMoney(detail.anticipoCobradoUsd, "usd")} y pagos
+                  activos dolarizados a su fecha.
+                </p>
+                {detail.fechasPagoSinTipoCambio.length > 0 && (
+                  <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                    Falta BNA para completar:{" "}
+                    {detail.fechasPagoSinTipoCambio.map(formatDate).join(", ")}.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-sky-200 bg-sky-50/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-sky-900">
+                  Total pendiente a hoy
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold tracking-tight text-sky-950">
+                  {formatMoney(detail.totalFuturoUsd, "usd")}
+                </p>
+                <p className="mt-2 text-xs text-sky-800">
+                  Incluye cuotas vencidas y futuras. BNA vendedor actual:{" "}
+                  {formatMoney(detail.tipoCambioActual, "ars")}.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Cargar BNA vendedor histórico</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                  <Input
+                    type="date"
+                    value={rateDate}
+                    onChange={(event) => setRateDate(event.target.value)}
+                    aria-label="Fecha del tipo de cambio"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={rateValue}
+                    onChange={(event) => setRateValue(event.target.value)}
+                    placeholder="Cotización"
+                    aria-label="BNA vendedor"
+                  />
+                  <Button type="button" size="icon" onClick={saveRate} disabled={savingRate}>
+                    {savingRate ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">Guardar cotización</span>
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Para pagos sin cotización exacta se usa la última fecha anterior cargada.
+                  {savedRates[0]
+                    ? ` Última carga: ${formatDate(savedRates[0].fecha)} — $ ${Number(savedRates[0].valor).toLocaleString("es-AR")}.`
+                    : " Todavía no hay cotizaciones guardadas."}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="bg-card overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -685,9 +795,7 @@ export default function CuentaDetallePage() {
                         : "-"}
                     </TableCell>
                     <TableCell>{formatIndex(cuota.indiceCac)}</TableCell>
-                    <TableCell>
-                      {cuota.periodoCac ? formatPeriod(cuota.periodoCac) : "-"}
-                    </TableCell>
+                    <TableCell>{cuota.periodoCac ? formatPeriod(cuota.periodoCac) : "-"}</TableCell>
                     <TableCell>
                       {cuota.estado === "pendiente_indice"
                         ? "Falta CAC"
@@ -723,19 +831,25 @@ export default function CuentaDetallePage() {
             </CardHeader>
             <CardContent>
               {sortedPayments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Todavía no hay pagos registrados.</p>
+                <p className="text-muted-foreground text-sm">Todavía no hay pagos registrados.</p>
               ) : (
                 <div className="divide-y rounded-md border">
                   {sortedPayments.map((pago) => (
                     <div
                       key={pago.id}
-                      className="grid gap-2 px-3 py-2 text-sm sm:grid-cols-[120px_1fr_120px]"
+                      className="grid gap-2 px-3 py-2 text-sm sm:grid-cols-[100px_1fr_110px_110px_110px]"
                     >
                       <span>{formatDate(pago.fechaPago)}</span>
                       <span>{pago.medio || pago.observacion || "Pago registrado"}</span>
-                      <span className="font-medium">
-                        {formatMoney(pago.monto, pago.moneda)}
+                      <span className="font-medium">{formatMoney(pago.monto, pago.moneda)}</span>
+                      <span className="text-muted-foreground">
+                        {pago.tipoCambioAplicado
+                          ? `TC $ ${Number(pago.tipoCambioAplicado).toLocaleString("es-AR")}`
+                          : pago.moneda === "usd"
+                            ? "Pago USD"
+                            : "Falta TC"}
                       </span>
+                      <span className="font-medium">{formatMoney(pago.montoUsd, "usd")}</span>
                     </div>
                   ))}
                 </div>
@@ -782,10 +896,15 @@ export default function CuentaDetallePage() {
                 <Button
                   type="button"
                   onClick={registerPayment}
-                  className="bg-green-700 hover:bg-green-800 text-white"
+                  disabled={registeringPayment}
+                  className="bg-green-700 text-white hover:bg-green-800"
                 >
-                  <CreditCard className="mr-1 h-4 w-4" />
-                  Registrar
+                  {registeringPayment ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-1 h-4 w-4" />
+                  )}
+                  {registeringPayment ? "Registrando..." : "Registrar"}
                 </Button>
               </DialogFooter>
             </DialogContent>
