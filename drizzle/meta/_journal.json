@@ -148,6 +148,13 @@
       "when": 1787929099710,
       "tag": "0020_far_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788189731113,
+      "tag": "0021_perpetual_firestar",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import {
   CreditCard,
   Edit2,
   Loader2,
+  Paperclip,
   Plus,
   RefreshCw,
   Save,
@@ -207,6 +208,7 @@ export default function CuentaDetallePage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayKey());
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [createModalidad, setCreateModalidad] = useState<ModalidadContrato>("requiere_revision");
   const [periodoBaseCac, setPeriodoBaseCac] = useState("");
@@ -386,15 +388,16 @@ export default function CuentaDetallePage() {
 
     setRegisteringPayment(true);
     try {
+      const formData = new FormData();
+      formData.set("fechaPago", paymentDate);
+      formData.set("monto", String(amount));
+      formData.set("moneda", detail.moneda);
+      if (paymentMethod) formData.set("medio", paymentMethod);
+      if (paymentReceipt) formData.set("comprobante", paymentReceipt);
+
       const res = await fetch(`/api/crm/cuotas/${payingCuota.id}/pagos`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fechaPago: paymentDate,
-          monto: amount,
-          moneda: detail.moneda,
-          medio: paymentMethod || null,
-        }),
+        body: formData,
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -405,6 +408,7 @@ export default function CuentaDetallePage() {
       setPayingCuota(null);
       setPaymentAmount("");
       setPaymentMethod("");
+      setPaymentReceipt(null);
       await fetchDetail();
     } finally {
       setRegisteringPayment(false);
@@ -849,6 +853,7 @@ export default function CuentaDetallePage() {
                         onClick={() => {
                           setPayingCuota(cuota);
                           setPaymentAmount(String(cuota.saldo ?? ""));
+                          setPaymentReceipt(null);
                         }}
                         disabled={["pagada", "cancelada", "pendiente_indice"].includes(
                           cuota.estado
@@ -889,6 +894,17 @@ export default function CuentaDetallePage() {
                             : "Falta TC"}
                       </span>
                       <span className="font-medium">{formatMoney(pago.montoUsd, "usd")}</span>
+                      {pago.comprobanteUrl ? (
+                        <a
+                          href={pago.comprobanteUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary inline-flex items-center gap-1 font-medium hover:underline sm:col-start-2"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          {pago.comprobanteNombre || "Ver comprobante"}
+                        </a>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -896,7 +912,15 @@ export default function CuentaDetallePage() {
             </CardContent>
           </Card>
 
-          <Dialog open={Boolean(payingCuota)} onOpenChange={() => setPayingCuota(null)}>
+          <Dialog
+            open={Boolean(payingCuota)}
+            onOpenChange={(open) => {
+              if (!open) {
+                setPayingCuota(null);
+                setPaymentReceipt(null);
+              }
+            }}
+          >
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Registrar pago</DialogTitle>
@@ -927,9 +951,28 @@ export default function CuentaDetallePage() {
                     placeholder="Transferencia, efectivo..."
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="payment-receipt">Comprobante (opcional)</Label>
+                  <Input
+                    id="payment-receipt"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(event) => setPaymentReceipt(event.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    PDF, JPG, PNG o WEBP. Máximo 5 MB.
+                  </p>
+                </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setPayingCuota(null)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPayingCuota(null);
+                    setPaymentReceipt(null);
+                  }}
+                >
                   Cancelar
                 </Button>
                 <Button
