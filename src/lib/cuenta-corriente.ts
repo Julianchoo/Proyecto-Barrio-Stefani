@@ -10,8 +10,13 @@ import type {
   MonedaPago,
   Pago,
   Reserva,
+  TipoCambio,
 } from "@/lib/schema";
-import { argentinaTodayKey, ensureCurrentBnaRate } from "@/lib/tipos-cambio";
+import {
+  argentinaTodayKey,
+  ensureCurrentBnaRate,
+  listTiposCambioBna,
+} from "@/lib/tipos-cambio";
 
 export type CuentaCorrienteSummary = {
   contratoId: number | null;
@@ -38,6 +43,17 @@ export type CuentaCorrienteSummary = {
   moneda: MonedaPago;
   cuentaEstado: "creada" | "pendiente";
   mensajeCuotas: string;
+  valorLoteUsd: number | null;
+  valorFinanciadoUsd: number | null;
+  cantidadCuotasContrato: number | null;
+  cuotaBaseUsd: number | null;
+  cuotaBaseArs: number | null;
+  indiceBase: string | null;
+  valorIndiceBase: number | null;
+  indiceActual: string | null;
+  valorIndiceActual: number | null;
+  cuotaActualUsd: number | null;
+  cuotaActualArs: number | null;
 };
 
 type MensajeCuentaCorrienteInput = Pick<
@@ -443,6 +459,22 @@ export async function getCuentaCorrienteDetailByContrato(contratoId: number) {
   return getCuentaCorrienteDetailByReserva(row.reservaId);
 }
 
+function formatDateLabel(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function formatPeriodLabel(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  const monthLabel = new Intl.DateTimeFormat("es-AR", {
+    month: "short",
+    timeZone: "UTC",
+  })
+    .format(new Date(Date.UTC(year!, month! - 1, 1)))
+    .replace(".", "");
+  return `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}-${year}`;
+}
+
 export async function getCuotasDashboard(): Promise<CuotasDashboard> {
   const [summaries, currentRate] = await Promise.all([
     getCuentasCorrientesSummaries(),
@@ -525,7 +557,12 @@ export async function getCuentasCorrientesSummaries() {
 
   if (rows.length === 0) return pendingSummaries;
 
-  const currentRate = await ensureCurrentBnaRate();
+  const [currentRate, rateRows, indexRows] = await Promise.all([
+    ensureCurrentBnaRate(),
+    listTiposCambioBna(),
+    db.select().from(indicesCac).orderBy(asc(indicesCac.periodo)),
+  ]);
+  const currentCac = latestKnownCacIndex(indexRows);
 
   const contratoIds = rows.map((row) => row.contrato.id);
   const cuotaRows = await db
@@ -542,7 +579,13 @@ export async function getCuentasCorrientesSummaries() {
 
   return [
     ...rows.map((row) =>
-      buildSummary(row, cuotasByContrato.get(row.contrato.id) ?? [], currentRate)
+      buildSummary(
+        row,
+        cuotasByContrato.get(row.contrato.id) ?? [],
+        currentRate,
+        rateRows,
+        currentCac
+      )
     ),
     ...pendingSummaries,
   ].sort((a, b) => a.loteNumero - b.loteNumero);
@@ -579,6 +622,17 @@ function buildPendingSummary(row: {
     moneda: modalidad === "pesos_cac" ? "ars" : "usd",
     cuentaEstado: "pendiente",
     mensajeCuotas: "",
+    valorLoteUsd: toNumber(row.reserva.precioTotalNum),
+    valorFinanciadoUsd: toNumber(row.reserva.saldoNum),
+    cantidadCuotasContrato: toNumber(row.reserva.cantidadCuotas),
+    cuotaBaseUsd: toNumber(row.reserva.cuotaMensual),
+    cuotaBaseArs: null,
+    indiceBase: null,
+    valorIndiceBase: null,
+    indiceActual: null,
+    valorIndiceActual: null,
+    cuotaActualUsd: null,
+    cuotaActualArs: null,
   };
 }
 
@@ -729,7 +783,9 @@ function buildSummary(
     lead: typeof leads.$inferSelect | null;
   },
   cuotaRows: Cuota[],
-  currentRate: { valor: unknown; fecha: string } | null = null
+  currentRate: { valor: unknown; fecha: string } | null = null,
+  rateRows: TipoCambio[] = [],
+  currentCac: { periodo: string; valor: number } | null = null
 ): CuentaCorrienteSummary {
   const today = todayKey();
   const activeCuotas = cuotaRows.filter((cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado));
@@ -737,6 +793,33 @@ function buildSummary(
   const nextCuota = activeCuotas
     .filter((cuota) => cuota.fechaVencimiento >= today)
     .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))[0];
+  const cuotaBaseUsd = toNumber(row.reserva.cuotaMensual);
+  const currentBnaValue = toNumber(currentRate?.valor);
+  const signingDate = row.reserva.fechaFirma ?? row.contrato.fechaInicio;
+  const initialBna = rateRows.find((rate) => rate.fecha <= signingDate) ?? null;
+  const initialBnaValue = toNumber(initialBna?.valor);
+  const baseCacValue = toNumber(row.contrato.indiceBaseCac);
+  const cuotaBaseArs =
+    row.contrato.modalidad === "pesos_cac"
+      ? toNumber(row.contrato.cuotaBase)
+      : cuotaBaseUsd !== null && initialBnaValue !== null
+        ? cuotaBaseUsd * initialBnaValue
+        : null;
+  const cuotaActualArs =
+    row.contrato.modalidad === "pesos_cac"
+      ? cuotaBaseArs !== null && baseCacValue !== null && currentCac
+        ? cuotaBaseArs * (currentCac.valor / baseCacValue)
+        : null
+      : cuotaBaseUsd !== null && currentBnaValue !== null
+        ? cuotaBaseUsd * currentBnaValue
+        : null;
+  const cuotaActualUsd =
+    row.contrato.modalidad === "pesos_cac"
+      ? cuotaActualArs !== null && currentBnaValue !== null
+        ? cuotaActualArs / currentBnaValue
+        : null
+      : cuotaBaseUsd;
+  const usesCac = row.contrato.modalidad === "pesos_cac";
 
   const summary: CuentaCorrienteSummary = {
     contratoId: row.contrato.id,
@@ -765,6 +848,29 @@ function buildSummary(
     moneda: row.contrato.monedaBase,
     cuentaEstado: "creada",
     mensajeCuotas: "",
+    valorLoteUsd: toNumber(row.reserva.precioTotalNum),
+    valorFinanciadoUsd: toNumber(row.reserva.saldoNum),
+    cantidadCuotasContrato: row.contrato.cantidadCuotas,
+    cuotaBaseUsd,
+    cuotaBaseArs,
+    indiceBase: usesCac
+      ? row.contrato.periodoBaseCac
+        ? `CAC ${formatPeriodLabel(row.contrato.periodoBaseCac)}`
+        : null
+      : initialBna
+        ? `BNA Vendedor ${formatDateLabel(initialBna.fecha)}`
+        : null,
+    valorIndiceBase: usesCac ? baseCacValue : initialBnaValue,
+    indiceActual: usesCac
+      ? currentCac
+        ? `CAC ${formatPeriodLabel(currentCac.periodo)}`
+        : null
+      : currentRate
+        ? `BNA Vendedor ${formatDateLabel(currentRate.fecha)}`
+        : null,
+    valorIndiceActual: usesCac ? (currentCac?.valor ?? null) : currentBnaValue,
+    cuotaActualUsd,
+    cuotaActualArs,
   };
 
   return {

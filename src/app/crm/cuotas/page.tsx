@@ -75,6 +75,17 @@ type CuentaRow = {
   moneda: MonedaPago;
   cuentaEstado: "creada" | "pendiente";
   mensajeCuotas: string;
+  valorLoteUsd: number | null;
+  valorFinanciadoUsd: number | null;
+  cantidadCuotasContrato: number | null;
+  cuotaBaseUsd: number | null;
+  cuotaBaseArs: number | null;
+  indiceBase: string | null;
+  valorIndiceBase: number | null;
+  indiceActual: string | null;
+  valorIndiceActual: number | null;
+  cuotaActualUsd: number | null;
+  cuotaActualArs: number | null;
 };
 
 type DashboardData = {
@@ -102,7 +113,18 @@ type SummaryColKey =
   | "cliente"
   | "email"
   | "mensaje"
+  | "valorLoteUsd"
+  | "valorFinanciadoUsd"
+  | "cantidadCuotasContrato"
   | "modalidad"
+  | "cuotaBaseUsd"
+  | "cuotaBaseArs"
+  | "indiceBase"
+  | "valorIndiceBase"
+  | "indiceActual"
+  | "valorIndiceActual"
+  | "cuotaActualUsd"
+  | "cuotaActualArs"
   | "estado"
   | "vencido"
   | "saldo"
@@ -113,7 +135,18 @@ const SUMMARY_COLUMNS: { key: SummaryColKey; label: string }[] = [
   { key: "cliente", label: "Cliente" },
   { key: "email", label: "Email contacto" },
   { key: "mensaje", label: "Mensaje" },
+  { key: "valorLoteUsd", label: "Valor lote USD" },
+  { key: "valorFinanciadoUsd", label: "Valor financiado USD" },
+  { key: "cantidadCuotasContrato", label: "# Cuotas" },
   { key: "modalidad", label: "Modalidad" },
+  { key: "cuotaBaseUsd", label: "Cuota base USD" },
+  { key: "cuotaBaseArs", label: "Cuota base ARS" },
+  { key: "indiceBase", label: "Índice base" },
+  { key: "valorIndiceBase", label: "Valor índice base" },
+  { key: "indiceActual", label: "Índice actual" },
+  { key: "valorIndiceActual", label: "Valor índice actual" },
+  { key: "cuotaActualUsd", label: "Cuota actual USD" },
+  { key: "cuotaActualArs", label: "Cuota actual ARS" },
   { key: "estado", label: "Estado" },
   { key: "vencido", label: "Vencido" },
   { key: "saldo", label: "Saldo" },
@@ -125,7 +158,18 @@ const DEFAULT_VISIBLE_SUMMARY_COLS: Record<SummaryColKey, boolean> = {
   cliente: true,
   email: true,
   mensaje: false,
+  valorLoteUsd: true,
+  valorFinanciadoUsd: true,
+  cantidadCuotasContrato: true,
   modalidad: true,
+  cuotaBaseUsd: true,
+  cuotaBaseArs: true,
+  indiceBase: true,
+  valorIndiceBase: true,
+  indiceActual: true,
+  valorIndiceActual: true,
+  cuotaActualUsd: true,
+  cuotaActualArs: true,
   estado: true,
   vencido: true,
   saldo: true,
@@ -152,6 +196,11 @@ function formatMoney(value: number | null, moneda: MonedaPago) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatIndexValue(value: number | null) {
+  if (value === null) return "Pendiente";
+  return value.toLocaleString("es-AR", { maximumFractionDigits: 3 });
 }
 
 function formatDate(value: string | null) {
@@ -411,7 +460,18 @@ export default function CuotasPage() {
       DNI: row.dniCuit ?? "",
       Telefono: row.telefono ?? "",
       "Email contacto": row.email ?? "",
+      "Valor lote USD": row.valorLoteUsd,
+      "Valor financiado USD": row.valorFinanciadoUsd,
+      "Cantidad de cuotas": row.cantidadCuotasContrato,
       Modalidad: modalidadLabels[row.modalidad],
+      "Cuota base USD": row.cuotaBaseUsd,
+      "Cuota base ARS": row.cuotaBaseArs,
+      "Indice base": row.indiceBase ?? "Pendiente",
+      "Valor indice base": row.valorIndiceBase,
+      "Indice actual": row.indiceActual ?? "Pendiente",
+      "Valor indice actual": row.valorIndiceActual,
+      "Cuota actual USD": row.cuotaActualUsd,
+      "Cuota actual ARS": row.cuotaActualArs,
       Estado: estadoResumen(row),
       Vencido: row.totalVencido,
       Saldo: row.saldoPendiente,
@@ -428,12 +488,23 @@ export default function CuotasPage() {
       { wch: 16 },
       { wch: 18 },
       { wch: 30 },
-      { wch: 14 },
       { wch: 18 },
-      { wch: 14 },
-      { wch: 14 },
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 16 },
       { wch: 18 },
-      { wch: 14 },
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 18 },
       { wch: 80 },
     ];
     const workbook = XLSX.utils.book_new();
@@ -815,7 +886,24 @@ export default function CuotasPage() {
               {visibleSummaryCols.cliente && <TableHead>Cliente</TableHead>}
               {visibleSummaryCols.email && <TableHead>Email contacto</TableHead>}
               {visibleSummaryCols.mensaje && <TableHead>Mensaje</TableHead>}
+              {visibleSummaryCols.valorLoteUsd && <TableHead>Valor lote USD</TableHead>}
+              {visibleSummaryCols.valorFinanciadoUsd && (
+                <TableHead>Valor financiado USD</TableHead>
+              )}
+              {visibleSummaryCols.cantidadCuotasContrato && <TableHead># Cuotas</TableHead>}
               {visibleSummaryCols.modalidad && <TableHead>Modalidad</TableHead>}
+              {visibleSummaryCols.cuotaBaseUsd && <TableHead>Cuota base USD</TableHead>}
+              {visibleSummaryCols.cuotaBaseArs && <TableHead>Cuota base ARS</TableHead>}
+              {visibleSummaryCols.indiceBase && <TableHead>Índice base</TableHead>}
+              {visibleSummaryCols.valorIndiceBase && (
+                <TableHead>Valor índice base</TableHead>
+              )}
+              {visibleSummaryCols.indiceActual && <TableHead>Índice actual</TableHead>}
+              {visibleSummaryCols.valorIndiceActual && (
+                <TableHead>Valor índice actual</TableHead>
+              )}
+              {visibleSummaryCols.cuotaActualUsd && <TableHead>Cuota actual USD</TableHead>}
+              {visibleSummaryCols.cuotaActualArs && <TableHead>Cuota actual ARS</TableHead>}
               {visibleSummaryCols.estado && <TableHead>Estado</TableHead>}
               {visibleSummaryCols.vencido && <TableHead>Vencido</TableHead>}
               {visibleSummaryCols.saldo && <TableHead>Saldo</TableHead>}
@@ -871,8 +959,45 @@ export default function CuotasPage() {
                       {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
                     </TableCell>
                   )}
+                  {visibleSummaryCols.valorLoteUsd && (
+                    <TableCell>{formatMoney(row.valorLoteUsd, "usd")}</TableCell>
+                  )}
+                  {visibleSummaryCols.valorFinanciadoUsd && (
+                    <TableCell>{formatMoney(row.valorFinanciadoUsd, "usd")}</TableCell>
+                  )}
+                  {visibleSummaryCols.cantidadCuotasContrato && (
+                    <TableCell>{row.cantidadCuotasContrato ?? "-"}</TableCell>
+                  )}
                   {visibleSummaryCols.modalidad && (
                     <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
+                  )}
+                  {visibleSummaryCols.cuotaBaseUsd && (
+                    <TableCell>{formatMoney(row.cuotaBaseUsd, "usd")}</TableCell>
+                  )}
+                  {visibleSummaryCols.cuotaBaseArs && (
+                    <TableCell>{formatMoney(row.cuotaBaseArs, "ars")}</TableCell>
+                  )}
+                  {visibleSummaryCols.indiceBase && (
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {row.indiceBase ?? "Pendiente"}
+                    </TableCell>
+                  )}
+                  {visibleSummaryCols.valorIndiceBase && (
+                    <TableCell>{formatIndexValue(row.valorIndiceBase)}</TableCell>
+                  )}
+                  {visibleSummaryCols.indiceActual && (
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {row.indiceActual ?? "Pendiente"}
+                    </TableCell>
+                  )}
+                  {visibleSummaryCols.valorIndiceActual && (
+                    <TableCell>{formatIndexValue(row.valorIndiceActual)}</TableCell>
+                  )}
+                  {visibleSummaryCols.cuotaActualUsd && (
+                    <TableCell>{formatMoney(row.cuotaActualUsd, "usd")}</TableCell>
+                  )}
+                  {visibleSummaryCols.cuotaActualArs && (
+                    <TableCell>{formatMoney(row.cuotaActualArs, "ars")}</TableCell>
                   )}
                   {visibleSummaryCols.estado && (
                     <TableCell>
