@@ -565,7 +565,7 @@ export default function LoteDetailPage() {
     setEntregaCuota(useCuotaEntrega);
 
     const payload = {
-      estado: "reservado",
+      ...(isSoldRecord ? {} : { estado: "reservado" }),
       leadId,
       formaPago: paymentFields.formaPago,
       modalidadContrato: paymentFields.modalidadContrato,
@@ -595,7 +595,8 @@ export default function LoteDetailPage() {
         const updatedLote: ParcelaConReserva = await res.json();
         setLote(updatedLote);
       } else {
-        toast.error("No se pudo aplicar el cálculo");
+        const error = await res.json().catch(() => null);
+        toast.error(error?.error ?? "No se pudo aplicar el cálculo");
       }
     } catch {
       toast.error("No se pudo aplicar el cálculo");
@@ -658,7 +659,11 @@ export default function LoteDetailPage() {
       return;
     }
     if (hasReservaInput && !explicitNonReservedStateChange) {
-      payload.estado = "reservado";
+      if (isSoldRecord) {
+        delete payload.estado;
+      } else {
+        payload.estado = "reservado";
+      }
       payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
       payload.mesEntrega = entregaCuota ? (values.numeroCuotaEntrega || null) : null;
       payload.anioEntrega = null;
@@ -672,7 +677,8 @@ export default function LoteDetailPage() {
       toast.success("Lote actualizado");
       await fetchLote();
     } else {
-      toast.error("Error al guardar");
+      const error = await res.json().catch(() => null);
+      toast.error(error?.error ?? "Error al guardar");
     }
   }
 

@@ -6,7 +6,6 @@ import { getMinimumAnticipoUsd } from "@/lib/financiacion";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import {
-  activeReservaJoin,
   currentReservaJoin,
   flattenParcelaReserva,
   hasReservaData,
@@ -344,7 +343,8 @@ export async function PUT(
             .where(eq(reservas.id, activeReserva.id));
         }
       } else if (data.estado === "reservado" || shouldTouchReserva) {
-        parcelaData.estado = "reservado";
+        parcelaData.estado =
+          activeReserva?.estado === "realizada" ? "vendido" : "reservado";
         if (activeReserva) {
           await tx
             .update(reservas)
@@ -375,7 +375,7 @@ export async function PUT(
       const [updatedRow] = await tx
         .select({ parcela: parcelas, reserva: reservas, lead: leads })
         .from(parcelas)
-        .leftJoin(reservas, activeReservaJoin())
+        .leftJoin(reservas, currentReservaJoin())
         .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(eq(parcelas.id, parcelaId));
       if (!updatedRow) return { kind: "not-found" as const };
