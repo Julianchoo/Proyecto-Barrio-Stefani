@@ -64,6 +64,20 @@ export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
   fechasPagoSinTipoCambio: string[];
 };
 
+export type CuotasDashboard = {
+  cuentasTotales: number;
+  cuentasAlDia: number;
+  cuentasConDeudaVencida: number;
+  cuentasPendientesCreacion: number;
+  proximoMes: string;
+  cuotasProximoMes: number;
+  montoProximoMesUsd: number | null;
+  cuotasTotalesACobrar: number;
+  montoTotalACobrarUsd: number | null;
+  tipoCambioBna: number | null;
+  fechaTipoCambioBna: string | null;
+};
+
 export type CreateContratoInput = {
   modalidad: ModalidadContrato;
   fechaInicio?: string | null | undefined;
@@ -427,6 +441,54 @@ export async function getCuentaCorrienteDetailByContrato(contratoId: number) {
     .where(eq(contratos.id, contratoId));
   if (!row) return null;
   return getCuentaCorrienteDetailByReserva(row.reservaId);
+}
+
+export async function getCuotasDashboard(): Promise<CuotasDashboard> {
+  const [summaries, currentRate] = await Promise.all([
+    getCuentasCorrientesSummaries(),
+    ensureCurrentBnaRate(),
+  ]);
+  const createdAccounts = summaries.filter((item) => item.cuentaEstado === "creada");
+  const tipoCambioBna = toNumber(currentRate?.valor);
+  const nextPeriod = addMonthsToPeriod(todayKey().slice(0, 7), 1);
+  const followingPeriod = addMonthsToPeriod(nextPeriod, 1);
+
+  const installmentRows = await db
+    .select({ cuota: cuotas })
+    .from(cuotas)
+    .innerJoin(contratos, eq(cuotas.contratoId, contratos.id))
+    .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
+    .where(eq(reservas.estado, "realizada"));
+  const activeInstallments = installmentRows
+    .map((row) => row.cuota)
+    .filter((cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado));
+  const nextMonthInstallments = activeInstallments.filter(
+    (cuota) =>
+      cuota.fechaVencimiento >= `${nextPeriod}-01` &&
+      cuota.fechaVencimiento < `${followingPeriod}-01`
+  );
+
+  function totalUsd(items: Cuota[]) {
+    if (items.some((cuota) => cuota.moneda === "ars") && !tipoCambioBna) return null;
+    return items.reduce((total, cuota) => {
+      const saldo = toNumber(cuota.saldo) ?? 0;
+      return total + (cuota.moneda === "ars" ? saldo / tipoCambioBna! : saldo);
+    }, 0);
+  }
+
+  return {
+    cuentasTotales: createdAccounts.length,
+    cuentasAlDia: createdAccounts.filter((item) => item.cuotasVencidas === 0).length,
+    cuentasConDeudaVencida: createdAccounts.filter((item) => item.cuotasVencidas > 0).length,
+    cuentasPendientesCreacion: summaries.filter((item) => item.cuentaEstado === "pendiente").length,
+    proximoMes: nextPeriod,
+    cuotasProximoMes: nextMonthInstallments.length,
+    montoProximoMesUsd: totalUsd(nextMonthInstallments),
+    cuotasTotalesACobrar: activeInstallments.length,
+    montoTotalACobrarUsd: totalUsd(activeInstallments),
+    tipoCambioBna,
+    fechaTipoCambioBna: currentRate?.fecha ?? null,
+  };
 }
 
 export async function getCuentasCorrientesSummaries() {

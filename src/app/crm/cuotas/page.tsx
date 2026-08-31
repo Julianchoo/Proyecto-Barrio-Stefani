@@ -4,15 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
+  Clock3,
   Edit2,
   FileSpreadsheet,
   Filter,
   Save,
   Search,
   Trash2,
+  Users,
+  WalletCards,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -71,6 +75,20 @@ type CuentaRow = {
   moneda: MonedaPago;
   cuentaEstado: "creada" | "pendiente";
   mensajeCuotas: string;
+};
+
+type DashboardData = {
+  cuentasTotales: number;
+  cuentasAlDia: number;
+  cuentasConDeudaVencida: number;
+  cuentasPendientesCreacion: number;
+  proximoMes: string;
+  cuotasProximoMes: number;
+  montoProximoMesUsd: number | null;
+  cuotasTotalesACobrar: number;
+  montoTotalACobrarUsd: number | null;
+  tipoCambioBna: number | null;
+  fechaTipoCambioBna: string | null;
 };
 
 const modalidadLabels: Record<ModalidadContrato, string> = {
@@ -142,6 +160,25 @@ function formatDate(value: string | null) {
   return `${day}/${month}/${year}`;
 }
 
+function formatUsd(value: number | null) {
+  if (value === null) return "Sin BNA de hoy";
+  return `USD ${value.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatPeriod(value: string | null) {
+  if (!value) return "Próximo mes";
+  const [year, month] = value.split("-").map(Number);
+  const label = new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year!, month! - 1, 1)));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function estadoResumen(row: CuentaRow) {
   if (row.cuentaEstado === "pendiente") return "Pendiente creacion";
   if (row.cuotasVencidas > 0) return `${row.cuotasVencidas} Vencida(s)`;
@@ -151,6 +188,8 @@ function estadoResumen(row: CuentaRow) {
 export default function CuotasPage() {
   const { data: session } = useSession();
   const [rows, setRows] = useState<CuentaRow[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [estado, setEstado] = useState("todos");
@@ -207,6 +246,25 @@ export default function CuotasPage() {
     setIndices(await res.json());
   }
 
+  async function fetchDashboard() {
+    if (session?.user?.role !== "admin") {
+      setDashboard(null);
+      setDashboardLoading(false);
+      return;
+    }
+    setDashboardLoading(true);
+    try {
+      const res = await fetch("/api/crm/cuotas/dashboard");
+      if (!res.ok) {
+        toast.error("No se pudo cargar el resumen de cuotas");
+        return;
+      }
+      setDashboard(await res.json());
+    } finally {
+      setDashboardLoading(false);
+    }
+  }
+
   useEffect(() => {
     setVisibleSummaryCols(loadVisibleSummaryCols());
   }, []);
@@ -220,7 +278,9 @@ export default function CuotasPage() {
   useEffect(() => {
     if (session?.user?.role === "admin") {
       void fetchIndices();
+      void fetchDashboard();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.role]);
 
   if (session && session.user.role !== "admin") {
@@ -264,6 +324,7 @@ export default function CuotasPage() {
       setFuente("");
       await fetchIndices();
       await fetchRows();
+      await fetchDashboard();
     } finally {
       setSavingIndice(false);
     }
@@ -308,6 +369,7 @@ export default function CuotasPage() {
       cancelEditIndice();
       await fetchIndices();
       await fetchRows();
+      await fetchDashboard();
     } finally {
       setSavingIndice(false);
     }
@@ -334,6 +396,7 @@ export default function CuotasPage() {
       }
       await fetchIndices();
       await fetchRows();
+      await fetchDashboard();
     } finally {
       setSavingIndice(false);
     }
@@ -401,7 +464,7 @@ export default function CuotasPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
             <CircleDollarSign className="h-4 w-4 text-primary" />
-            <span>{rows.length} cuentas activas</span>
+            <span>{rows.length} resultados</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -437,6 +500,95 @@ export default function CuotasPage() {
         </div>
       </div>
 
+      <section aria-labelledby="dashboard-cuotas-title" className="space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="dashboard-cuotas-title" className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Resumen global
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Estado general de cuentas y cuotas pendientes
+            </p>
+          </div>
+          {dashboard?.tipoCambioBna && dashboard.fechaTipoCambioBna && (
+            <p className="text-xs text-muted-foreground">
+              Conversión: BNA vendedor ${dashboard.tipoCambioBna.toLocaleString("es-AR")} · {formatDate(dashboard.fechaTipoCambioBna)}
+            </p>
+          )}
+        </div>
+
+        {dashboardLoading ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-28 animate-pulse rounded-xl border bg-muted/40" />
+            ))}
+          </div>
+        ) : dashboard ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="border-slate-200 bg-slate-50/70 shadow-none">
+              <CardContent className="flex items-start justify-between p-5">
+                <div>
+                  <p className="text-sm text-slate-600">Deudores totales</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{dashboard.cuentasTotales}</p>
+                  <p className="mt-1 text-xs text-slate-500">Cuentas creadas</p>
+                </div>
+                <Users className="h-5 w-5 text-slate-500" />
+              </CardContent>
+            </Card>
+            <Card className="border-emerald-200 bg-emerald-50/70 shadow-none">
+              <CardContent className="flex items-start justify-between p-5">
+                <div>
+                  <p className="text-sm text-emerald-700">Al día</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-950">{dashboard.cuentasAlDia}</p>
+                  <p className="mt-1 text-xs text-emerald-700/70">Sin cuotas vencidas</p>
+                </div>
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </CardContent>
+            </Card>
+            <Card className="border-rose-200 bg-rose-50/70 shadow-none">
+              <CardContent className="flex items-start justify-between p-5">
+                <div>
+                  <p className="text-sm text-rose-700">Con deuda vencida</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-rose-950">{dashboard.cuentasConDeudaVencida}</p>
+                  <p className="mt-1 text-xs text-rose-700/70">Una o más cuotas vencidas</p>
+                </div>
+                <AlertTriangle className="h-5 w-5 text-rose-600" />
+              </CardContent>
+            </Card>
+            <Card className="border-amber-200 bg-amber-50/70 shadow-none">
+              <CardContent className="flex items-start justify-between p-5">
+                <div>
+                  <p className="text-sm text-amber-700">Pendientes de creación</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-amber-950">{dashboard.cuentasPendientesCreacion}</p>
+                  <p className="mt-1 text-xs text-amber-700/70">Reservas sin cuenta corriente</p>
+                </div>
+                <Clock3 className="h-5 w-5 text-amber-600" />
+              </CardContent>
+            </Card>
+            <Card className="border-sky-200 bg-gradient-to-br from-sky-50 to-white shadow-none sm:col-span-1 xl:col-span-2">
+              <CardContent className="flex items-start justify-between p-5">
+                <div>
+                  <p className="text-sm font-medium text-sky-800">A cobrar en {formatPeriod(dashboard.proximoMes)}</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-sky-950">{formatUsd(dashboard.montoProximoMesUsd)}</p>
+                  <p className="mt-1 text-sm text-sky-700">{dashboard.cuotasProximoMes} cuotas</p>
+                </div>
+                <CalendarDays className="h-6 w-6 text-sky-600" />
+              </CardContent>
+            </Card>
+            <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50 to-white shadow-none sm:col-span-1 xl:col-span-2">
+              <CardContent className="flex items-start justify-between p-5">
+                <div>
+                  <p className="text-sm font-medium text-indigo-800">Total pendiente a cobrar</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-indigo-950">{formatUsd(dashboard.montoTotalACobrarUsd)}</p>
+                  <p className="mt-1 text-sm text-indigo-700">{dashboard.cuotasTotalesACobrar} cuotas</p>
+                </div>
+                <WalletCards className="h-6 w-6 text-indigo-600" />
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
+      </section>
+
       <Card>
         <CardContent className="pt-6">
           <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto]">
@@ -471,7 +623,14 @@ export default function CuotasPage() {
                 <SelectItem value="requiere_revision">Revisar</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="button" variant="outline" onClick={fetchRows}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void fetchRows();
+                void fetchDashboard();
+              }}
+            >
               <Filter className="mr-1 h-4 w-4" />
               Actualizar
             </Button>
