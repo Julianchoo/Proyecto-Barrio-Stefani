@@ -32,7 +32,9 @@ import { ChevronDown, Lock, Pencil } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import {
   ANTICIPO_STEP_USD,
+  calculateInstallment,
   getMinimumAnticipoUsd,
+  roundCurrency,
 } from "@/lib/financiacion";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
@@ -153,7 +155,10 @@ const DEFAULT_COLS: Record<ColKey, boolean> = {
 const STORAGE_KEY = "lotes-visible-cols";
 
 function formatUsd(value: number): string {
-  return `USD ${Math.round(value).toLocaleString("es-AR")}`;
+  return `USD ${value.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatMoneyString(value: string | null | undefined): string {
@@ -502,10 +507,9 @@ export default function LotesPage() {
   const calculatorResult = useMemo(() => {
     const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
     const plazo = Math.max(calculator.plazo, 1);
-    const totalFinanciadoSinRedondeo = saldo * (1 + (calculator.tasa / 100) * plazo);
-    const cuotaMensual = Math.round(totalFinanciadoSinRedondeo / plazo);
-    const totalFinanciado = cuotaMensual * plazo;
-    const precioTotalNominal = calculator.anticipo + totalFinanciado;
+    const cuotaMensual = calculateInstallment(saldo, calculator.tasa, plazo);
+    const totalFinanciado = roundCurrency(cuotaMensual * plazo);
+    const precioTotalNominal = roundCurrency(calculator.anticipo + totalFinanciado);
     const umbralEntrega = precioTotalNominal * 0.5;
     const cuotaEntrega = calculator.anticipo >= umbralEntrega
       ? 0

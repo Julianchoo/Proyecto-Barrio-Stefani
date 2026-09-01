@@ -46,7 +46,9 @@ import {
 import { useSession } from "@/lib/auth-client";
 import {
   ANTICIPO_STEP_USD,
+  calculateInstallment,
   getMinimumAnticipoUsd,
+  roundCurrency,
 } from "@/lib/financiacion";
 import { amountToSpanishWords } from "@/lib/number-words";
 import type { ParcelaConReserva } from "@/lib/schema";
@@ -274,10 +276,6 @@ function formatCalculated(value: number | null, decimals = 0) {
   return String(decimals > 0 ? Number(value.toFixed(decimals)) : Math.round(value));
 }
 
-function calculateInstallment(saldo: number, tasaMensual: number, plazo: number) {
-  return Math.round((saldo * (1 + (tasaMensual / 100) * plazo)) / plazo);
-}
-
 const DEFAULT_ANTICIPO_PCT = 30;
 const DEFAULT_TASA_MENSUAL = 1;
 
@@ -294,13 +292,22 @@ function calculateLotePricing(precioBase: string | null | undefined, superficieM
         : "",
     anticipoUsd: formatCalculated(anticipo),
     saldoUsd: formatCalculated(saldo),
-    cuotas48: formatCalculated(saldo !== null ? calculateInstallment(saldo, DEFAULT_TASA_MENSUAL, 48) : null),
-    cuotas60: formatCalculated(saldo !== null ? calculateInstallment(saldo, DEFAULT_TASA_MENSUAL, 60) : null),
+    cuotas48: formatCalculated(
+      saldo !== null ? calculateInstallment(saldo, DEFAULT_TASA_MENSUAL, 48) : null,
+      2
+    ),
+    cuotas60: formatCalculated(
+      saldo !== null ? calculateInstallment(saldo, DEFAULT_TASA_MENSUAL, 60) : null,
+      2
+    ),
   };
 }
 
 function formatUsd(value: number) {
-  return `USD ${Math.round(value).toLocaleString("es-AR")}`;
+  return `USD ${value.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatDeliveryInstallment(value: number) {
@@ -340,8 +347,8 @@ export default function LoteDetailPage() {
     const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
     const plazo = Math.max(calculator.plazo, 1);
     const cuotaMensual = calculateInstallment(saldo, calculator.tasa, plazo);
-    const totalFinanciado = cuotaMensual * plazo;
-    const precioTotalNominal = calculator.anticipo + totalFinanciado;
+    const totalFinanciado = roundCurrency(cuotaMensual * plazo);
+    const precioTotalNominal = roundCurrency(calculator.anticipo + totalFinanciado);
     const umbralEntrega = precioTotalNominal * 0.5;
     const cuotaEntrega =
       calculator.anticipo >= umbralEntrega || cuotaMensual <= 0
@@ -534,11 +541,11 @@ export default function LoteDetailPage() {
       tipoPago,
       modalidadContrato
     );
-    const precioTotalNum = String(Math.round(calculatorResult.precioTotalNominal));
+    const precioTotalNum = String(roundCurrency(calculatorResult.precioTotalNominal));
     const anticipoNum = String(Math.round(calculator.anticipo));
-    const saldoNum = String(Math.round(calculatorResult.totalFinanciado));
+    const saldoNum = String(roundCurrency(calculatorResult.totalFinanciado));
     const cantidadCuotas = String(Math.max(calculator.plazo, 1));
-    const cuotaMensual = String(Math.round(calculatorResult.cuotaMensual));
+    const cuotaMensual = String(roundCurrency(calculatorResult.cuotaMensual));
     const useCuotaEntrega = calculatorResult.cuotaEntrega > 0;
 
     const nextValues: Partial<FormValues> = {

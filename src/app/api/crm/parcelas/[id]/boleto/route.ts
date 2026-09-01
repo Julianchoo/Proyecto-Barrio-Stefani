@@ -69,7 +69,7 @@ function formatUsd(value: string | number | null | undefined): string {
   if (!value) return "";
   return Number(value).toLocaleString("es-AR", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
 }
 
@@ -107,9 +107,9 @@ function parseMoney(value: string | number | null | undefined): number | null {
 
 function formatArs(value: number | null): string {
   if (value === null) return "";
-  return Math.round(value).toLocaleString("es-AR", {
+  return value.toLocaleString("es-AR", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
 }
 

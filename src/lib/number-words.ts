@@ -56,7 +56,7 @@ const HUNDREDS: Record<number, string> = {
   900: "NOVECIENTOS",
 };
 
-function parseAmountInteger(value: string): number | null {
+function parseAmount(value: string): { integer: number; cents: number } | null {
   const trimmed = value.trim().replace(/\s+/g, "");
   if (!trimmed) return null;
 
@@ -69,15 +69,23 @@ function parseAmountInteger(value: string): number | null {
   const lastComma = unsigned.lastIndexOf(",");
 
   let integerPart = unsigned;
+  let decimalPart = "";
   if (lastDot !== -1 && lastComma !== -1) {
     const decimalSeparator = lastDot > lastComma ? "." : ",";
-    integerPart = unsigned.slice(0, unsigned.lastIndexOf(decimalSeparator));
+    const separatorIndex = unsigned.lastIndexOf(decimalSeparator);
+    integerPart = unsigned.slice(0, separatorIndex);
+    decimalPart = unsigned.slice(separatorIndex + 1);
   } else {
     const separator = lastDot !== -1 ? "." : lastComma !== -1 ? "," : "";
     if (separator) {
       const parts = unsigned.split(separator);
       const lastPart = parts[parts.length - 1] ?? "";
-      integerPart = lastPart.length === 3 ? parts.join("") : parts[0] ?? "";
+      if (lastPart.length === 3) {
+        integerPart = parts.join("");
+      } else {
+        integerPart = parts[0] ?? "";
+        decimalPart = lastPart;
+      }
     }
   }
 
@@ -87,7 +95,10 @@ function parseAmountInteger(value: string): number | null {
   const amount = Number(normalized);
   if (!Number.isSafeInteger(amount)) return null;
 
-  return isNegative ? -amount : amount;
+  const cents = Number((decimalPart + "00").slice(0, 2));
+  if (!Number.isInteger(cents)) return null;
+
+  return { integer: isNegative ? -amount : amount, cents };
 }
 
 function convertTens(value: number): string {
@@ -141,8 +152,11 @@ function convertInteger(value: number): string {
 export function amountToSpanishWords(value: string | number | null | undefined): string | null {
   if (value == null) return null;
 
-  const amount = parseAmountInteger(String(value));
+  const amount = parseAmount(String(value));
   if (amount === null) return null;
 
-  return convertInteger(amount);
+  const integerWords = convertInteger(amount.integer);
+  return amount.cents > 0
+    ? `${integerWords} CON ${String(amount.cents).padStart(2, "0")}/100`
+    : integerWords;
 }

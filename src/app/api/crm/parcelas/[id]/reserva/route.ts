@@ -46,7 +46,7 @@ function formatMoney(value: string | number | null | undefined): string {
   if (!Number.isFinite(numeric)) return String(value);
   return numeric.toLocaleString("es-AR", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
 }
 
