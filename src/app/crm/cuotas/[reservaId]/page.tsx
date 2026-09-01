@@ -210,6 +210,7 @@ export default function CuentaDetallePage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [registeringPayment, setRegisteringPayment] = useState(false);
+  const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
   const [createModalidad, setCreateModalidad] = useState<ModalidadContrato>("requiere_revision");
   const [periodoBaseCac, setPeriodoBaseCac] = useState("");
   const [indicesCac, setIndicesCac] = useState<IndiceCac[]>([]);
@@ -416,6 +417,28 @@ export default function CuentaDetallePage() {
       await fetchDetail();
     } finally {
       setRegisteringPayment(false);
+    }
+  }
+
+  async function attachPaymentReceipt(pagoId: number, comprobante: File) {
+    if (uploadingReceiptId !== null) return;
+    setUploadingReceiptId(pagoId);
+    try {
+      const formData = new FormData();
+      formData.set("comprobante", comprobante);
+      const res = await fetch(`/api/crm/pagos/${pagoId}/comprobante`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error ?? "No se pudo adjuntar el comprobante");
+        return;
+      }
+      toast.success("Comprobante adjuntado");
+      await fetchDetail();
+    } finally {
+      setUploadingReceiptId(null);
     }
   }
 
@@ -910,7 +933,35 @@ export default function CuentaDetallePage() {
                           <Paperclip className="h-3.5 w-3.5" />
                           {pago.comprobanteNombre || "Ver comprobante"}
                         </a>
-                      ) : null}
+                      ) : (
+                        <div className="sm:col-start-2">
+                          <Input
+                            id={`receipt-${pago.id}`}
+                            type="file"
+                            accept="application/pdf,image/jpeg,image/png,image/webp"
+                            className="sr-only"
+                            disabled={uploadingReceiptId !== null}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              if (file) void attachPaymentReceipt(pago.id, file);
+                            }}
+                          />
+                          <Label
+                            htmlFor={`receipt-${pago.id}`}
+                            className="text-primary inline-flex cursor-pointer items-center gap-1 font-medium hover:underline"
+                          >
+                            {uploadingReceiptId === pago.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Paperclip className="h-3.5 w-3.5" />
+                            )}
+                            {uploadingReceiptId === pago.id
+                              ? "Subiendo comprobante..."
+                              : "Adjuntar comprobante"}
+                          </Label>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
