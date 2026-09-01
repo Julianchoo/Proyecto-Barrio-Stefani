@@ -146,11 +146,11 @@ function hasInstallments(data: Pick<ParcelaConReserva, "cantidadCuotas" | "cuota
 }
 
 function tipoPagoFromReserva(
-  data: Pick<ParcelaConReserva, "formaPago" | "cantidadCuotas" | "cuotaMensual">
+  data: Pick<ParcelaConReserva, "formaPago">
 ): TipoPagoReserva {
   const formaPago = data.formaPago?.trim().toLowerCase();
   if (formaPago === "contado") return "contado";
-  if (formaPago === "financiado" || formaPago === "cuotas" || hasInstallments(data)) {
+  if (formaPago === "financiado" || formaPago === "cuotas") {
     return "financiado";
   }
   return "sin_dato";
@@ -1194,6 +1194,15 @@ export default function LoteDetailPage() {
               La extracción de datos por OCR puede contener errores. Revisá los campos antes de guardar.
             </span>
           </div>
+          {lote?.formaPago == null && hasInstallments(lote) && (
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Esta reserva tiene cuotas cargadas, pero el tipo de pago no fue confirmado. Elegí
+                Contado o Financiado antes de guardar.
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {false && (

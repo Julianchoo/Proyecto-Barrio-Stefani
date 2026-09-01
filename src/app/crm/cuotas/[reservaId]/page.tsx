@@ -346,6 +346,10 @@ export default function CuentaDetallePage() {
 
   async function createContrato() {
     if (reservaForCuenta?.formaPago === "contado") return;
+    if (createModalidad === "requiere_revision") {
+      toast.error("Elegí USD fijo o Pesos + CAC");
+      return;
+    }
     const parsedTipoCambioBna = Number(tipoCambioBna);
     if (
       createModalidad === "pesos_cac" &&
@@ -521,7 +525,9 @@ export default function CuentaDetallePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="requiere_revision">Requiere revisión</SelectItem>
+                    <SelectItem value="requiere_revision" disabled>
+                      Requiere revisión
+                    </SelectItem>
                     <SelectItem value="usd_fijo">USD fijo</SelectItem>
                     <SelectItem value="pesos_cac">Pesos + CAC</SelectItem>
                   </SelectContent>
@@ -615,7 +621,7 @@ export default function CuentaDetallePage() {
               <Button
                 type="button"
                 onClick={createContrato}
-                disabled={creating}
+                disabled={creating || createModalidad === "requiere_revision"}
                 className="bg-green-700 text-white hover:bg-green-800"
               >
                 {creating ? "Creando..." : "Crear cuenta"}

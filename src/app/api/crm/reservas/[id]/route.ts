@@ -152,6 +152,18 @@ export async function PATCH(
 
       const nextEstado = data.estado ?? reserva.estado;
 
+      if (data.estado === "realizada" && !reserva.formaPago) {
+        return { kind: "missing-forma-pago" as const };
+      }
+      if (
+        data.estado === "realizada" &&
+        reserva.formaPago !== "contado" &&
+        reserva.modalidadContrato !== "usd_fijo" &&
+        reserva.modalidadContrato !== "pesos_cac"
+      ) {
+        return { kind: "missing-modalidad-contrato" as const };
+      }
+
       if (nextEstado === "activa") {
         const [otherActive] = await tx
           .select({ id: reservas.id })
@@ -247,6 +259,18 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Este lote ya tiene una reserva activa" },
         { status: 409 }
+      );
+    }
+    if (result.kind === "missing-forma-pago") {
+      return NextResponse.json(
+        { error: "Elegí el tipo de pago antes de marcar la reserva como realizada" },
+        { status: 400 }
+      );
+    }
+    if (result.kind === "missing-modalidad-contrato") {
+      return NextResponse.json(
+        { error: "Elegí USD fijo o Pesos + CAC antes de marcar la reserva como realizada" },
+        { status: 400 }
       );
     }
     if (result.kind === "invalid-comercial") {

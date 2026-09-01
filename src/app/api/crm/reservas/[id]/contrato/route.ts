@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { reservas } from "@/lib/schema";
 
 const createSchema = z.object({
-  modalidad: z.enum(["usd_fijo", "pesos_cac", "requiere_revision"]),
+  modalidad: z.enum(["usd_fijo", "pesos_cac"]),
   fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   fechaPrimerVencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   cantidadCuotas: z.number().int().positive().nullable().optional(),

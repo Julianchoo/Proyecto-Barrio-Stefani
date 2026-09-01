@@ -229,7 +229,9 @@ function formatPeriod(value: string | null) {
 }
 
 function estadoResumen(row: CuentaRow) {
-  if (row.cuentaEstado === "pendiente") return "Pendiente creacion";
+  if (row.cuentaEstado === "pendiente") {
+    return row.requiereRevision ? "Pendiente revisión" : "Pendiente creación";
+  }
   if (row.cuotasVencidas > 0) return `${row.cuotasVencidas} Vencida(s)`;
   return "Al dia";
 }
@@ -1004,7 +1006,7 @@ export default function CuotasPage() {
                       {row.cuentaEstado === "pendiente" ? (
                         <Badge className="gap-1 bg-amber-100 text-amber-800">
                           <AlertTriangle className="h-3 w-3" />
-                          Pendiente creacion
+                          {row.requiereRevision ? "Pendiente revisión" : "Pendiente creación"}
                         </Badge>
                       ) : row.cuotasVencidas > 0 ? (
                         <Badge className="bg-red-100 text-red-700">
@@ -1035,7 +1037,11 @@ export default function CuotasPage() {
                   <TableCell>
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/crm/cuotas/${row.reservaId}`}>
-                        {row.cuentaEstado === "pendiente" ? "Crear" : "Ver"}
+                        {row.cuentaEstado === "pendiente"
+                          ? row.requiereRevision
+                            ? "Revisar"
+                            : "Crear"
+                          : "Ver"}
                       </Link>
                     </Button>
                   </TableCell>

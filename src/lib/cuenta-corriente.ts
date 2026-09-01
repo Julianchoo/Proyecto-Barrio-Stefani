@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { contratos, cuotas, indicesCac, leads, pagos, parcelas, reservas } from "@/lib/schema";
 import type {
@@ -95,7 +95,7 @@ export type CuotasDashboard = {
 };
 
 export type CreateContratoInput = {
-  modalidad: ModalidadContrato;
+  modalidad: Exclude<ModalidadContrato, "requiere_revision">;
   fechaInicio?: string | null | undefined;
   fechaPrimerVencimiento?: string | null | undefined;
   cantidadCuotas?: number | null | undefined;
@@ -343,12 +343,21 @@ export async function createContratoForReserva(
           input.modalidad === "pesos_cac" ? moneyString(conversionRate) : null,
         periodoBaseCac,
         indiceBaseCac: indiceBaseCac === null ? null : moneyString(indiceBaseCac),
-        requiereRevision: input.modalidad === "requiere_revision",
+        requiereRevision: false,
         observaciones: input.observaciones ?? null,
         creadoPor: userEmail,
       })
       .returning();
     if (!contrato) throw new Error("No se pudo crear el contrato");
+
+    await tx
+      .update(reservas)
+      .set({
+        formaPago: "financiado",
+        modalidadContrato: input.modalidad,
+        updatedAt: new Date(),
+      })
+      .where(eq(reservas.id, reservaId));
 
     const cuotaValues = Array.from({ length: cantidadCuotas }, (_, index) => {
       const fechaVencimiento = addMonthsOnDay(fechaPrimerVencimiento, index, diaVencimiento);
@@ -549,7 +558,11 @@ export async function getCuentasCorrientesSummaries() {
     .leftJoin(leads, eq(reservas.leadId, leads.id))
     .leftJoin(contratos, eq(contratos.reservaId, reservas.id))
     .where(
-      and(eq(reservas.estado, "realizada"), ne(reservas.formaPago, "contado"), isNull(contratos.id))
+      and(
+        eq(reservas.estado, "realizada"),
+        or(isNull(reservas.formaPago), ne(reservas.formaPago, "contado")),
+        isNull(contratos.id)
+      )
     )
     .orderBy(asc(parcelas.numero));
 
