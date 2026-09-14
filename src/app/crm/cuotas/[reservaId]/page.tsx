@@ -18,6 +18,7 @@ import {
   Save,
 } from "lucide-react";
 import { toast } from "sonner";
+import { parsePaymentDate } from "@/app/crm/cuotas/[reservaId]/payment-date";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -209,7 +210,7 @@ export default function CuentaDetallePage() {
   const [paymentObservation, setPaymentObservation] = useState("");
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState(todayKey());
+  const [paymentDate, setPaymentDate] = useState(() => formatDate(todayKey()));
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [registeringPayment, setRegisteringPayment] = useState(false);
@@ -388,6 +389,11 @@ export default function CuentaDetallePage() {
 
   async function registerPayment() {
     if ((!payingCuota && !editingPayment) || !detail || registeringPayment) return;
+    const fechaPago = parsePaymentDate(paymentDate);
+    if (!fechaPago) {
+      toast.error("Ingresá una fecha válida en formato dd/mm/yyyy");
+      return;
+    }
     const amount = Number(paymentAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("Ingresá un monto válido");
@@ -397,7 +403,7 @@ export default function CuentaDetallePage() {
     setRegisteringPayment(true);
     try {
       const formData = new FormData();
-      formData.set("fechaPago", paymentDate);
+      formData.set("fechaPago", fechaPago);
       formData.set("monto", String(amount));
       formData.set("moneda", editingPayment?.moneda ?? detail.moneda);
       formData.set("observacion", paymentObservation);
@@ -894,7 +900,7 @@ export default function CuentaDetallePage() {
                         size="sm"
                         onClick={() => {
                           setEditingPayment(null);
-                          setPaymentDate(todayKey());
+                          setPaymentDate(formatDate(todayKey()));
                           setPaymentMethod("");
                           setPaymentObservation("");
                           setRemoveReceipt(false);
@@ -990,7 +996,7 @@ export default function CuentaDetallePage() {
                         onClick={() => {
                           setPayingCuota(null);
                           setEditingPayment(pago);
-                          setPaymentDate(pago.fechaPago);
+                          setPaymentDate(formatDate(pago.fechaPago));
                           setPaymentAmount(String(pago.monto));
                           setPaymentMethod(pago.medio ?? "");
                           setPaymentObservation(pago.observacion ?? "");
@@ -1023,12 +1029,36 @@ export default function CuentaDetallePage() {
               </DialogHeader>
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Fecha</Label>
-                  <Input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(event) => setPaymentDate(event.target.value)}
-                  />
+                  <Label htmlFor="payment-date">Fecha (dd/mm/yyyy)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="payment-date"
+                      type="text"
+                      placeholder="dd/mm/yyyy"
+                      maxLength={10}
+                      value={paymentDate}
+                      onChange={(event) => setPaymentDate(event.target.value)}
+                    />
+                    <div className="border-input focus-within:ring-ring relative flex h-9 w-10 shrink-0 items-center justify-center rounded-md border focus-within:ring-2">
+                      <Calendar className="h-4 w-4" aria-hidden="true" />
+                      <input
+                        type="date"
+                        aria-label="Elegir fecha en el calendario"
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        value={parsePaymentDate(paymentDate) ?? ""}
+                        onClick={(event) => event.currentTarget.showPicker?.()}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            event.currentTarget.showPicker?.();
+                          }
+                        }}
+                        onChange={(event) => {
+                          setPaymentDate(event.target.value ? formatDate(event.target.value) : "");
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Monto</Label>
