@@ -243,7 +243,10 @@ export async function recomputeContratoCuotas(contratoId: number) {
     const cuotaPagos = pagoRows.filter((pago) => pago.cuotaId === cuota.id);
     const paid = sumActivePayments(cuotaPagos);
     const computed = computeCuotaAmount(contrato, cuota, indicesByPeriodo, latestIndex);
-    const saldo = computed.amount === null ? (toNumber(cuota.saldo) ?? 0) : computed.amount - paid;
+    const saldo =
+      computed.amount === null
+        ? (toNumber(cuota.saldo) ?? 0)
+        : Math.round((computed.amount - paid) * 100) / 100;
     const nextEstado = statusForCuota(
       cuota.fechaVencimiento,
       Math.max(saldo, 0),

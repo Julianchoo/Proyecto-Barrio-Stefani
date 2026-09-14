@@ -205,6 +205,9 @@ export default function CuentaDetallePage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [payingCuota, setPayingCuota] = useState<Cuota | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Pago | null>(null);
+  const [paymentObservation, setPaymentObservation] = useState("");
+  const [removeReceipt, setRemoveReceipt] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayKey());
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -384,7 +387,7 @@ export default function CuentaDetallePage() {
   }
 
   async function registerPayment() {
-    if (!payingCuota || !detail || registeringPayment) return;
+    if ((!payingCuota && !editingPayment) || !detail || registeringPayment) return;
     const amount = Number(paymentAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("Ingresá un monto válido");
@@ -396,25 +399,35 @@ export default function CuentaDetallePage() {
       const formData = new FormData();
       formData.set("fechaPago", paymentDate);
       formData.set("monto", String(amount));
-      formData.set("moneda", detail.moneda);
+      formData.set("moneda", editingPayment?.moneda ?? detail.moneda);
+      formData.set("observacion", paymentObservation);
+      formData.set("quitarComprobante", String(removeReceipt));
       if (paymentMethod) formData.set("medio", paymentMethod);
       if (paymentReceipt) formData.set("comprobante", paymentReceipt);
 
-      const res = await fetch(`/api/crm/cuotas/${payingCuota.id}/pagos`, {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(
+        editingPayment
+          ? `/api/crm/pagos/${editingPayment.id}`
+          : `/api/crm/cuotas/${payingCuota!.id}/pagos`,
+        {
+          method: editingPayment ? "PATCH" : "POST",
+          body: formData,
+        }
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(data?.error ?? "No se pudo registrar el pago");
+        toast.error(data?.error ?? "No se pudo guardar el pago");
         return;
       }
-      toast.success("Pago registrado");
+      toast.success(editingPayment ? "Pago actualizado" : "Pago registrado");
+      setEditingPayment(null);
       setPayingCuota(null);
       setPaymentAmount("");
       setPaymentMethod("");
       setPaymentReceipt(null);
       await fetchDetail();
+    } catch {
+      toast.error("No se pudo guardar el pago. Revisá la conexión y volvé a intentar.");
     } finally {
       setRegisteringPayment(false);
     }
@@ -880,6 +893,11 @@ export default function CuentaDetallePage() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
+                          setEditingPayment(null);
+                          setPaymentDate(todayKey());
+                          setPaymentMethod("");
+                          setPaymentObservation("");
+                          setRemoveReceipt(false);
                           setPayingCuota(cuota);
                           setPaymentAmount(String(cuota.saldo ?? ""));
                           setPaymentReceipt(null);
@@ -962,6 +980,26 @@ export default function CuentaDetallePage() {
                           </Label>
                         </div>
                       )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          pago.estado !== "activo" || !pago.cuotaId || uploadingReceiptId !== null
+                        }
+                        onClick={() => {
+                          setPayingCuota(null);
+                          setEditingPayment(pago);
+                          setPaymentDate(pago.fechaPago);
+                          setPaymentAmount(String(pago.monto));
+                          setPaymentMethod(pago.medio ?? "");
+                          setPaymentObservation(pago.observacion ?? "");
+                          setPaymentReceipt(null);
+                          setRemoveReceipt(false);
+                        }}
+                      >
+                        Editar
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -970,9 +1008,10 @@ export default function CuentaDetallePage() {
           </Card>
 
           <Dialog
-            open={Boolean(payingCuota)}
+            open={Boolean(payingCuota || editingPayment)}
             onOpenChange={(open) => {
-              if (!open) {
+              if (!open && !registeringPayment) {
+                setEditingPayment(null);
                 setPayingCuota(null);
                 setPaymentReceipt(null);
               }
@@ -980,7 +1019,7 @@ export default function CuentaDetallePage() {
           >
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Registrar pago</DialogTitle>
+                <DialogTitle>{editingPayment ? "Editar pago" : "Registrar pago"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4">
                 <div className="grid gap-2">
@@ -1009,12 +1048,51 @@ export default function CuentaDetallePage() {
                   />
                 </div>
                 <div className="grid gap-2">
+                  <Label htmlFor="payment-observation">Observación</Label>
+                  <Input
+                    id="payment-observation"
+                    value={paymentObservation}
+                    onChange={(event) => setPaymentObservation(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  {editingPayment?.comprobanteUrl && (
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <a
+                        href={editingPayment.comprobanteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline"
+                      >
+                        {editingPayment.comprobanteNombre || "Ver comprobante actual"}
+                      </a>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={Boolean(paymentReceipt)}
+                        onClick={() => setRemoveReceipt(!removeReceipt)}
+                      >
+                        {removeReceipt ? "Conservar adjunto" : "Quitar adjunto"}
+                      </Button>
+                    </div>
+                  )}
+                  {editingPayment && (
+                    <p className="text-muted-foreground text-xs">
+                      {removeReceipt
+                        ? "Se quitará el adjunto al guardar."
+                        : "El adjunto actual se conserva salvo que elijas otro archivo."}
+                    </p>
+                  )}
                   <Label htmlFor="payment-receipt">Comprobante (opcional)</Label>
                   <Input
                     id="payment-receipt"
                     type="file"
                     accept="application/pdf,image/jpeg,image/png,image/webp"
-                    onChange={(event) => setPaymentReceipt(event.target.files?.[0] ?? null)}
+                    onChange={(event) => {
+                      setPaymentReceipt(event.target.files?.[0] ?? null);
+                      setRemoveReceipt(false);
+                    }}
                   />
                   <p className="text-muted-foreground text-xs">
                     PDF, JPG, PNG o WEBP. Máximo 5 MB.
@@ -1025,7 +1103,9 @@ export default function CuentaDetallePage() {
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={registeringPayment}
                   onClick={() => {
+                    setEditingPayment(null);
                     setPayingCuota(null);
                     setPaymentReceipt(null);
                   }}
@@ -1043,7 +1123,11 @@ export default function CuentaDetallePage() {
                   ) : (
                     <CreditCard className="mr-1 h-4 w-4" />
                   )}
-                  {registeringPayment ? "Registrando..." : "Registrar"}
+                  {registeringPayment
+                    ? "Guardando..."
+                    : editingPayment
+                      ? "Guardar cambios"
+                      : "Registrar"}
                 </Button>
               </DialogFooter>
             </DialogContent>

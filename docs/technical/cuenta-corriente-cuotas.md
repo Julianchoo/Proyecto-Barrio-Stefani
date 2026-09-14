@@ -161,6 +161,19 @@ Restricciones:
 
 Despues de insertar el pago, se recalcula el contrato completo.
 
+En "Pagos registrados", la accion "Editar" permite corregir fecha, monto, medio,
+observacion y agregar, reemplazar o quitar el comprobante mediante
+`PATCH /api/crm/pagos/[id]` (solo admin, pagos activos asociados a una cuota).
+La moneda y la cuota asociada se conservan. Al cambiar el monto, se valida el
+saldo descontando los otros pagos activos y se recalcula el contrato. No se
+permite cambiar el monto en cuotas canceladas o pendientes de CAC.
+Al cambiar la fecha se busca la cotizacion BNA de esa fecha o la ultima anterior;
+si falta, la conversion queda pendiente. Editar solo notas o adjuntos conserva
+la conversion guardada. Los comprobantes anteriores permanecen en almacenamiento;
+quitar o reemplazar cambia la referencia del pago, sin borrar el archivo anterior.
+
+Verificacion aislada, sin tocar datos: `node scripts/check-payment-edit.mjs`.
+
 ## CAC mensual
 
 La carga de CAC se administra desde `/crm/cuotas`, seccion “Indice CAC mensual”.
