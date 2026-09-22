@@ -419,12 +419,24 @@ export default function ReservasPage() {
       toast.error("Solo el comercial que tomo la reserva o un administrador puede modificarla");
       return;
     }
+    const esVendida = reserva.estado === "realizada" || reserva.loteEstado === "vendido";
+    if (
+      esVendida &&
+      !window.confirm(
+        "OJO! Estas por cambiar el estado de un lote o reserva ya vendido. Continuar?"
+      )
+    ) {
+      return;
+    }
     setUpdatingId(reserva.id);
     try {
       const res = await fetch(`/api/crm/reservas/${reserva.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado }),
+        body: JSON.stringify({
+          estado,
+          ...(esVendida ? { confirmarEdicionVendida: true } : {}),
+        }),
       });
 
       if (res.ok) {
@@ -444,7 +456,7 @@ export default function ReservasPage() {
 
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (res.status === 409) {
-        toast.error(data?.error ?? "Este lote ya tiene una reserva activa");
+        toast.error(data?.error ?? "Este lote ya tiene una reserva vigente");
       } else {
         toast.error(data?.error ?? "No se pudo actualizar la reserva");
       }

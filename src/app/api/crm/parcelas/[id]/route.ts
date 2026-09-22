@@ -343,13 +343,20 @@ export async function PUT(
             .where(eq(reservas.id, activeReserva.id));
         }
       } else if (data.estado === "reservado" || shouldTouchReserva) {
+        // Pedir "reservado" sobre una reserva realizada deshace la venta;
+        // sin estado explicito, editar datos no baja el lote de vendido.
+        const revierteVenta =
+          data.estado === "reservado" && activeReserva?.estado === "realizada";
         parcelaData.estado =
-          activeReserva?.estado === "realizada" ? "vendido" : "reservado";
+          activeReserva?.estado === "realizada" && !revierteVenta
+            ? "vendido"
+            : "reservado";
         if (activeReserva) {
           await tx
             .update(reservas)
             .set({
               ...reservaData,
+              ...(revierteVenta ? { estado: "activa" as const } : {}),
               modificadoPor: authResult.email,
               updatedAt: new Date(),
             })

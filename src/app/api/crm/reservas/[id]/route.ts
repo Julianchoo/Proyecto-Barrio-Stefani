@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { createContratoForReserva } from "@/lib/cuenta-corriente";
@@ -171,7 +171,9 @@ export async function PATCH(
           .where(
             and(
               eq(reservas.parcelaId, reserva.parcelaId),
-              eq(reservas.estado, "activa"),
+              // Una realizada tambien ocupa el lote: activa + realizada dejaria
+              // dos reservas vigentes y currentReservaJoin() elegiria una al azar.
+              or(eq(reservas.estado, "activa"), eq(reservas.estado, "realizada")),
               ne(reservas.id, reserva.id)
             )
           )
@@ -257,7 +259,7 @@ export async function PATCH(
     }
     if (result.kind === "active-conflict") {
       return NextResponse.json(
-        { error: "Este lote ya tiene una reserva activa" },
+        { error: "Este lote ya tiene una reserva vigente (activa o realizada)" },
         { status: 409 }
       );
     }

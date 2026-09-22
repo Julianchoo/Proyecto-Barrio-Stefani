@@ -45,6 +45,12 @@ const estadoColors: Record<EstadoParcela, string> = {
   no_disponible: "bg-red-100 text-red-700",
 };
 
+const isSoldLote = (lote: ParcelaConReserva) =>
+  lote.estado === "vendido" || lote.reservaEstado === "realizada";
+
+const SOLD_EDIT_CONFIRM =
+  "OJO! Estas por cambiar el estado de un lote o reserva ya vendido. Continuar?";
+
 const estadoLabels: Record<EstadoParcela, string> = {
   disponible: "Disponible",
   reservado: "Reservado",
@@ -287,16 +293,24 @@ export default function LotesPage() {
       toast.error("Este lote está vendido o bloqueado");
       return;
     }
+    const esVendido = Boolean(lote && isSoldLote(lote));
+    if (esVendido && !window.confirm(SOLD_EDIT_CONFIRM)) return;
     const prev = lotes;
     setLotes((ls) => ls.map((l) => (l.id === id ? { ...l, estado } : l)));
     const res = await fetch(`/api/crm/parcelas/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado }),
+      body: JSON.stringify({
+        estado,
+        ...(esVendido ? { confirmarEdicionVendida: true } : {}),
+      }),
     });
     if (!res.ok) {
       setLotes(prev);
-      toast.error("No se pudo actualizar el estado");
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      toast.error(data?.error ?? "No se pudo actualizar el estado");
+    } else {
+      fetchLotes();
     }
   };
 
@@ -339,6 +353,10 @@ export default function LotesPage() {
 
   const handleBulkUpdate = async () => {
     if (!bulkEstado || selected.size === 0) return;
+    const vendidos = new Set(
+      lotes.filter((l) => selected.has(l.id) && isSoldLote(l)).map((l) => l.id)
+    );
+    if (vendidos.size > 0 && !window.confirm(SOLD_EDIT_CONFIRM)) return;
     setBulkLoading(true);
     const ids = Array.from(selected);
     const prev = lotes;
@@ -353,7 +371,10 @@ export default function LotesPage() {
           fetch(`/api/crm/parcelas/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ estado: bulkEstado }),
+            body: JSON.stringify({
+              estado: bulkEstado,
+              ...(vendidos.has(id) ? { confirmarEdicionVendida: true } : {}),
+            }),
           })
         )
       );
@@ -365,6 +386,7 @@ export default function LotesPage() {
         toast.success(`${ids.length} lote(s) actualizados`);
         setSelected(new Set());
         setBulkEstado("");
+        fetchLotes();
       }
     } catch {
       setLotes(prev);
@@ -555,7 +577,7 @@ export default function LotesPage() {
   }
 
   function canEditLote(lote: ParcelaConReserva) {
-    if (lote.estado === "vendido" || lote.reservaEstado === "realizada") return false;
+    if (isSoldLote(lote)) return session?.user?.role === "admin";
 
     return (
       lote.estado !== "reservado" ||
