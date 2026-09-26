@@ -8,6 +8,7 @@ import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
+import { formatMoneyAr } from "@/lib/money";
 
 const PizZip = require("pizzip"); // eslint-disable-line @typescript-eslint/no-require-imports
 const Docxtemplater = require("docxtemplater"); // eslint-disable-line @typescript-eslint/no-require-imports
@@ -39,16 +40,6 @@ const reservaSchema = z.object({
   honorariosPalabras: z.string().optional().default("CUATROCIENTOS CINCUENTA"),
   honorariosNum: z.string().optional().default("450"),
 });
-
-function formatMoney(value: string | number | null | undefined): string {
-  if (!value) return "";
-  const numeric = Number(String(value).replace(/\./g, "").replace(",", "."));
-  if (!Number.isFinite(numeric)) return String(value);
-  return numeric.toLocaleString("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-}
 
 function wordsOrAmount(words: string, amount: string) {
   return words || amountToSpanishWords(amount) || "";
@@ -112,11 +103,11 @@ export async function POST(
 
   const form = parsed.data;
   const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
-  const anticipoNum = form.anticipoNum || formatMoney(parcela.anticipoNum);
-  const reservaNum = form.reservaNum || formatMoney(parcela.reservaNum) || "500";
-  const precioTotalNum = form.precioTotalNum || formatMoney(parcela.precioTotalNum);
-  const saldoNum = form.saldoNum || formatMoney(parcela.saldoNum);
-  const cuotaMensual = form.cuotaMensual || formatMoney(parcela.cuotaMensual);
+  const anticipoNum = form.anticipoNum || formatMoneyAr(parcela.anticipoNum);
+  const reservaNum = form.reservaNum || formatMoneyAr(parcela.reservaNum) || "500";
+  const precioTotalNum = form.precioTotalNum || formatMoneyAr(parcela.precioTotalNum);
+  const saldoNum = form.saldoNum || formatMoneyAr(parcela.saldoNum);
+  const cuotaMensual = form.cuotaMensual || formatMoneyAr(parcela.cuotaMensual);
 
   const reservaPalabras = wordsOrAmount(form.reservaPalabras, reservaNum);
   const data: Record<string, string> = {

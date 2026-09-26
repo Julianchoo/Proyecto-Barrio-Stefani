@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { formatMoneyAr } from "@/lib/money";
 import { amountToSpanishWords } from "@/lib/number-words";
 import type { ParcelaConReserva } from "@/lib/schema";
 
@@ -120,24 +121,17 @@ function parseFecha(value: string | null | undefined) {
   };
 }
 
-function cleanNumber(value: string | number | null | undefined) {
-  if (!value) return "";
-  const numeric = Number(String(value).replace(/\./g, "").replace(",", "."));
-  if (!Number.isFinite(numeric)) return String(value);
-  return String(Math.round(numeric));
-}
-
 function defaultWords(value: string) {
   return amountToSpanishWords(value) ?? "";
 }
 
 function buildDefaults(parcela: ParcelaConReserva): FormValues {
   const fecha = parseFecha(parcela.fechaReserva);
-  const reservaNum = cleanNumber(parcela.reservaNum) || "500";
-  const anticipoNum = cleanNumber(parcela.anticipoNum ?? parcela.anticipoUsd);
-  const precioTotalNum = cleanNumber(parcela.precioTotalNum ?? parcela.precioEtapa1);
-  const saldoNum = cleanNumber(parcela.saldoNum ?? parcela.saldoUsd);
-  const cuotaMensual = cleanNumber(parcela.cuotaMensual ?? parcela.cuotas48);
+  const reservaNum = formatMoneyAr(parcela.reservaNum) || "500";
+  const anticipoNum = formatMoneyAr(parcela.anticipoNum ?? parcela.anticipoUsd);
+  const precioTotalNum = formatMoneyAr(parcela.precioTotalNum ?? parcela.precioEtapa1);
+  const saldoNum = formatMoneyAr(parcela.saldoNum ?? parcela.saldoUsd);
+  const cuotaMensual = formatMoneyAr(parcela.cuotaMensual ?? parcela.cuotas48);
 
   return {
     fechaReserva: fecha.iso,
