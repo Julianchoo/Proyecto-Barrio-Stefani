@@ -689,6 +689,22 @@ export default function LoteDetailPage() {
     }
   }
 
+  async function handleCancelReserva() {
+    if (!lote?.reservaId) return;
+    const res = await fetch(`/api/crm/reservas/${lote.reservaId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: "cancelada" }),
+    });
+    if (res.ok) {
+      toast.success("Reserva cancelada. El lote quedó disponible.");
+      await fetchLote();
+    } else {
+      const error = await res.json().catch(() => null);
+      toast.error(error?.error ?? "No se pudo cancelar la reserva");
+    }
+  }
+
   async function handleLoteParamsSubmit(values: FormValues) {
     const payload: Record<string, unknown> = {};
     const derivedValues = calculateLotePricing(values.precioBase, values.superficieM2);
@@ -928,6 +944,29 @@ export default function LoteDetailPage() {
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={() => setSoldEditUnlocked(true)}>
                     Entiendo, habilitar edici?n
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {lote.reservaEstado === "activa" && session?.user?.role === "admin" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  Cancelar reserva
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Cancelar la reserva de {lote.nombreComprador ?? "este lote"}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    La reserva queda registrada como cancelada y el lote vuelve a estar disponible.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleCancelReserva}>
+                    Cancelar reserva
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -1246,7 +1285,12 @@ export default function LoteDetailPage() {
           )}
           <Form {...form}>
             <fieldset disabled={isLocked}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form
+              onSubmit={form.handleSubmit(onSubmit, (errors) =>
+                toast.error(`Campos inválidos: ${Object.keys(errors).join(", ")}`)
+              )}
+              className="space-y-5"
+            >
               {/* Status */}
               <FormField
                 control={form.control}
