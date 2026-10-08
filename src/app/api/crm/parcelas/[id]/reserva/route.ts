@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
+import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
 import { formatMoneyAr } from "@/lib/money";
 
@@ -77,7 +77,7 @@ export async function POST(
   const [row] = await db
     .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
-    .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(reservas, currentReservaJoin())
     .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(parcelas.id, parcelaId));
 
@@ -86,8 +86,14 @@ export async function POST(
   }
   if (!row.reserva) {
     return NextResponse.json(
-      { error: "El lote no tiene una reserva activa" },
+      { error: "El lote no tiene una reserva activa o realizada" },
       { status: 400 }
+    );
+  }
+  if (row.reserva.estado === "realizada" && authResult.role !== "admin") {
+    return NextResponse.json(
+      { error: "Solo un administrador puede generar documentos de una reserva realizada" },
+      { status: 403 }
     );
   }
 

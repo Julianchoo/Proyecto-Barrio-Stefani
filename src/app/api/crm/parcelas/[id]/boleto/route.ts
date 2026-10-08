@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
-import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
+import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
 import { parseMoney } from "@/lib/money";
 import path from "path";
@@ -165,17 +165,18 @@ export async function POST(
   const [row] = await db
     .select({ parcela: parcelas, reserva: reservas, lead: leads })
     .from(parcelas)
-    .leftJoin(reservas, activeReservaJoin())
+    .leftJoin(reservas, currentReservaJoin())
     .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(parcelas.id, parcelaId));
 
   if (!row) {
     return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
   }
+  // Una reserva realizada (venta) solo la toca un admin: el boleto guarda la modalidad del contrato.
   const canGenerateBoleto =
     authResult.role === "admin" ||
-    row.parcela.estado === "disponible" ||
-    row.reserva?.reservadoPor === authResult.email;
+    (row.reserva?.estado !== "realizada" &&
+      (row.parcela.estado === "disponible" || row.reserva?.reservadoPor === authResult.email));
   if (!canGenerateBoleto) {
     return NextResponse.json(
       { error: "No tenés permiso para generar el boleto de este lote" },
