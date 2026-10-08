@@ -3,10 +3,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertCircle, ArrowLeft, CreditCard, FileText, MapPin } from "lucide-react";
+import { AlertCircle, ArrowLeft, CreditCard, FileText, MapPin, Pencil } from "lucide-react";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
 import { CambiarEstadoReserva } from "@/components/crm/cambiar-estado-reserva";
 import { ReservaDialog } from "@/components/crm/reserva-dialog";
+import { ReservaEditor } from "@/components/crm/reserva-editor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSession } from "@/lib/auth-client";
@@ -49,6 +61,7 @@ export default function ReservaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const [reservas, setReservas] = useState<ReservaRow[] | null>(null);
+  const [editing, setEditing] = useState(false);
 
   // ponytail: trae todas las reservas y filtra en el navegador; alcanza para el volumen del barrio.
   const fetchReservas = useCallback(async () => {
@@ -70,9 +83,9 @@ export default function ReservaDetailPage() {
   );
   const vigenteDelLote = historial.find((item) => isVigente(item.estado));
   const isAdmin = session?.user?.role === "admin";
-  // Reserva y Boleto guardan datos en la reserva vigente del lote: solo se usan desde una
+  // Editar datos, Reserva y Boleto escriben en la reserva vigente del lote: solo desde una
   // reserva activa o realizada. Realizada: solo admin. Activa: admin o el comercial que la tomo.
-  const canUseDocumentos =
+  const canEdit =
     reserva !== undefined &&
     isVigente(reserva.estado) &&
     (isAdmin || (reserva.estado === "activa" && reserva.reservadoPor === session?.user?.email));
@@ -133,13 +146,51 @@ export default function ReservaDetailPage() {
               label="Cancelar reserva"
             />
           )}
-          {isVigente(reserva.estado) && (
+          {canEdit && !editing && reserva.estado === "activa" && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Pencil className="mr-1 h-4 w-4" />
+              Editar datos
+            </Button>
+          )}
+          {canEdit && !editing && reserva.estado === "realizada" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  <Pencil className="mr-1 h-4 w-4" />
+                  Editar vendida
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="border-4 border-red-500">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-xl text-red-700">
+                    OJO! Estás por editar una reserva ya vendida
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Los cambios afectan la reserva, el boleto, la cuenta corriente y los reportes del
+                    lote {reserva.loteNumero}. Revisá bien antes de guardar.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => setEditing(true)}>
+                    Entiendo, habilitar edición
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {editing && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}>
+              Cancelar edición
+            </Button>
+          )}
+          {isVigente(reserva.estado) && !editing && (
             <>
               <ReservaDialog
                 parcela={parcelaFromReserva(reserva)}
-                disabled={!canUseDocumentos}
+                disabled={!canEdit}
                 trigger={
-                  <Button type="button" variant="outline" size="sm" disabled={!canUseDocumentos}>
+                  <Button type="button" variant="outline" size="sm" disabled={!canEdit}>
                     <FileText className="mr-1 h-4 w-4" />
                     Reserva
                   </Button>
@@ -147,9 +198,9 @@ export default function ReservaDetailPage() {
               />
               <BoletoDialog
                 parcela={parcelaFromReserva(reserva)}
-                disabled={!canUseDocumentos}
+                disabled={!canEdit}
                 trigger={
-                  <Button type="button" variant="outline" size="sm" disabled={!canUseDocumentos}>
+                  <Button type="button" variant="outline" size="sm" disabled={!canEdit}>
                     <FileText className="mr-1 h-4 w-4" />
                     Boleto
                   </Button>
@@ -195,77 +246,91 @@ export default function ReservaDetailPage() {
         </div>
       )}
 
-      <Section
-        title="Comprador"
-        items={[
-          ["Nombre", reserva.nombreComprador],
-          ["DNI / CUIT", reserva.dniCuit],
-          ["Teléfono", reserva.telefono],
-          ["Email", reserva.emailComprador],
-          ["Domicilio", reserva.domicilioComprador],
-          ["Nacionalidad", reserva.nacionalidad],
-          ["Fecha de nacimiento", formatDate(reserva.fechaNacimiento ?? null)],
-          ["Estado civil", reserva.estadoCivil],
-          ["CUIT comprador", reserva.cuitComprador],
-        ]}
-      />
-
-      {reserva.nombreCoComprador && (
+      {editing && canEdit ? (
+        <ReservaEditor
+          lote={parcelaFromReserva(reserva)}
+          locked={false}
+          confirmarEdicionVendida={reserva.estado === "realizada"}
+          onSaved={async () => {
+            setEditing(false);
+            await fetchReservas();
+          }}
+        />
+      ) : (
+        <>
         <Section
-          title="Co-comprador"
+          title="Comprador"
           items={[
-            ["Nombre", reserva.nombreCoComprador],
-            ["DNI", reserva.dniCoComprador],
-            ["Nacionalidad", reserva.nacionalidadCoComprador],
-            ["Fecha de nacimiento", reserva.fechaNacimientoCoComprador],
-            ["Domicilio", reserva.domicilioCoComprador],
-            ["CUIT", reserva.cuitCoComprador],
-            ["Estado civil", reserva.estadoCivilCoComprador],
-            ["Porcentaje", reserva.porcentajeCoComprador],
+            ["Nombre", reserva.nombreComprador],
+            ["DNI / CUIT", reserva.dniCuit],
+            ["Teléfono", reserva.telefono],
+            ["Email", reserva.emailComprador],
+            ["Domicilio", reserva.domicilioComprador],
+            ["Nacionalidad", reserva.nacionalidad],
+            ["Fecha de nacimiento", formatDate(reserva.fechaNacimiento ?? null)],
+            ["Estado civil", reserva.estadoCivil],
+            ["CUIT comprador", reserva.cuitComprador],
           ]}
         />
-      )}
 
-      <Section
-        title="Condiciones de pago"
-        items={[
-          ["Modalidad", formatPaymentMode(reserva)],
-          ["Precio total", usd(reserva.precioTotalNum)],
-          ["Reserva / seña", usd(reserva.reservaNum)],
-          ["Anticipo", usd(reserva.anticipoNum)],
-          ["Saldo", usd(reserva.saldoNum)],
-          ["Cantidad de cuotas", reserva.cantidadCuotas],
-          ["Cuota mensual", usd(reserva.cuotaMensual)],
-          [
-            "Entrega",
-            reserva.tipoEntrega === "cuota" ? `Cuota ${reserva.mesEntrega ?? "-"}` : reserva.tipoEntrega ? "Al saldo" : null,
-          ],
-        ]}
-      />
+        {reserva.nombreCoComprador && (
+          <Section
+            title="Co-comprador"
+            items={[
+              ["Nombre", reserva.nombreCoComprador],
+              ["DNI", reserva.dniCoComprador],
+              ["Nacionalidad", reserva.nacionalidadCoComprador],
+              ["Fecha de nacimiento", reserva.fechaNacimientoCoComprador],
+              ["Domicilio", reserva.domicilioCoComprador],
+              ["CUIT", reserva.cuitCoComprador],
+              ["Estado civil", reserva.estadoCivilCoComprador],
+              ["Porcentaje", reserva.porcentajeCoComprador],
+            ]}
+          />
+        )}
 
-      <Section
-        title="Fechas y comercial"
-        items={[
-          ["Fecha reserva", formatDate(reserva.fechaReserva)],
-          ["Vencimiento", formatDate(reserva.fechaVencimiento)],
-          ["Firma", formatDate(reserva.fechaFirma)],
-          ["Creada", formatDate(reserva.reservaCreatedAt)],
-          ["Reservado por", reserva.reservadoPor],
-          ["Corredor", reserva.nombreCorredor],
-          ["Email corredor", reserva.emailCorredor],
-          ["Último cambio por", reserva.modificadoPor],
-        ]}
-      />
+        <Section
+          title="Condiciones de pago"
+          items={[
+            ["Modalidad", formatPaymentMode(reserva)],
+            ["Precio total", usd(reserva.precioTotalNum)],
+            ["Reserva / seña", usd(reserva.reservaNum)],
+            ["Anticipo", usd(reserva.anticipoNum)],
+            ["Saldo", usd(reserva.saldoNum)],
+            ["Cantidad de cuotas", reserva.cantidadCuotas],
+            ["Cuota mensual", usd(reserva.cuotaMensual)],
+            [
+              "Entrega",
+              reserva.tipoEntrega === "cuota" ? `Cuota ${reserva.mesEntrega ?? "-"}` : reserva.tipoEntrega ? "Al saldo" : null,
+            ],
+          ]}
+        />
 
-      {reserva.observaciones && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Observaciones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap text-sm text-gray-900">{reserva.observaciones}</p>
-          </CardContent>
-        </Card>
+        <Section
+          title="Fechas y comercial"
+          items={[
+            ["Fecha reserva", formatDate(reserva.fechaReserva)],
+            ["Vencimiento", formatDate(reserva.fechaVencimiento)],
+            ["Firma", formatDate(reserva.fechaFirma)],
+            ["Creada", formatDate(reserva.reservaCreatedAt)],
+            ["Reservado por", reserva.reservadoPor],
+            ["Corredor", reserva.nombreCorredor],
+            ["Email corredor", reserva.emailCorredor],
+            ["Último cambio por", reserva.modificadoPor],
+          ]}
+        />
+
+        {reserva.observaciones && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Observaciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm text-gray-900">{reserva.observaciones}</p>
+            </CardContent>
+          </Card>
+        )}
+        </>
       )}
     </div>
   );

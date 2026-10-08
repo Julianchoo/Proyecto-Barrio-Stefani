@@ -71,13 +71,15 @@ export function formatDate(value: string | null) {
   return `${day}/${month}/${year}`;
 }
 
-function hasInstallments(reserva: Pick<ReservaRow, "cantidadCuotas" | "cuotaMensual">) {
+type PaymentData = Partial<
+  Pick<ReservaRow, "formaPago" | "modalidadContrato" | "cantidadCuotas" | "cuotaMensual">
+>;
+
+function hasInstallments(reserva: PaymentData) {
   return Boolean(reserva.cantidadCuotas?.trim() || reserva.cuotaMensual?.trim());
 }
 
-export function formatPaymentMode(
-  reserva: Pick<ReservaRow, "formaPago" | "modalidadContrato" | "cantidadCuotas" | "cuotaMensual">
-) {
+export function formatPaymentMode(reserva: PaymentData) {
   if (reserva.modalidadContrato) return modalidadContratoLabels[reserva.modalidadContrato];
 
   const formaPago = reserva.formaPago?.trim().toLowerCase();
