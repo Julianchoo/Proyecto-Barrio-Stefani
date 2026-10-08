@@ -11,6 +11,7 @@ import {
   numeric,
   integer,
   date,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // IMPORTANT! ID fields should ALWAYS use UUID types, EXCEPT the BetterAuth tables.
@@ -466,6 +467,27 @@ export const indicesCac = pgTable(
   (table) => [uniqueIndex("indices_cac_periodo_idx").on(table.periodo)]
 );
 
+// Historial de cambios de lotes, reservas y leads: quien cambio que y cuando.
+export type AuditCambios = Record<string, { antes: unknown; despues: unknown }>;
+
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: serial("id").primaryKey(),
+    entidad: text("entidad").$type<"lote" | "reserva" | "lead">().notNull(),
+    entidadId: integer("entidad_id").notNull(),
+    accion: text("accion").$type<"crear" | "editar" | "eliminar">().notNull(),
+    // Email del usuario; "web" para los leads del formulario publico.
+    usuario: text("usuario").notNull(),
+    cambios: jsonb("cambios").$type<AuditCambios>().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("audit_log_entidad_idx").on(table.entidad, table.entidadId),
+    index("audit_log_created_idx").on(table.createdAt),
+  ]
+);
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type User = typeof user.$inferSelect;
@@ -477,6 +499,7 @@ export type Cuota = typeof cuotas.$inferSelect;
 export type Pago = typeof pagos.$inferSelect;
 export type TipoCambio = typeof tiposCambio.$inferSelect;
 export type IndiceCac = typeof indicesCac.$inferSelect;
+export type AuditLog = typeof auditLog.$inferSelect;
 export type EstadoParcela = (typeof estadoParcelaEnum.enumValues)[number];
 export type EstadoLead = (typeof estadoLeadEnum.enumValues)[number];
 export type EstadoReserva = (typeof estadoReservaEnum.enumValues)[number];

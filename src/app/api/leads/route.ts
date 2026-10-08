@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { leads } from "@/lib/schema";
 
 const createLeadSchema = z.object({
@@ -24,7 +25,16 @@ export async function POST(request: Request) {
         mensaje: data.mensaje ?? null,
         estado: "nuevo",
       })
-      .returning({ id: leads.id });
+      .returning();
+    if (inserted[0]) {
+      await logAudit(db, {
+        entidad: "lead",
+        entidadId: inserted[0].id,
+        usuario: "web",
+        antes: null,
+        despues: inserted[0],
+      });
+    }
 
     return NextResponse.json({ id: inserted[0]?.id }, { status: 201 });
   } catch (error) {

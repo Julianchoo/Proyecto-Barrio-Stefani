@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getMinimumAnticipoUsd } from "@/lib/financiacion";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import {
   currentReservaJoin,
   flattenParcelaReserva,
@@ -382,6 +383,24 @@ export async function PUT(
         .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(eq(parcelas.id, parcelaId));
       if (!updatedRow) return { kind: "not-found" as const };
+
+      await logAudit(tx, {
+        entidad: "lote",
+        entidadId: parcelaId,
+        usuario: authResult.email,
+        antes: current,
+        despues: updatedRow.parcela,
+      });
+      const reservaId = updatedRow.reserva?.id ?? activeReserva?.id;
+      if (reservaId) {
+        await logAudit(tx, {
+          entidad: "reserva",
+          entidadId: reservaId,
+          usuario: authResult.email,
+          antes: activeReserva,
+          despues: updatedRow.reserva,
+        });
+      }
 
       return {
         kind: "ok" as const,

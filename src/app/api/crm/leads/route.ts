@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { leads, user } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
@@ -103,6 +104,15 @@ export async function POST(request: Request) {
       estado: "asignado",
     })
     .returning();
+  if (created) {
+    await logAudit(db, {
+      entidad: "lead",
+      entidadId: created.id,
+      usuario: authResult.email,
+      antes: null,
+      despues: created,
+    });
+  }
 
   return NextResponse.json(created, { status: 201 });
 }

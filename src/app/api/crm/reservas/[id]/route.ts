@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { createContratoForReserva } from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
 import { parcelas, reservas, user } from "@/lib/schema";
@@ -216,6 +217,26 @@ export async function PATCH(
           .set({ estado: loteEstadoForReserva(nextEstado) })
           .where(eq(parcelas.id, reserva.parcelaId));
       }
+
+      const [after] = await tx
+        .select({ reserva: reservas, parcela: parcelas })
+        .from(reservas)
+        .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+        .where(eq(reservas.id, reserva.id));
+      await logAudit(tx, {
+        entidad: "reserva",
+        entidadId: reserva.id,
+        usuario: authResult.email,
+        antes: reserva,
+        despues: after?.reserva,
+      });
+      await logAudit(tx, {
+        entidad: "lote",
+        entidadId: parcela.id,
+        usuario: authResult.email,
+        antes: parcela,
+        despues: after?.parcela,
+      });
 
       const [updated] = await tx
         .select({

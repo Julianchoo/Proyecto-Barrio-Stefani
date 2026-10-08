@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { contratos, cuotas, indicesCac, leads, pagos, parcelas, reservas } from "@/lib/schema";
 import type {
   Contrato,
@@ -353,14 +354,22 @@ export async function createContratoForReserva(
       .returning();
     if (!contrato) throw new Error("No se pudo crear el contrato");
 
-    await tx
+    const [reservaActualizada] = await tx
       .update(reservas)
       .set({
         formaPago: "financiado",
         modalidadContrato: input.modalidad,
         updatedAt: new Date(),
       })
-      .where(eq(reservas.id, reservaId));
+      .where(eq(reservas.id, reservaId))
+      .returning();
+    await logAudit(tx, {
+      entidad: "reserva",
+      entidadId: reservaId,
+      usuario: userEmail,
+      antes: reserva,
+      despues: reservaActualizada,
+    });
 
     const cuotaValues = Array.from({ length: cantidadCuotas }, (_, index) => {
       const fechaVencimiento = addMonthsOnDay(fechaPrimerVencimiento, index, diaVencimiento);

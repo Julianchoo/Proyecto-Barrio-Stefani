@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { activeReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
@@ -295,10 +296,18 @@ export async function POST(
       : "boleto-template-cuotas.docx";
   const templatePath = path.join(process.cwd(), "src", "templates", templateName);
   if (row.reserva && modalidadContrato) {
-    await db
+    const [reservaActualizada] = await db
       .update(reservas)
       .set({ modalidadContrato, updatedAt: new Date() })
-      .where(eq(reservas.id, row.reserva.id));
+      .where(eq(reservas.id, row.reserva.id))
+      .returning();
+    await logAudit(db, {
+      entidad: "reserva",
+      entidadId: row.reserva.id,
+      usuario: authResult.email,
+      antes: row.reserva,
+      despues: reservaActualizada,
+    });
   }
 
   let templateBuf: Buffer;

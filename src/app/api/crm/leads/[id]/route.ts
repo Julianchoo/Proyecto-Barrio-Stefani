@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 import { leads } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { requireApiAdmin, requireApiAuth, isErrorResponse } from "@/lib/api-auth";
@@ -42,15 +43,13 @@ export async function PUT(
       return NextResponse.json({ error: "Sin permisos para asignar leads" }, { status: 403 });
     }
 
+    const [current] = await db.select().from(leads).where(eq(leads.id, leadId));
+    if (!current) {
+      return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+    }
     // Comercials can only edit their own leads
-    if (authResult.role !== "admin") {
-      const [current] = await db.select().from(leads).where(eq(leads.id, leadId));
-      if (!current) {
-        return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
-      }
-      if (current.asignadoA !== authResult.id) {
-        return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
-      }
+    if (authResult.role !== "admin" && current.asignadoA !== authResult.id) {
+      return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
     }
 
     const [updated] = await db
@@ -62,6 +61,13 @@ export async function PUT(
     if (!updated) {
       return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
     }
+    await logAudit(db, {
+      entidad: "lead",
+      entidadId: leadId,
+      usuario: authResult.email,
+      antes: current,
+      despues: updated,
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -94,11 +100,18 @@ export async function DELETE(
   const [deleted] = await db
     .delete(leads)
     .where(eq(leads.id, leadId))
-    .returning({ id: leads.id });
+    .returning();
 
   if (!deleted) {
     return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
   }
+  await logAudit(db, {
+    entidad: "lead",
+    entidadId: leadId,
+    usuario: authResult.email,
+    antes: deleted,
+    despues: null,
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -155,6 +155,13 @@
       "when": 1788189731113,
       "tag": "0021_perpetual_firestar",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791493924996,
+      "tag": "0022_curvy_diamondback",
+      "breakpoints": true
     }
   ]
 }
