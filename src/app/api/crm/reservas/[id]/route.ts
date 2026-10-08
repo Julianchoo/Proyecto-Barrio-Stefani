@@ -11,13 +11,23 @@ const updateSchema = z
     estado: z.enum(["activa", "cancelada", "vencida", "realizada"]).optional(),
     reservadoPor: z.string().email().optional(),
     confirmarEdicionVendida: z.boolean().optional(),
+    confirmarCambioEstado: z.boolean().optional(),
   })
   .refine((data) => data.estado || data.reservadoPor, {
     message: "Debe indicar un cambio",
   })
   .strict();
 
-function loteEstadoForReserva(estado: z.infer<typeof updateSchema>["estado"]) {
+type EstadoReservaValue = NonNullable<z.infer<typeof updateSchema>["estado"]>;
+
+// Activa o realizada: la reserva que ocupa el lote. Solo puede haber una por lote.
+function isVigente(estado: EstadoReservaValue) {
+  return estado === "activa" || estado === "realizada";
+}
+
+// El estado del lote lo define su reserva vigente: activa -> reservado,
+// realizada -> vendido, sin reserva vigente -> disponible.
+function loteEstadoForReserva(estado: EstadoReservaValue) {
   if (estado === "activa") return "reservado";
   if (estado === "realizada") return "vendido";
   return "disponible";
@@ -112,32 +122,29 @@ export async function PATCH(
       if (!current) return { kind: "not-found" as const };
 
       const { reserva, parcela } = current;
+      const cambiaEstado = Boolean(data.estado && data.estado !== reserva.estado);
+      const nextEstado = data.estado ?? reserva.estado;
+
+      // Cambiar el estado o el comercial de una reserva es solo de administradores.
+      // El comercial edita los datos de su reserva activa desde el lote (PUT parcelas).
+      if (authResult.role !== "admin") {
+        return { kind: "forbidden" as const };
+      }
+
+      // Todo cambio de estado que toque una reserva vigente (desde o hacia activa/realizada)
+      // mueve el estado del lote, asi que exige confirmacion explicita.
+      if (
+        cambiaEstado &&
+        (isVigente(reserva.estado) || isVigente(nextEstado)) &&
+        data.confirmarCambioEstado !== true
+      ) {
+        return { kind: "estado-confirmation-required" as const };
+      }
+
       const isSoldOrRealizada =
         parcela.estado === "vendido" || reserva.estado === "realizada";
-
-      if (
-        isSoldOrRealizada &&
-        (authResult.role !== "admin" || data.confirmarEdicionVendida !== true)
-      ) {
+      if (data.reservadoPor && isSoldOrRealizada && data.confirmarEdicionVendida !== true) {
         return { kind: "sold-confirmation-required" as const };
-      }
-
-      if (
-        authResult.role !== "admin" &&
-        (reserva.estado === "realizada" || data.estado === "realizada")
-      ) {
-        return { kind: "admin-only-realizada" as const };
-      }
-
-      if (
-        authResult.role !== "admin" &&
-        reserva.reservadoPor !== authResult.email
-      ) {
-        return { kind: "forbidden" as const };
-      }
-
-      if (data.reservadoPor && authResult.role !== "admin") {
-        return { kind: "forbidden" as const };
       }
 
       if (data.reservadoPor) {
@@ -149,8 +156,6 @@ export async function PATCH(
 
         if (!targetUser) return { kind: "invalid-comercial" as const };
       }
-
-      const nextEstado = data.estado ?? reserva.estado;
 
       if (data.estado === "realizada" && !reserva.formaPago) {
         return { kind: "missing-forma-pago" as const };
@@ -164,22 +169,33 @@ export async function PATCH(
         return { kind: "missing-modalidad-contrato" as const };
       }
 
-      if (nextEstado === "activa") {
-        const [otherActive] = await tx
-          .select({ id: reservas.id })
+      if (cambiaEstado && isVigente(nextEstado)) {
+        // Un lote no se puede vender ni reservar dos veces: ninguna otra reserva del
+        // lote puede estar activa o realizada. Se bloquea la fila del lote para que dos
+        // pedidos simultaneos no pasen ambos este control.
+        await tx
+          .select({ id: parcelas.id })
+          .from(parcelas)
+          .where(eq(parcelas.id, reserva.parcelaId))
+          .for("update");
+
+        const [otherVigente] = await tx
+          .select({ id: reservas.id, estado: reservas.estado })
           .from(reservas)
           .where(
             and(
               eq(reservas.parcelaId, reserva.parcelaId),
-              // Una realizada tambien ocupa el lote: activa + realizada dejaria
-              // dos reservas vigentes y currentReservaJoin() elegiria una al azar.
               or(eq(reservas.estado, "activa"), eq(reservas.estado, "realizada")),
               ne(reservas.id, reserva.id)
             )
           )
           .limit(1);
 
-        if (otherActive) return { kind: "active-conflict" as const };
+        if (otherVigente) return { kind: "active-conflict" as const, other: otherVigente };
+
+        if (!isVigente(reserva.estado) && parcela.estado === "no_disponible") {
+          return { kind: "lote-no-disponible" as const };
+        }
       }
 
       await tx
@@ -192,12 +208,9 @@ export async function PATCH(
         })
         .where(eq(reservas.id, reserva.id));
 
-      const shouldSyncLote =
-        nextEstado === "activa" ||
-        nextEstado === "realizada" ||
-        (Boolean(data.estado) && reserva.estado === "activa");
-
-      if (shouldSyncLote) {
+      // Si la reserva era o pasa a ser la vigente, el lote sigue su estado. Pasar entre
+      // cancelada y vencida no toca el lote (puede tener otra reserva vigente).
+      if (cambiaEstado && (isVigente(reserva.estado) || isVigente(nextEstado))) {
         await tx
           .update(parcelas)
           .set({ estado: loteEstadoForReserva(nextEstado) })
@@ -241,7 +254,13 @@ export async function PATCH(
     }
     if (result.kind === "forbidden") {
       return NextResponse.json(
-        { error: "Solo el comercial que tomÃ³ la reserva o un administrador puede modificarla" },
+        { error: "Solo un administrador puede cambiar el estado o el comercial de una reserva" },
+        { status: 403 }
+      );
+    }
+    if (result.kind === "estado-confirmation-required") {
+      return NextResponse.json(
+        { error: "OJO! Este cambio mueve el estado del lote. Confirmalo para continuar" },
         { status: 403 }
       );
     }
@@ -251,15 +270,17 @@ export async function PATCH(
         { status: 403 }
       );
     }
-    if (result.kind === "admin-only-realizada") {
-      return NextResponse.json(
-        { error: "Solo un administrador puede marcar o editar una reserva realizada" },
-        { status: 403 }
-      );
-    }
     if (result.kind === "active-conflict") {
       return NextResponse.json(
-        { error: "Este lote ya tiene una reserva vigente (activa o realizada)" },
+        {
+          error: `Este lote ya tiene la reserva #${result.other.id} ${result.other.estado}. Un lote no puede tener dos reservas activas o realizadas`,
+        },
+        { status: 409 }
+      );
+    }
+    if (result.kind === "lote-no-disponible") {
+      return NextResponse.json(
+        { error: "El lote está marcado como no disponible. Pasalo a disponible antes de reactivar la reserva" },
         { status: 409 }
       );
     }

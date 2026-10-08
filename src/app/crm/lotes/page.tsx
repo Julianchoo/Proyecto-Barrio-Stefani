@@ -58,6 +58,10 @@ const estadoLabels: Record<EstadoParcela, string> = {
   no_disponible: "No disponible",
 };
 
+// A mano solo se alterna disponible <-> no disponible. Reservado y vendido salen de la
+// reserva vigente del lote (crearla, realizarla, cancelarla).
+const ESTADOS_MANUALES: EstadoParcela[] = ["disponible", "no_disponible"];
+
 const SUPERFICIE_RANGES = [
   { label: "Hasta 300 m²", min: undefined, max: 300 },
   { label: "300 – 500 m²", min: 300, max: 500 },
@@ -293,6 +297,10 @@ export default function LotesPage() {
       toast.error("Este lote está vendido o bloqueado");
       return;
     }
+    if (lote?.reservaId) {
+      toast.error(`El lote tiene la reserva #${lote.reservaId}. Para liberarlo, cancelá esa reserva`);
+      return;
+    }
     const esVendido = Boolean(lote && isSoldLote(lote));
     if (esVendido && !window.confirm(SOLD_EDIT_CONFIRM)) return;
     const prev = lotes;
@@ -353,6 +361,13 @@ export default function LotesPage() {
 
   const handleBulkUpdate = async () => {
     if (!bulkEstado || selected.size === 0) return;
+    const conReserva = lotes.filter((l) => selected.has(l.id) && l.reservaId).length;
+    if (conReserva > 0) {
+      toast.error(
+        `${conReserva} lote(s) seleccionados tienen una reserva vigente. Cancelá la reserva para liberarlos`
+      );
+      return;
+    }
     const vendidos = new Set(
       lotes.filter((l) => selected.has(l.id) && isSoldLote(l)).map((l) => l.id)
     );
@@ -930,7 +945,7 @@ export default function LotesPage() {
                     <TableCell>
                       <Select
                         value={lote.estado}
-                        disabled={isLoteLocked}
+                        disabled={isLoteLocked || Boolean(lote.reservaId)}
                         onValueChange={(v) =>
                           handleEstadoChange(lote.id, v as EstadoParcela)
                         }
@@ -942,19 +957,17 @@ export default function LotesPage() {
                             >
                               {estadoLabels[lote.estado]}
                             </span>
-                            {isLoteLocked && (
+                            {(isLoteLocked || Boolean(lote.reservaId)) && (
                                 <Lock className="h-3 w-3 text-amber-600" />
                               )}
                           </span>
                         </SelectTrigger>
                         <SelectContent position="popper">
-                          {(Object.keys(estadoLabels) as EstadoParcela[]).map(
-                            (e) => (
-                              <SelectItem key={e} value={e}>
-                                {estadoLabels[e]}
-                              </SelectItem>
-                            )
-                          )}
+                          {ESTADOS_MANUALES.map((e) => (
+                            <SelectItem key={e} value={e}>
+                              {estadoLabels[e]}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -1004,7 +1017,7 @@ export default function LotesPage() {
               <SelectValue placeholder="Cambiar estado..." />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(estadoLabels) as EstadoParcela[]).map((e) => (
+              {ESTADOS_MANUALES.map((e) => (
                 <SelectItem key={e} value={e}>
                   {estadoLabels[e]}
                 </SelectItem>

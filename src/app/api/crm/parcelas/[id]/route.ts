@@ -49,7 +49,9 @@ const COMERCIAL_FIELDS = [
 
 const updateSchema = z
   .object({
-    estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]).optional(),
+    // A mano solo se alterna disponible <-> no disponible. "Reservado" y "vendido"
+    // salen de la reserva vigente (crearla, realizarla) via PATCH /reservas/[id].
+    estado: z.enum(["disponible", "no_disponible"]).optional(),
     leadId: z.number().nullable().optional(),
     nombreCoComprador: z.string().nullable().optional(),
     dniCoComprador: z.string().nullable().optional(),
@@ -175,14 +177,6 @@ function hasAnyField(data: Record<string, unknown>, fields: readonly string[]) {
   return fields.some((field) => field in data);
 }
 
-function isReservaCreation(
-  data: { estado?: string | undefined },
-  activeReserva: unknown,
-  shouldTouchReserva: boolean
-) {
-  return !activeReserva && (data.estado === "reservado" || shouldTouchReserva);
-}
-
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -213,6 +207,14 @@ export async function PUT(
     }
 
     const result = await db.transaction(async (tx) => {
+      // Bloquea el lote: PATCH /reservas/[id] hace lo mismo, asi que crear o reactivar
+      // reservas del mismo lote no corren en paralelo y no pueden quedar dos vigentes.
+      await tx
+        .select({ id: parcelas.id })
+        .from(parcelas)
+        .where(eq(parcelas.id, parcelaId))
+        .for("update");
+
       const [currentRow] = await tx
         .select({ parcela: parcelas, reserva: reservas, lead: leads })
         .from(parcelas)
@@ -286,7 +288,6 @@ export async function PUT(
       }
 
       const parcelaData: Record<string, unknown> = {};
-      if ("estado" in allowedData) parcelaData.estado = allowedData.estado;
       if (authResult.role === "admin") {
         for (const field of PARCELA_ADMIN_FIELDS) {
           if (field in allowedData) parcelaData[field] = allowedData[field];
@@ -311,9 +312,20 @@ export async function PUT(
         : hasReservaValue(reservaData);
       const requestedLeadId =
         "leadId" in reservaData ? (reservaData.leadId as number | null) : activeReserva?.leadId ?? null;
-      const needsLead = isReservaCreation(data, activeReserva, shouldTouchReserva);
+      const createsReserva = !activeReserva && shouldTouchReserva;
 
-      if (needsLead && !requestedLeadId) {
+      if (allowedData.estado !== undefined) {
+        // Para liberar un lote reservado o vendido hay que cancelar su reserva.
+        if (activeReserva) {
+          return { kind: "estado-con-reserva" as const, reservaId: activeReserva.id };
+        }
+        if (shouldTouchReserva) return { kind: "estado-y-reserva" as const };
+      }
+      if (createsReserva && current.estado === "no_disponible") {
+        return { kind: "lote-no-disponible" as const };
+      }
+
+      if (createsReserva && !requestedLeadId) {
         return { kind: "missing-lead" as const };
       }
 
@@ -330,33 +342,17 @@ export async function PUT(
         if (!selectedLead) return { kind: "invalid-lead" as const };
       }
 
-      if (data.estado && data.estado !== "reservado") {
-        parcelaData.estado = data.estado;
-        if (activeReserva) {
-          await tx
-            .update(reservas)
-            .set({
-              estado: "cancelada",
-              modificadoPor: authResult.email,
-              updatedAt: new Date(),
-            })
-            .where(eq(reservas.id, activeReserva.id));
-        }
-      } else if (data.estado === "reservado" || shouldTouchReserva) {
-        // Pedir "reservado" sobre una reserva realizada deshace la venta;
-        // sin estado explicito, editar datos no baja el lote de vendido.
-        const revierteVenta =
-          data.estado === "reservado" && activeReserva?.estado === "realizada";
-        parcelaData.estado =
-          activeReserva?.estado === "realizada" && !revierteVenta
-            ? "vendido"
-            : "reservado";
+      if (allowedData.estado !== undefined) {
+        parcelaData.estado = allowedData.estado;
+      } else if (shouldTouchReserva) {
+        // Editar datos no cambia el estado de la reserva; el lote queda alineado con ella
+        // (activa -> reservado, realizada -> vendido, nueva -> reservado).
+        parcelaData.estado = activeReserva?.estado === "realizada" ? "vendido" : "reservado";
         if (activeReserva) {
           await tx
             .update(reservas)
             .set({
               ...reservaData,
-              ...(revierteVenta ? { estado: "activa" as const } : {}),
               modificadoPor: authResult.email,
               updatedAt: new Date(),
             })
@@ -412,6 +408,26 @@ export async function PUT(
       return NextResponse.json(
         { error: "Solo un administrador puede editar una reserva realizada o su lote" },
         { status: 403 }
+      );
+    }
+    if (result.kind === "estado-con-reserva") {
+      return NextResponse.json(
+        {
+          error: `El lote tiene la reserva #${result.reservaId} vigente. Para liberarlo, cancelá esa reserva`,
+        },
+        { status: 409 }
+      );
+    }
+    if (result.kind === "estado-y-reserva") {
+      return NextResponse.json(
+        { error: "No se puede cambiar el estado del lote y cargar una reserva a la vez" },
+        { status: 400 }
+      );
+    }
+    if (result.kind === "lote-no-disponible") {
+      return NextResponse.json(
+        { error: "El lote está marcado como no disponible. Pasalo a disponible antes de reservarlo" },
+        { status: 409 }
       );
     }
     if (result.kind === "missing-lead") {

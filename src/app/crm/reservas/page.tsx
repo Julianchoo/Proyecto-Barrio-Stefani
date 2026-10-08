@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, FileText, Filter, List, Lock, Mail, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, Filter, List, Mail, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { BoletoDialog } from "@/components/crm/boleto-dialog";
-import { ReservaDialog } from "@/components/crm/reserva-dialog";
+import { CambiarEstadoReserva } from "@/components/crm/cambiar-estado-reserva";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,34 +42,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSession } from "@/lib/auth-client";
-import type { EstadoParcela, EstadoReserva, ModalidadContrato, ParcelaConReserva } from "@/lib/schema";
-
-type ReservaRow = Omit<ParcelaConReserva, "id" | "estado" | "createdAt" | "updatedAt"> & {
-  id: number;
-  parcelaId: number;
-  leadId: number | null;
-  estado: EstadoReserva;
-  nombreComprador: string | null;
-  dniCuit: string | null;
-  telefono: string | null;
-  emailComprador: string | null;
-  reservadoPor: string | null;
-  fechaReserva: string | null;
-  fechaVencimiento: string | null;
-  fechaFirma: string | null;
-  formaPago: string | null;
-  modalidadContrato: ModalidadContrato | null;
-  precioTotalNum: string | null;
-  observaciones: string | null;
-  cantidadCuotas: string | null;
-  cuotaMensual: string | null;
-  createdAt: string;
-  updatedAt: string;
-  loteNumero: number;
-  manzana: string | null;
-  parcela: string | null;
-  loteEstado: EstadoParcela;
-};
+import {
+  estadoColors,
+  estadoLabels,
+  formatDate,
+  formatPaymentMode,
+  isVigente,
+  normalizeDateKey,
+  sortByCreatedDesc,
+  type ReservaRow,
+} from "@/lib/reservas-ui";
+import type { EstadoReserva } from "@/lib/schema";
 
 type UsuarioRow = {
   id: string;
@@ -123,28 +105,6 @@ const defaultFilters: ReservaFilters = {
   fechaFirmaHasta: "",
 };
 
-const estadoLabels: Record<EstadoReserva, string> = {
-  activa: "Activa",
-  cancelada: "Cancelada",
-  vencida: "Vencida",
-  realizada: "Realizada",
-};
-
-const estadoColors: Record<EstadoReserva, string> = {
-  activa: "bg-green-100 text-green-700",
-  cancelada: "bg-gray-100 text-gray-700",
-  vencida: "bg-amber-100 text-amber-700",
-  realizada: "bg-blue-100 text-blue-700",
-};
-
-const modalidadContratoLabels: Record<ModalidadContrato, string> = {
-  usd_fijo: "Financiado USD",
-  pesos_cac: "Financiado CAC",
-  requiere_revision: "Requiere revision",
-};
-
-const financedPaymentValues = new Set(["cuotas", "financiado"]);
-
 const monthNames = [
   "enero",
   "febrero",
@@ -161,35 +121,6 @@ const monthNames = [
 ];
 
 const weekdayNames = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
-
-function formatDate(value: string | null) {
-  const dateKey = normalizeDateKey(value);
-  if (!dateKey) return "-";
-  const [year, month, day] = dateKey.split("-");
-  if (!year || !month || !day) return value;
-  return `${day}/${month}/${year}`;
-}
-
-function hasInstallments(reserva: Pick<ReservaRow, "cantidadCuotas" | "cuotaMensual">) {
-  return Boolean(reserva.cantidadCuotas?.trim() || reserva.cuotaMensual?.trim());
-}
-
-function formatPaymentMode(
-  reserva: Pick<ReservaRow, "formaPago" | "modalidadContrato" | "cantidadCuotas" | "cuotaMensual">
-) {
-  if (reserva.modalidadContrato) return modalidadContratoLabels[reserva.modalidadContrato];
-
-  const formaPago = reserva.formaPago?.trim().toLowerCase();
-  if (formaPago === "contado") return "Contado";
-  if (formaPago && formaPago !== "-" && financedPaymentValues.has(formaPago)) return "Requiere revision";
-  if (hasInstallments(reserva)) return "Requiere revision";
-  return "-";
-}
-function normalizeDateKey(value: string | null) {
-  if (!value) return null;
-  const datePart = value.slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
-}
 
 function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -308,7 +239,7 @@ export default function ReservasPage() {
 
   const events = useMemo(() => buildEvents(reservas), [reservas]);
   const sortedReservas = useMemo(() => {
-    if (!sort) return reservas;
+    if (!sort) return sortByCreatedDesc(reservas);
 
     return [...reservas].sort((a, b) => {
       let result = 0;
@@ -405,26 +336,16 @@ export default function ReservasPage() {
     setMonthKey(getMonthKey(next));
   }
 
-  async function handleEstadoChange(reserva: ReservaRow, estado: EstadoReserva) {
-    if (reserva.estado === estado) return;
-    if (session?.user?.role !== "admin" && estado === "realizada") {
-      toast.error("Solo un administrador puede marcar una reserva como realizada");
-      return;
-    }
-    if (session?.user?.role !== "admin" && reserva.estado === "realizada") {
-      toast.error("Solo un administrador puede editar una reserva realizada");
-      return;
-    }
-    if (!canEditReserva(reserva)) {
-      toast.error("Solo el comercial que tomo la reserva o un administrador puede modificarla");
+  async function handleComercialChange(reserva: ReservaRow, reservadoPor: string) {
+    if (reserva.reservadoPor === reservadoPor) return;
+    if (session?.user?.role !== "admin") {
+      toast.error("Solo un administrador puede reasignar reservas");
       return;
     }
     const esVendida = reserva.estado === "realizada" || reserva.loteEstado === "vendido";
     if (
       esVendida &&
-      !window.confirm(
-        "OJO! Estas por cambiar el estado de un lote o reserva ya vendido. Continuar?"
-      )
+      !window.confirm("OJO! Estas por cambiar el comercial de una reserva ya vendida. Continuar?")
     ) {
       return;
     }
@@ -434,51 +355,9 @@ export default function ReservasPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          estado,
+          reservadoPor,
           ...(esVendida ? { confirmarEdicionVendida: true } : {}),
         }),
-      });
-
-      if (res.ok) {
-        const data = (await res.json().catch(() => null)) as {
-          cuentaCorriente?: { status?: string; message?: string };
-        } | null;
-        if (data?.cuentaCorriente?.status === "ok") {
-          toast.success("Reserva actualizada. Cuenta corriente creada.");
-        } else if (data?.cuentaCorriente?.message) {
-          toast.warning(`Reserva actualizada. ${data.cuentaCorriente.message}.`);
-        } else {
-          toast.success("Reserva actualizada");
-        }
-        await fetchReservas();
-        return;
-      }
-
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (res.status === 409) {
-        toast.error(data?.error ?? "Este lote ya tiene una reserva vigente");
-      } else {
-        toast.error(data?.error ?? "No se pudo actualizar la reserva");
-      }
-    } catch {
-      toast.error("No se pudo actualizar la reserva");
-    } finally {
-      setUpdatingId(null);
-    }
-  }
-
-  async function handleComercialChange(reserva: ReservaRow, reservadoPor: string) {
-    if (reserva.reservadoPor === reservadoPor) return;
-    if (session?.user?.role !== "admin") {
-      toast.error("Solo un administrador puede reasignar reservas");
-      return;
-    }
-    setUpdatingId(reserva.id);
-    try {
-      const res = await fetch(`/api/crm/reservas/${reserva.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reservadoPor }),
       });
 
       if (res.ok) {
@@ -601,21 +480,6 @@ export default function ReservasPage() {
         <Icon className="ml-1 h-3.5 w-3.5" />
       </Button>
     );
-  }
-
-  function canEditReserva(reserva: ReservaRow) {
-    if (session?.user?.role === "admin") return true;
-    if (reserva.estado === "realizada") return false;
-    return reserva.reservadoPor === session?.user?.email;
-  }
-
-  function parcelaFromReserva(reserva: ReservaRow): ParcelaConReserva {
-    return {
-      ...reserva,
-      id: reserva.parcelaId,
-      estado: reserva.loteEstado,
-      reservaId: reserva.id,
-    } as unknown as ParcelaConReserva;
   }
 
   return (
@@ -948,12 +812,22 @@ export default function ReservasPage() {
                     </TableRow>
                   ))
                 : sortedReservas.map((reserva) => (
-                    <TableRow key={reserva.id}>
+                    <TableRow
+                      key={reserva.id}
+                      className={isVigente(reserva.estado) ? undefined : "opacity-60"}
+                    >
                       <TableCell className="font-mono text-sm">
-                        {reserva.loteNumero}
-                        <span className="ml-2 font-sans text-xs text-gray-500">
-                          Mz {reserva.manzana ?? "-"} / Parc. {reserva.parcela ?? "-"}
-                        </span>
+                        <Link
+                          href={`/crm/lotes/${reserva.parcelaId}`}
+                          className="hover:underline"
+                          title="Ver lote"
+                        >
+                          {reserva.loteNumero}
+                          <span className="ml-2 font-sans text-xs text-gray-500">
+                            Mz {reserva.manzana ?? "-"} / Parc. {reserva.parcela ?? "-"}
+                          </span>
+                        </Link>
+                        <div className="font-sans text-xs text-gray-400">Reserva #{reserva.id}</div>
                       </TableCell>
                       <TableCell>
                         <div className="font-medium text-gray-900">
@@ -964,37 +838,13 @@ export default function ReservasPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {canEditReserva(reserva) ? (
-                          <Select
-                            value={reserva.estado}
-                            onValueChange={(value) =>
-                              handleEstadoChange(reserva, value as EstadoReserva)
-                            }
-                            disabled={updatingId === reserva.id}
-                          >
-                            <SelectTrigger className="h-7 w-32 border-0 bg-transparent p-0 shadow-none focus:ring-0">
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
-                              >
-                                {estadoLabels[reserva.estado]}
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent position="popper">
-                              {(Object.keys(estadoLabels) as EstadoReserva[]).map((estado) => (
-                                <SelectItem key={estado} value={estado}>
-                                  {estadoLabels[estado]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        {session?.user?.role === "admin" ? (
+                          <CambiarEstadoReserva reserva={reserva} onChanged={fetchReservas} />
                         ) : (
-                          <span className="inline-flex items-center gap-1">
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
-                            >
-                              {estadoLabels[reserva.estado]}
-                            </span>
-                            <Lock className="h-3 w-3 text-amber-600" />
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
+                          >
+                            {estadoLabels[reserva.estado]}
                           </span>
                         )}
                       </TableCell>
@@ -1029,38 +879,8 @@ export default function ReservasPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <ReservaDialog
-                            parcelaId={reserva.parcelaId}
-                            disabled={!canEditReserva(reserva)}
-                            trigger={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={!canEditReserva(reserva)}
-                              >
-                                <FileText className="mr-1 h-4 w-4" />
-                                Reserva
-                              </Button>
-                            }
-                          />
-                          <BoletoDialog
-                            parcela={parcelaFromReserva(reserva)}
-                            disabled={!canEditReserva(reserva)}
-                            trigger={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={!canEditReserva(reserva)}
-                              >
-                                <FileText className="mr-1 h-4 w-4" />
-                                Boleto
-                              </Button>
-                            }
-                          />
                           <Button asChild variant="ghost" size="sm">
-                            <Link href={`/crm/lotes/${reserva.parcelaId}`}>Ver</Link>
+                            <Link href={`/crm/reservas/${reserva.id}`}>Ver</Link>
                           </Button>
                           {session?.user?.role === "admin" && (
                             <Button asChild variant="ghost" size="sm">
@@ -1115,7 +935,7 @@ export default function ReservasPage() {
                       {dayEvents.slice(0, 3).map((event) => (
                         <Link
                           key={event.key}
-                          href={`/crm/lotes/${event.reserva.parcelaId}`}
+                          href={`/crm/reservas/${event.reserva.id}`}
                           className={`block truncate rounded px-1.5 py-1 text-xs ${estadoColors[event.reserva.estado]}`}
                           title={event.label}
                         >

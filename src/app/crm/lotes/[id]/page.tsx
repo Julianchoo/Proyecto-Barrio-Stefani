@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,12 +52,17 @@ import {
   roundCurrency,
 } from "@/lib/financiacion";
 import { amountToSpanishWords } from "@/lib/number-words";
-import type { ParcelaConReserva } from "@/lib/schema";
-import { BoletoDialog } from "@/components/crm/boleto-dialog";
-import { ReservaDialog } from "@/components/crm/reserva-dialog";
+import {
+  estadoColors,
+  estadoLabels,
+  formatDate,
+  sortByCreatedDesc,
+  type ReservaRow,
+} from "@/lib/reservas-ui";
+import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
+import { CambiarEstadoReserva } from "@/components/crm/cambiar-estado-reserva";
 
 const schema = z.object({
-  estado: z.enum(["disponible", "no_disponible", "reservado", "vendido"]),
   leadId: z.number().nullable().optional(),
   nombreComprador: z.string().nullable().optional(),
   dniCuit: z.string().nullable().optional(),
@@ -276,6 +282,13 @@ function formatCalculated(value: number | null, decimals = 0) {
   return String(decimals > 0 ? Number(value.toFixed(decimals)) : Math.round(value));
 }
 
+const loteEstadoLabels: Record<EstadoParcela, string> = {
+  disponible: "Disponible",
+  no_disponible: "No disponible",
+  reservado: "Reservado",
+  vendido: "Vendido",
+};
+
 const DEFAULT_ANTICIPO_PCT = 30;
 const DEFAULT_TASA_MENSUAL = 1;
 
@@ -337,6 +350,7 @@ export default function LoteDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [leadSearch, setLeadSearch] = useState("");
   const [leadResults, setLeadResults] = useState<LeadOption[]>([]);
+  const [historial, setHistorial] = useState<ReservaRow[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -377,6 +391,12 @@ export default function LoteDetailPage() {
   }, [form, precioBase, superficieM2]);
 
   async function fetchLote() {
+    fetch("/api/crm/reservas")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: ReservaRow[]) =>
+        setHistorial(sortByCreatedDesc(rows.filter((row) => row.parcelaId === Number(id))))
+      )
+      .catch(() => setHistorial([]));
     const r = await fetch(`/api/crm/parcelas/${id}`);
     const data: ParcelaConReserva = await r.json();
     setLote(data);
@@ -394,7 +414,6 @@ export default function LoteDetailPage() {
       plazo: parseNumber(data.cantidadCuotas) ?? (data.cuotas48 ? 48 : 48),
     });
     form.reset({
-      estado: data.estado,
       leadId: data.leadId ?? null,
       nombreComprador: data.nombreComprador ?? "",
       dniCuit: data.dniCuit ?? "",
@@ -549,7 +568,6 @@ export default function LoteDetailPage() {
     const useCuotaEntrega = calculatorResult.cuotaEntrega > 0;
 
     const nextValues: Partial<FormValues> = {
-      estado: "reservado",
       formaPago: paymentFields.formaPago,
       modalidadContrato: paymentFields.modalidadContrato,
       precioTotalNum,
@@ -572,7 +590,6 @@ export default function LoteDetailPage() {
     setEntregaCuota(useCuotaEntrega);
 
     const payload = {
-      ...(isSoldRecord ? {} : { estado: "reservado" }),
       leadId,
       formaPago: paymentFields.formaPago,
       modalidadContrato: paymentFields.modalidadContrato,
@@ -613,16 +630,26 @@ export default function LoteDetailPage() {
   }
 
   async function onSubmit(values: FormValues) {
-    const isReserving = values.estado === "reservado";
-    if (isReserving && !values.leadId && !lote?.reservaId) {
+    // El estado del lote no se elige aca: guardar datos de reserva en un lote sin reserva
+    // la crea (lote -> reservado); el resto de los estados sale de la reserva.
+    const hasReservaInput =
+      entregaCuota ||
+      Object.entries(values).some(
+        ([key, value]) =>
+          !["numeroCuotaEntrega", ...LOTE_PARAM_FIELDS].includes(key) &&
+          value !== null &&
+          value !== undefined &&
+          value !== ""
+      );
+    if (hasReservaInput && !values.leadId && !lote?.reservaId) {
       toast.error("Seleccioná un lead antes de reservar el lote");
       return;
     }
-    if (isReserving && tipoPago === "sin_dato") {
+    if (hasReservaInput && tipoPago === "sin_dato") {
       toast.error("Elegi tipo de pago");
       return;
     }
-    if (isReserving && tipoPago === "financiado" && modalidadContrato === "requiere_revision") {
+    if (hasReservaInput && tipoPago === "financiado" && modalidadContrato === "requiere_revision") {
       toast.error("Elegí USD fijo o Pesos + CAC");
       return;
     }
@@ -640,37 +667,7 @@ export default function LoteDetailPage() {
     payload.formaPago = paymentFields.formaPago;
     payload.modalidadContrato = paymentFields.modalidadContrato;
     Object.assign(payload, soldEditConfirmationPayload);
-    const hasReservaInput =
-      values.estado === "reservado" ||
-      entregaCuota ||
-      Object.entries(values).some(
-        ([key, value]) =>
-          ![
-            "estado",
-            "numeroCuotaEntrega",
-            ...LOTE_PARAM_FIELDS,
-          ].includes(key) &&
-          value !== null &&
-          value !== undefined &&
-          value !== ""
-      );
-    const explicitNonReservedStateChange =
-      lote !== null && values.estado !== lote.estado && values.estado !== "reservado";
-    if (
-      hasReservaInput &&
-      !explicitNonReservedStateChange &&
-      tipoPago === "financiado" &&
-      modalidadContrato === "requiere_revision"
-    ) {
-      toast.error("Elegí USD fijo o Pesos + CAC");
-      return;
-    }
-    if (hasReservaInput && !explicitNonReservedStateChange) {
-      if (isSoldRecord) {
-        delete payload.estado;
-      } else {
-        payload.estado = "reservado";
-      }
+    if (hasReservaInput) {
       payload.tipoEntrega = entregaCuota ? "cuota" : "saldo";
       payload.mesEntrega = entregaCuota ? (values.numeroCuotaEntrega || null) : null;
       payload.anioEntrega = null;
@@ -686,22 +683,6 @@ export default function LoteDetailPage() {
     } else {
       const error = await res.json().catch(() => null);
       toast.error(error?.error ?? "Error al guardar");
-    }
-  }
-
-  async function handleCancelReserva() {
-    if (!lote?.reservaId) return;
-    const res = await fetch(`/api/crm/reservas/${lote.reservaId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado: "cancelada" }),
-    });
-    if (res.ok) {
-      toast.success("Reserva cancelada. El lote quedó disponible.");
-      await fetchLote();
-    } else {
-      const error = await res.json().catch(() => null);
-      toast.error(error?.error ?? "No se pudo cancelar la reserva");
     }
   }
 
@@ -882,16 +863,6 @@ export default function LoteDetailPage() {
     ["Estado civil", leadValue("estadoCivil")],
     ["CUIT comprador", leadValue("cuitComprador")],
   ];
-  const coCompradorDefaults = {
-    nombreCoComprador: form.watch("nombreCoComprador") ?? "",
-    dniCoComprador: form.watch("dniCoComprador") ?? "",
-    nacionalidadCoComprador: form.watch("nacionalidadCoComprador") ?? "",
-    fechaNacimientoCoComprador: form.watch("fechaNacimientoCoComprador") ?? "",
-    domicilioCoComprador: form.watch("domicilioCoComprador") ?? "",
-    cuitCoComprador: form.watch("cuitCoComprador") ?? "",
-    estadoCivilCoComprador: form.watch("estadoCivilCoComprador") ?? "",
-    porcentajeCoComprador: form.watch("porcentajeCoComprador") ?? "",
-  };
   const readonlyPrecioBase = parseNumber(lote.precioBase);
   const readonlyAnticipoUsd =
     readonlyPrecioBase !== null ? Math.round(readonlyPrecioBase * (DEFAULT_ANTICIPO_PCT / 100)) : null;
@@ -919,7 +890,9 @@ export default function LoteDetailPage() {
             Lote N° {lote.numero}
           </h1>
           <p className="text-sm text-gray-500">
-            Manzana {lote.manzana} · Parcela {lote.parcela}
+            Manzana {lote.manzana} · Parcela {lote.parcela} · Estado:{" "}
+            <span className="font-medium text-gray-900">{loteEstadoLabels[lote.estado]}</span>
+            {lote.reservaId ? ` (por la reserva #${lote.reservaId})` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -949,35 +922,24 @@ export default function LoteDetailPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {lote.reservaEstado === "activa" && session?.user?.role === "admin" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  Cancelar reserva
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Cancelar la reserva de {lote.nombreComprador ?? "este lote"}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    La reserva queda registrada como cancelada y el lote vuelve a estar disponible.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Volver</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleCancelReserva}>
-                    Cancelar reserva
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+          {lote.reservaId && lote.reservaEstado === "activa" && session?.user?.role === "admin" && (
+            <CambiarEstadoReserva
+              reserva={{
+                id: lote.reservaId,
+                estado: lote.reservaEstado,
+                loteNumero: lote.numero,
+                nombreComprador: lote.nombreComprador ?? null,
+              }}
+              onChanged={fetchLote}
+              fixedTarget="cancelada"
+              label="Cancelar reserva"
+            />
           )}
-          <ReservaDialog parcela={lote} disabled={isLocked} />
-          <BoletoDialog
-            parcela={lote}
-            disabled={isLocked}
-            coCompradorDefaults={coCompradorDefaults}
-          />
+          {lote.reservaId && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/crm/reservas/${lote.reservaId}`}>Ver reserva actual</Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1209,7 +1171,23 @@ export default function LoteDetailPage() {
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Datos de reserva</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              {lote.reservaId && lote.reservaEstado ? (
+                <>
+                  Reserva actual ·{" "}
+                  <Link href={`/crm/reservas/${lote.reservaId}`} className="hover:underline">
+                    #{lote.reservaId}
+                  </Link>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[lote.reservaEstado]}`}
+                  >
+                    {estadoLabels[lote.reservaEstado]}
+                  </span>
+                </>
+              ) : (
+                "Sin reserva activa"
+              )}
+            </CardTitle>
             <div>
               <input
                 ref={fileInputRef}
@@ -1291,34 +1269,6 @@ export default function LoteDetailPage() {
               )}
               className="space-y-5"
             >
-              {/* Status */}
-              <FormField
-                control={form.control}
-                name="estado"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="disponible">Disponible</SelectItem>
-                        <SelectItem value="no_disponible">No disponible</SelectItem>
-                        <SelectItem value="reservado">Reservado</SelectItem>
-                        <SelectItem value="vendido">Vendido</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
                   { name: "nombreCorredor" as const, label: "Nombre corredor" },
@@ -1572,6 +1522,40 @@ export default function LoteDetailPage() {
             </form>
             </fieldset>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Historial de reservas del lote</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {historial.length === 0 ? (
+            <p className="text-sm text-gray-500">Este lote no tiene reservas registradas.</p>
+          ) : (
+            <div className="divide-y rounded-md border text-sm">
+              {historial.map((reserva) => (
+                <Link
+                  key={reserva.id}
+                  href={`/crm/reservas/${reserva.id}`}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 hover:bg-gray-50"
+                >
+                  <span className="w-14 font-mono text-gray-500">#{reserva.id}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
+                  >
+                    {estadoLabels[reserva.estado]}
+                  </span>
+                  <span className="flex-1 font-medium text-gray-900">
+                    {reserva.nombreComprador ?? "Sin comprador"}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Reserva {formatDate(reserva.fechaReserva)} · Creada {formatDate(reserva.reservaCreatedAt)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
         </div>
