@@ -9,6 +9,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Map as MapIcon,
   MapPin,
   Menu,
   TreePine,
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 const baseNavItems = [
   { href: "/crm", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/crm/lotes", icon: MapPin, label: "Lotes" },
+  { href: "/crm/mapa", icon: MapIcon, label: "Mapa" },
   { href: "/crm/reservas", icon: CalendarDays, label: "Reservas" },
   { href: "/crm/leads", icon: Users, label: "Leads" },
 ];
