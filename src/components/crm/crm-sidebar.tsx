@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   CreditCard,
-  History,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -36,7 +35,6 @@ function NavLinks({ role, onClose }: { role?: string; onClose?: () => void }) {
         ...baseNavItems,
         { href: "/crm/cuotas", icon: CreditCard, label: "Cuotas" },
         { href: "/crm/usuarios", icon: UserCog, label: "Usuarios" },
-        { href: "/crm/auditoria", icon: History, label: "Auditoría" },
       ]
     : baseNavItems;
 
