@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import type { Feature, FeatureCollection, MultiPolygon } from "geojson";
-import type { GeoJSON as GeoJSONLayer, Map as LeafletMap } from "leaflet";
+import type { GeoJSON as GeoJSONLayer, LatLngBounds, Map as LeafletMap, Path } from "leaflet";
 
 type ArbaProps = { cca: string; pda: string };
 type ArbaCollection = FeatureCollection<MultiPolygon, ArbaProps>;
@@ -75,6 +75,7 @@ function popupHtml(lote: ParcelaConReserva) {
 export function MapaLotes() {
   const mapRef = useRef<LeafletMap | null>(null);
   const lotesLayerRef = useRef<GeoJSONLayer | null>(null);
+  const limpiarRef = useRef<(() => void) | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [geometria, setGeometria] = useState<ArbaCollection | null>(null);
   const [lotes, setLotes] = useState<ParcelaConReserva[] | null>(null);
@@ -185,7 +186,7 @@ export function MapaLotes() {
     import("leaflet").then((L) => {
       const map = mapRef.current;
       if (cancelled || !map) return;
-      lotesLayerRef.current?.remove();
+      limpiarRef.current?.();
 
       const features = geometria.features.filter((f: Feature<MultiPolygon, ArbaProps>) => {
         const lote = lotePorCca.get(f.properties.cca);
@@ -193,13 +194,14 @@ export function MapaLotes() {
         return lote ? visibles.has(estadoDe(lote)) : true;
       });
 
-      lotesLayerRef.current = L.geoJSON(
+      const etiquetas = L.layerGroup();
+      const capa = L.geoJSON(
         { type: "FeatureCollection", features } as ArbaCollection,
         {
           style: (f) => {
             const lote = f && lotePorCca.get((f.properties as ArbaProps).cca);
             if (!lote) return { color: "#ffffff", weight: 1, dashArray: "3", fillOpacity: 0 };
-            return { color: "#ffffff", weight: 1, fillColor: ESTADO_STYLE[estadoDe(lote)].color, fillOpacity: opacidad };
+            return { color: "#ffffff", weight: 1.5, fillColor: ESTADO_STYLE[estadoDe(lote)].color, fillOpacity: opacidad };
           },
           onEachFeature: (f, layer) => {
             const lote = lotePorCca.get((f.properties as ArbaProps).cca);
@@ -207,11 +209,57 @@ export function MapaLotes() {
               layer.bindTooltip("Parcela de ARBA que no está en el sistema", { sticky: true });
               return;
             }
+            const path = layer as Path & { getBounds(): LatLngBounds };
             layer.bindTooltip(`Mz ${lote.manzana} · Lote ${lote.parcela}`, { sticky: true });
             layer.bindPopup(popupHtml(lote));
+
+            // Resalta el contorno real del lote al pasar el mouse y mientras está abierto.
+            let abierto = false;
+            const resaltar = () => {
+              path.setStyle({ color: "#facc15", weight: 4, fillOpacity: Math.min(1, opacidad + 0.25) });
+              path.bringToFront();
+            };
+            const restaurar = () => capa.resetStyle(path);
+            layer.on("mouseover", resaltar);
+            layer.on("mouseout", () => !abierto && restaurar());
+            layer.on("popupopen", () => {
+              abierto = true;
+              resaltar();
+            });
+            layer.on("popupclose", () => {
+              abierto = false;
+              restaurar();
+            });
+
+            etiquetas.addLayer(
+              L.marker(path.getBounds().getCenter(), {
+                interactive: false,
+                icon: L.divIcon({
+                  className: "",
+                  html: `<span style="font:600 11px/1 system-ui;color:#fff;text-shadow:0 0 3px #000,0 0 2px #000">${escapeHtml(lote.parcela ?? "")}</span>`,
+                  iconSize: [24, 12],
+                  iconAnchor: [12, 6],
+                }),
+              })
+            );
           },
         }
       ).addTo(map);
+
+      // Los números de lote solo se ven de cerca, para no tapar el plano.
+      const actualizarEtiquetas = () => {
+        if (map.getZoom() >= 19) etiquetas.addTo(map);
+        else etiquetas.remove();
+      };
+      actualizarEtiquetas();
+      map.on("zoomend", actualizarEtiquetas);
+
+      lotesLayerRef.current?.remove();
+      lotesLayerRef.current = capa;
+      limpiarRef.current = () => {
+        map.off("zoomend", actualizarEtiquetas);
+        etiquetas.remove();
+      };
     });
 
     return () => {
@@ -275,7 +323,7 @@ export function MapaLotes() {
       ) : (
         <div className="relative h-[calc(100vh-14rem)] min-h-[420px] overflow-hidden rounded-lg border">
           {!geometria && <Skeleton className="absolute inset-0" />}
-          <div ref={containerRef} className="h-full w-full" />
+          <div ref={containerRef} className="h-full w-full [&_.leaflet-interactive:focus]:outline-none" />
         </div>
       )}
     </div>
