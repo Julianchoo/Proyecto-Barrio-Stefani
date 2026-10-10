@@ -111,7 +111,9 @@ export function MapaLotes() {
     const porPartida = new Map<string, ParcelaConReserva>();
     const porNomenclatura = new Map<string, ParcelaConReserva>();
     for (const lote of lotes) {
-      if (lote.partidaArba) porPartida.set(`074${lote.partidaArba.trim()}`, lote);
+      // ARBA guarda la partida con 6 dígitos: 95595 -> "074095595".
+      const partida = lote.partidaArba?.replace(/\D/g, "");
+      if (partida) porPartida.set(`074${partida.padStart(6, "0")}`, lote);
       if (lote.manzana && lote.parcela) {
         porNomenclatura.set(nomenclatura(lote.manzana, lote.parcela), lote);
       }
