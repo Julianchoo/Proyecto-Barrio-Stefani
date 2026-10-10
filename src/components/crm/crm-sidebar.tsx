@@ -6,10 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   CreditCard,
-  History,
   LayoutDashboard,
   LogOut,
-  Map as MapIcon,
   MapPin,
   Menu,
   TreePine,
@@ -26,7 +24,6 @@ import { cn } from "@/lib/utils";
 const baseNavItems = [
   { href: "/crm", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/crm/lotes", icon: MapPin, label: "Lotes" },
-  { href: "/crm/mapa", icon: MapIcon, label: "Mapa" },
   { href: "/crm/reservas", icon: CalendarDays, label: "Reservas" },
   { href: "/crm/leads", icon: Users, label: "Leads" },
 ];
@@ -38,7 +35,6 @@ function NavLinks({ role, onClose }: { role?: string; onClose?: () => void }) {
         ...baseNavItems,
         { href: "/crm/cuotas", icon: CreditCard, label: "Cuotas" },
         { href: "/crm/usuarios", icon: UserCog, label: "Usuarios" },
-        { href: "/crm/auditoria", icon: History, label: "Auditoría" },
       ]
     : baseNavItems;
 

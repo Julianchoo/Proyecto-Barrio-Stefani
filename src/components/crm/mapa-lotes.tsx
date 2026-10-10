@@ -31,16 +31,20 @@ function escapeHtml(value: string) {
 
 function popupHtml(lote: ParcelaConReserva) {
   const estado = estadoDe(lote);
+  const num = (value: string | null) => (value ? Number(value).toLocaleString("es-AR") : null);
+  const medidas =
+    lote.metrosFrente && lote.metrosFondo ? `${num(lote.metrosFrente)} × ${num(lote.metrosFondo)} m` : null;
   const rows = [
     ["Estado", ESTADO_STYLE[estado].label],
-    ["Superficie", lote.superficieM2 ? `${Number(lote.superficieM2).toLocaleString("es-AR")} m²` : null],
-    ["Precio", lote.precioEtapa1 ? `USD ${Number(lote.precioEtapa1).toLocaleString("es-AR")}` : null],
-    ["Comprador", lote.nombreComprador],
+    ["Superficie", lote.superficieM2 ? `${num(lote.superficieM2)} m²` : null],
+    ["Medidas", medidas],
+    ["Precio", estado === "disponible" && lote.precioEtapa1 ? `USD ${num(lote.precioEtapa1)}` : null],
+    ["Nomenclatura", `Circ. V · Secc. F · Mz ${lote.manzana ?? ""} · Parc. ${lote.parcela ?? ""}`],
     ["Partida ARBA", lote.partidaArba],
   ].filter((row): row is [string, string] => !!row[1]);
 
   return `
-    <div style="min-width:180px">
+    <div style="min-width:200px">
       <strong>Manzana ${escapeHtml(lote.manzana ?? "")} · Lote ${escapeHtml(lote.parcela ?? "")}</strong>
       <table style="margin-top:6px">
         ${rows
@@ -51,7 +55,7 @@ function popupHtml(lote: ParcelaConReserva) {
     </div>`;
 }
 
-export default function MapaPage() {
+export function MapaLotes() {
   const mapRef = useRef<LeafletMap | null>(null);
   const lotesLayerRef = useRef<GeoJSONLayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -153,7 +157,8 @@ export default function MapaPage() {
 
       const features = geometria.features.filter((f: Feature<MultiPolygon, ArbaProps>) => {
         const lote = lotePorPartida.get(f.properties.pda);
-        return lote ? visibles.has(estadoDe(lote)) : false;
+        // Parcelas de ARBA que no están en el sistema se dibujan solo con borde.
+        return lote ? visibles.has(estadoDe(lote)) : true;
       });
 
       lotesLayerRef.current = L.geoJSON(
@@ -161,12 +166,15 @@ export default function MapaPage() {
         {
           style: (f) => {
             const lote = f && lotePorPartida.get((f.properties as ArbaProps).pda);
-            const color = lote ? ESTADO_STYLE[estadoDe(lote)].color : "#94a3b8";
-            return { color: "#ffffff", weight: 1, fillColor: color, fillOpacity: opacidad };
+            if (!lote) return { color: "#ffffff", weight: 1, dashArray: "3", fillOpacity: 0 };
+            return { color: "#ffffff", weight: 1, fillColor: ESTADO_STYLE[estadoDe(lote)].color, fillOpacity: opacidad };
           },
           onEachFeature: (f, layer) => {
             const lote = lotePorPartida.get((f.properties as ArbaProps).pda);
-            if (!lote) return;
+            if (!lote) {
+              layer.bindTooltip("Parcela de ARBA que no está en el sistema", { sticky: true });
+              return;
+            }
             layer.bindTooltip(`Mz ${lote.manzana} · Lote ${lote.parcela}`, { sticky: true });
             layer.bindPopup(popupHtml(lote));
           },
@@ -189,13 +197,10 @@ export default function MapaPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Mapa del loteo</h1>
-          <p className="text-sm text-muted-foreground">
-            Plano catastral de ARBA sobre foto satelital, con el estado de cada lote según el sistema.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          Plano catastral de ARBA sobre foto satelital. Tocá un lote para ver sus datos.
+        </p>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Opacidad del plano
           <input

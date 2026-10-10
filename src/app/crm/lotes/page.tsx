@@ -28,7 +28,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, Lock, Pencil } from "lucide-react";
+import { MapaLotes } from "@/components/crm/mapa-lotes";
 import { useSession } from "@/lib/auth-client";
 import {
   ANTICIPO_STEP_USD,
@@ -610,6 +612,17 @@ export default function LotesPage() {
         </p>
       </div>
 
+      <Tabs defaultValue="listado">
+        <TabsList>
+          <TabsTrigger value="listado">Listado</TabsTrigger>
+          <TabsTrigger value="mapa">Mapa</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mapa">
+          <MapaLotes />
+        </TabsContent>
+
+        <TabsContent value="listado" className="space-y-5">
       <div className="rounded-lg border bg-card p-4 space-y-4">
         <div>
           <h2 className="text-base font-semibold text-foreground">
@@ -1077,6 +1090,8 @@ export default function LotesPage() {
           </Button>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
