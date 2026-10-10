@@ -49,8 +49,8 @@ function popupHtml(lote: ParcelaConReserva) {
   const num = (value: string | null) => (value ? Number(value).toLocaleString("es-AR") : null);
   const medidas =
     lote.metrosFrente && lote.metrosFondo ? `${num(lote.metrosFrente)} × ${num(lote.metrosFondo)} m` : null;
-  // Mismo criterio que el resto del sistema: precio base y, si no hay, el de etapa 1.
-  const precioLista = lote.precioBase ?? lote.precioEtapa1;
+  // Solo el precio de lista (precio base); sin él, el lote no muestra precio.
+  const precioLista = lote.precioBase;
   const rows = [
     ["Estado", ESTADO_STYLE[estado].label],
     ["Superficie", lote.superficieM2 ? `${num(lote.superficieM2)} m²` : null],
