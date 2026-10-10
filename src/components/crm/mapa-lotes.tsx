@@ -25,6 +25,21 @@ const ESTADOS = Object.keys(ESTADO_STYLE) as EstadoParcela[];
 const estadoDe = (lote: ParcelaConReserva): EstadoParcela =>
   lote.reservaEstado === "realizada" ? "vendido" : lote.estado;
 
+// "156", "2A" -> "156-2A". Normaliza ceros y mayúsculas para comparar con ARBA.
+function nomenclatura(manzana: string, parcela: string) {
+  const p = parcela.trim().toUpperCase().replace(/\s+/g, "");
+  const match = p.match(/^0*(\d+)([A-Z]*)$/);
+  return `${Number(manzana)}-${match ? `${match[1]}${match[2]}` : p}`;
+}
+
+// cca de ARBA: "074050F" + manzana (25 dígitos) + "000" + parcela (4 dígitos) + letra (3, con ceros).
+function nomenclaturaDeCca(cca: string) {
+  const manzana = cca.slice(7, 32);
+  const parcela = Number(cca.slice(35, 39));
+  const letra = cca.slice(39).replace(/^0+/, "");
+  return nomenclatura(manzana, `${parcela}${letra}`);
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
@@ -34,11 +49,13 @@ function popupHtml(lote: ParcelaConReserva) {
   const num = (value: string | null) => (value ? Number(value).toLocaleString("es-AR") : null);
   const medidas =
     lote.metrosFrente && lote.metrosFondo ? `${num(lote.metrosFrente)} × ${num(lote.metrosFondo)} m` : null;
+  // Mismo criterio que el resto del sistema: precio base y, si no hay, el de etapa 1.
+  const precioLista = lote.precioBase ?? lote.precioEtapa1;
   const rows = [
     ["Estado", ESTADO_STYLE[estado].label],
     ["Superficie", lote.superficieM2 ? `${num(lote.superficieM2)} m²` : null],
     ["Medidas", medidas],
-    ["Precio", estado === "disponible" && lote.precioBase ? `USD ${num(lote.precioBase)}` : null],
+    ["Precio", estado === "disponible" && precioLista ? `USD ${num(precioLista)}` : null],
     ["Nomenclatura", `Circ. V · Secc. F · Mz ${lote.manzana ?? ""} · Parc. ${lote.parcela ?? ""}`],
     ["Partida ARBA", lote.partidaArba],
   ].filter((row): row is [string, string] => !!row[1]);
@@ -85,14 +102,31 @@ export function MapaLotes() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
-  // ARBA identifica cada lote por partida: "074" (Moreno) + partida ARBA del sistema.
-  const lotePorPartida = useMemo(() => {
+  // Cruza cada parcela de ARBA con un lote del sistema: primero por partida
+  // ("074" de Moreno + partida ARBA), y si no, por manzana y parcela del código catastral.
+  const lotePorCca = useMemo(() => {
     const map = new Map<string, ParcelaConReserva>();
-    for (const lote of lotes ?? []) {
-      if (lote.partidaArba) map.set(`074${lote.partidaArba.trim()}`, lote);
+    if (!geometria || !lotes) return map;
+
+    const porPartida = new Map<string, ParcelaConReserva>();
+    const porNomenclatura = new Map<string, ParcelaConReserva>();
+    for (const lote of lotes) {
+      if (lote.partidaArba) porPartida.set(`074${lote.partidaArba.trim()}`, lote);
+      if (lote.manzana && lote.parcela) {
+        porNomenclatura.set(nomenclatura(lote.manzana, lote.parcela), lote);
+      }
     }
+
+    const usados = new Set<number>();
+    const asignar = (cca: string, lote: ParcelaConReserva | undefined) => {
+      if (!lote || usados.has(lote.id) || map.has(cca)) return;
+      map.set(cca, lote);
+      usados.add(lote.id);
+    };
+    for (const f of geometria.features) asignar(f.properties.cca, porPartida.get(f.properties.pda));
+    for (const f of geometria.features) asignar(f.properties.cca, porNomenclatura.get(nomenclaturaDeCca(f.properties.cca)));
     return map;
-  }, [lotes]);
+  }, [geometria, lotes]);
 
   const conteo = useMemo(() => {
     const counts = Object.fromEntries(ESTADOS.map((e) => [e, 0])) as Record<EstadoParcela, number>;
@@ -100,11 +134,7 @@ export function MapaLotes() {
     return counts;
   }, [lotes]);
 
-  const sinGeometria = useMemo(() => {
-    if (!geometria || !lotes) return 0;
-    const conGeo = new Set(geometria.features.map((f) => f.properties.pda));
-    return lotes.filter((l) => !l.partidaArba || !conGeo.has(`074${l.partidaArba.trim()}`)).length;
-  }, [geometria, lotes]);
+  const sinGeometria = lotes && geometria ? lotes.length - lotePorCca.size : 0;
 
   // Crea el mapa una sola vez (Leaflet solo corre en el navegador).
   useEffect(() => {
@@ -156,7 +186,7 @@ export function MapaLotes() {
       lotesLayerRef.current?.remove();
 
       const features = geometria.features.filter((f: Feature<MultiPolygon, ArbaProps>) => {
-        const lote = lotePorPartida.get(f.properties.pda);
+        const lote = lotePorCca.get(f.properties.cca);
         // Parcelas de ARBA que no están en el sistema se dibujan solo con borde.
         return lote ? visibles.has(estadoDe(lote)) : true;
       });
@@ -165,12 +195,12 @@ export function MapaLotes() {
         { type: "FeatureCollection", features } as ArbaCollection,
         {
           style: (f) => {
-            const lote = f && lotePorPartida.get((f.properties as ArbaProps).pda);
+            const lote = f && lotePorCca.get((f.properties as ArbaProps).cca);
             if (!lote) return { color: "#ffffff", weight: 1, dashArray: "3", fillOpacity: 0 };
             return { color: "#ffffff", weight: 1, fillColor: ESTADO_STYLE[estadoDe(lote)].color, fillOpacity: opacidad };
           },
           onEachFeature: (f, layer) => {
-            const lote = lotePorPartida.get((f.properties as ArbaProps).pda);
+            const lote = lotePorCca.get((f.properties as ArbaProps).cca);
             if (!lote) {
               layer.bindTooltip("Parcela de ARBA que no está en el sistema", { sticky: true });
               return;
@@ -185,7 +215,7 @@ export function MapaLotes() {
     return () => {
       cancelled = true;
     };
-  }, [mapaListo, geometria, lotes, lotePorPartida, visibles, opacidad]);
+  }, [mapaListo, geometria, lotes, lotePorCca, visibles, opacidad]);
 
   const toggle = (estado: EstadoParcela) =>
     setVisibles((prev) => {
@@ -233,7 +263,7 @@ export function MapaLotes() {
         ))}
         {sinGeometria > 0 && (
           <span className="self-center text-xs text-muted-foreground">
-            {sinGeometria} lotes del sistema no se encontraron en ARBA por partida.
+            {sinGeometria} lotes del sistema no se encontraron en ARBA.
           </span>
         )}
       </div>
