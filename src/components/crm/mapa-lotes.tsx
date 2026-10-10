@@ -38,7 +38,7 @@ function popupHtml(lote: ParcelaConReserva) {
     ["Estado", ESTADO_STYLE[estado].label],
     ["Superficie", lote.superficieM2 ? `${num(lote.superficieM2)} m²` : null],
     ["Medidas", medidas],
-    ["Precio", estado === "disponible" && lote.precioEtapa1 ? `USD ${num(lote.precioEtapa1)}` : null],
+    ["Precio", estado === "disponible" && lote.precioBase ? `USD ${num(lote.precioBase)}` : null],
     ["Nomenclatura", `Circ. V · Secc. F · Mz ${lote.manzana ?? ""} · Parc. ${lote.parcela ?? ""}`],
     ["Partida ARBA", lote.partidaArba],
   ].filter((row): row is [string, string] => !!row[1]);
