@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { leads, user } from "@/lib/schema";
+import { leads, parcelas, user } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoLead } from "@/lib/schema";
@@ -44,6 +44,10 @@ export async function GET(request: Request) {
     estadoCivil: leads.estadoCivil,
     cuitComprador: leads.cuitComprador,
     asignadoNombre: user.name,
+    parcelaId: leads.parcelaId,
+    loteManzana: parcelas.manzana,
+    loteParcela: parcelas.parcela,
+    simulacion: leads.simulacion,
     createdAt: leads.createdAt,
     updatedAt: leads.updatedAt,
   };
@@ -56,6 +60,7 @@ export async function GET(request: Request) {
     .select(selectedFields)
     .from(leads)
     .leftJoin(user, eq(leads.asignadoA, user.id))
+    .leftJoin(parcelas, eq(leads.parcelaId, parcelas.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(leads.createdAt);
 

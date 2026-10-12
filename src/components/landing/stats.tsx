@@ -1,11 +1,24 @@
-const stats = [
-  { value: "10", unit: "ha", label: "Superficie total" },
-  { value: "360+", unit: "", label: "Lotes disponibles" },
-  { value: "210 a 399", unit: "m²", label: "Tamaños de lote" },
-  { value: "60", unit: " cuotas", label: "Financiación máxima" },
-];
+import { formatUsd } from "@/lib/financiacion";
 
-export function Stats() {
+// Sin datos (p. ej. build sin base) cae a los valores generales del barrio.
+export function Stats({
+  disponibles,
+  precioDesde,
+}: {
+  disponibles: number | null;
+  precioDesde: number | null;
+}) {
+  const stats = [
+    disponibles
+      ? { value: String(disponibles), unit: "", label: "Lotes disponibles hoy" }
+      : { value: "10", unit: "ha", label: "Superficie total" },
+    { value: "200 a 400", unit: "m²", label: "Tamaños de lote" },
+    precioDesde
+      ? { value: formatUsd(precioDesde).replace("USD ", ""), unit: " USD", label: "Precio desde" }
+      : { value: "19", unit: "%", label: "Anticipo mínimo" },
+    { value: "60", unit: " cuotas", label: "Financiación máxima" },
+  ];
+
   return (
     <section id="proyecto" className="py-16 px-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #1a1008 0%, #3d1a10 40%, #7a2018 100%)" }}>
       {/* Subtle noise texture */}

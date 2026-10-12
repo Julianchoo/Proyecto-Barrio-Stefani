@@ -16,7 +16,7 @@ const features = [
   "Calles con sub-base compactada y terminación en piedra partida",
   "Sistema de efluentes mediante biodigestores individuales",
   "14.130 m² de calles internas con diseño urbano moderno",
-  "Entrega proyectada para fines de 2026",
+  "Lotes residenciales y comerciales, con escritura",
 ];
 
 const metrics = [
@@ -26,6 +26,27 @@ const metrics = [
 ];
 
 const galleryImages = [
+  {
+    id: "aerea_2026_3",
+    src: "/aerea_2026_3.jpeg",
+    label: "Boulevard central",
+    description: "Trazado del boulevard y calles internas",
+    tag: "Oct 2026",
+  },
+  {
+    id: "aerea_2026_2",
+    src: "/aerea_2026_2.jpeg",
+    label: "Lotes trazados",
+    description: "Manzanas abiertas junto a la Ruta 24",
+    tag: "Oct 2026",
+  },
+  {
+    id: "aerea_2026_1",
+    src: "/aerea_2026_1.jpeg",
+    label: "Entorno y accesos",
+    description: "Calles de acceso y el tanque Stefani",
+    tag: "Oct 2026",
+  },
   {
     id: "foto_obra3",
     src: "/foto_obra3.jpeg",
@@ -118,6 +139,13 @@ export function Features() {
                         sizes="(max-width: 768px) 100vw, 50vw"
                         priority={index === 0}
                       />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-3 pt-10">
+                        <span className="font-body text-[10px] uppercase tracking-[0.2em] text-white/70">
+                          {image.tag}
+                        </span>
+                        <p className="font-body text-sm font-medium text-white">{image.label}</p>
+                        <p className="font-body text-xs text-white/70">{image.description}</p>
+                      </div>
                     </div>
                   </CarouselItem>
                 ))}

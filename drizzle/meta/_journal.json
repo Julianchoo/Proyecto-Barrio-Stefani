@@ -162,6 +162,13 @@
       "when": 1791493924996,
       "tag": "0022_curvy_diamondback",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791833691330,
+      "tag": "0023_brief_vision",
+      "breakpoints": true
     }
   ]
 }

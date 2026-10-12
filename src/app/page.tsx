@@ -1,40 +1,47 @@
-import { ContactForm } from "@/components/landing/contact-form";
+import { Contacto } from "@/components/landing/contacto";
 import { Faq } from "@/components/landing/faq";
 import { Features } from "@/components/landing/features";
+import { Financiacion } from "@/components/landing/financiacion";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
 import { Location } from "@/components/landing/location";
+import { MapaCta } from "@/components/landing/mapa-cta";
 import { Navbar } from "@/components/landing/navbar";
 import { Stats } from "@/components/landing/stats";
+import { getLotesPublicos } from "@/lib/lotes-publicos";
 
-export default function HomePage() {
+// Disponibilidad y precio "desde" se refrescan cada hora.
+export const revalidate = 3600;
+
+async function getResumen() {
+  try {
+    const disponibles = (await getLotesPublicos()).filter((l) => l.estado === "disponible");
+    const precios = disponibles.map((l) => l.precio).filter((p): p is number => p !== null);
+    return {
+      disponibles: disponibles.length || null,
+      precioDesde: precios.length ? Math.min(...precios) : null,
+    };
+  } catch {
+    // build:ci corre sin base: la home sale con los textos generales.
+    return { disponibles: null, precioDesde: null };
+  }
+}
+
+export default async function HomePage() {
+  const { disponibles, precioDesde } = await getResumen();
+
   return (
     <>
       <Navbar />
       <main>
         <Hero />
-        <Stats />
+        <Stats disponibles={disponibles} precioDesde={precioDesde} />
         <Features />
+        <MapaCta />
+        <Financiacion precioDesde={precioDesde} />
         <Location />
         <Faq />
-        <section id="contacto" className="py-24 px-4 bg-primary">
-          <div className="container mx-auto max-w-lg">
-            <div className="text-center mb-10">
-              <span className="font-body text-xs tracking-[0.25em] uppercase text-accent font-medium">
-                Contacto
-              </span>
-              <h2 className="font-display text-4xl font-light text-primary-foreground mt-3 mb-3">
-                ¿Te interesa un lote?
-              </h2>
-              <p className="font-body text-primary-foreground/55 text-sm">
-                Dejanos tus datos y un asesor te contacta para ayudarte a elegir el lote ideal.
-              </p>
-            </div>
-            <div className="bg-background rounded-sm shadow-2xl p-8">
-              <ContactForm />
-            </div>
-          </div>
-        </section>
+        <Contacto />
       </main>
       <Footer />
     </>

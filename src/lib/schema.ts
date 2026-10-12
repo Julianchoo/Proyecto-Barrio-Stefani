@@ -232,6 +232,14 @@ export const parcelas = pgTable(
   ]
 );
 
+export type SimulacionLead = {
+  precio: number;
+  anticipo: number;
+  plazo: number;
+  tasa: number;
+  cuotaMensual: number;
+};
+
 export const leads = pgTable(
   "leads",
   {
@@ -251,6 +259,11 @@ export const leads = pgTable(
     fechaNacimiento: date("fecha_nacimiento"),
     estadoCivil: text("estado_civil"),
     cuitComprador: text("cuit_comprador"),
+    // Consulta desde el mapa público: lote de interés y la cuota que simuló.
+    parcelaId: integer("parcela_id").references(() => parcelas.id, {
+      onDelete: "set null",
+    }),
+    simulacion: jsonb("simulacion").$type<SimulacionLead>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

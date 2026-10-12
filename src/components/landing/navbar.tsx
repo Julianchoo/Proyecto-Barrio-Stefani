@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { BnaExchangeRateIndicator } from "@/components/bna-exchange-rate-indicator";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,16 +11,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useSession } from "@/lib/auth-client";
-
-function canViewExchangeRate(role?: string) {
-  return role === "admin" || role === "comercial";
-}
 
 export function Navbar() {
-  const { data: session } = useSession();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const canViewRate = canViewExchangeRate(role);
 
   const scrollToContact = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -50,10 +41,6 @@ export function Navbar() {
           </div>
         </Link>
         <nav className="flex flex-none items-center justify-end gap-2 sm:gap-3">
-          <BnaExchangeRateIndicator
-            enabled={canViewRate}
-            className="hidden flex-col items-end leading-tight lg:flex"
-          />
           <Sheet>
             <SheetTrigger asChild>
               <Button
@@ -70,10 +57,12 @@ export function Navbar() {
                 <SheetTitle>Navegación</SheetTitle>
               </SheetHeader>
               <div className="space-y-4 p-4">
-                <BnaExchangeRateIndicator
-                  enabled={canViewRate}
-                  className="rounded-sm border border-border bg-muted/40 px-4 py-3"
-                />
+                <Link
+                  href="/mapa"
+                  className="block rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-muted"
+                >
+                  Mapa de lotes
+                </Link>
                 <Link
                   href="/login"
                   className="block rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-muted"
@@ -83,6 +72,14 @@ export function Navbar() {
               </div>
             </SheetContent>
           </Sheet>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="hidden text-muted-foreground hover:text-primary hover:bg-primary/5 font-body lg:inline-flex"
+          >
+            <Link href="/mapa">Mapa de lotes</Link>
+          </Button>
           <Button
             variant="ghost"
             size="sm"

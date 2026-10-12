@@ -30,8 +30,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
-import type { EstadoLead } from "@/lib/schema";
+import { formatUsd } from "@/lib/financiacion";
+import type { EstadoLead, SimulacionLead } from "@/lib/schema";
 
 type LeadRow = {
   id: number;
@@ -49,6 +51,10 @@ type LeadRow = {
   fechaNacimiento: string | null;
   estadoCivil: string | null;
   cuitComprador: string | null;
+  parcelaId: number | null;
+  loteManzana: string | null;
+  loteParcela: string | null;
+  simulacion: SimulacionLead | null;
   createdAt: string;
 };
 
@@ -398,7 +404,7 @@ export default function LeadsPage() {
 
   const allSelected = leads.length > 0 && selected.size === leads.length;
   const someSelected = selected.size > 0 && selected.size < leads.length;
-  const colCount = isAdmin ? 9 : 8;
+  const colCount = isAdmin ? 10 : 9;
 
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
@@ -453,6 +459,7 @@ export default function LeadsPage() {
               <TableHead>Teléfono</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Mensaje</TableHead>
+              <TableHead>Lote de interés</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Asignado a</TableHead>
               <TableHead>Fecha</TableHead>
@@ -490,6 +497,23 @@ export default function LeadsPage() {
                     <TableCell className="text-sm">{lead.email}</TableCell>
                     <TableCell className="text-sm text-gray-500 max-w-xs truncate">
                       {lead.mensaje ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {lead.parcelaId ? (
+                        <>
+                          <Link href={`/crm/lotes/${lead.parcelaId}`} className="font-medium text-primary hover:underline">
+                            Mz {lead.loteManzana} · Lote {lead.loteParcela}
+                          </Link>
+                          {lead.simulacion && (
+                            <p className="whitespace-nowrap text-xs text-muted-foreground">
+                              {formatUsd(lead.simulacion.anticipo)} + {lead.simulacion.plazo} ×{" "}
+                              {formatUsd(lead.simulacion.cuotaMensual)}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell>
                       {canEditLead(lead) ? (

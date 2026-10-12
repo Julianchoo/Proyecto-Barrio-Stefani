@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s | Barrio Stefani",
   },
   description:
-    "Loteo en Cuartel V, Moreno. Más de 360 lotes de 230 a 400 m² con infraestructura completa y financiación hasta 60 cuotas.",
+    "Loteo en Cuartel V, Moreno. Lotes residenciales y comerciales de 200 a 400 m² con infraestructura completa, escritura y financiación en hasta 60 cuotas.",
   keywords: [
     "loteo",
     "Moreno",
@@ -37,8 +37,9 @@ export const metadata: Metadata = {
     locale: "es_AR",
     siteName: "Barrio Stefani",
     title: "Barrio Stefani — Lotes en Cuartel V, Moreno",
+    images: [{ url: "/aerea_2026_3.jpeg", width: 1600, height: 900, alt: "Vista aérea de Barrio Stefani" }],
     description:
-      "Más de 360 lotes de 230 a 400 m² con infraestructura completa y financiación hasta 60 cuotas.",
+      "Lotes residenciales y comerciales de 200 a 400 m² con infraestructura completa, escritura y financiación en hasta 60 cuotas.",
   },
   robots: { index: true, follow: true },
 };

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
-import { db } from "@/lib/db";
-import { parcelas } from "@/lib/schema";
+import { getLotesPublicos } from "@/lib/lotes-publicos";
+
+// Público: lo usa el mapa de /mapa y la pestaña Mapa del CRM. Sólo expone
+// catastro, estado y precio de lista (ver getLotesPublicos).
 
 // Geometría oficial de cada lote, tomada del WFS público de ARBA (catastro de PBA).
 // Moreno = partido 074, Circunscripción V (05), Sección F. El código catastral (cca)
@@ -14,18 +15,17 @@ function manzanaCca(manzana: string) {
 }
 
 export async function GET() {
-  const authResult = await requireApiAuth();
-  if (isErrorResponse(authResult)) return authResult;
-
-  const rows = await db
-    .selectDistinct({ manzana: parcelas.manzana })
-    .from(parcelas);
-  const manzanas = rows
-    .map((row) => row.manzana?.trim())
-    .filter((manzana): manzana is string => !!manzana && /^\d+$/.test(manzana));
+  const lotes = await getLotesPublicos();
+  const manzanas = [
+    ...new Set(
+      lotes
+        .map((lote) => lote.manzana?.trim())
+        .filter((manzana): manzana is string => !!manzana && /^\d+$/.test(manzana))
+    ),
+  ];
 
   if (manzanas.length === 0) {
-    return NextResponse.json({ type: "FeatureCollection", features: [] });
+    return NextResponse.json({ geometria: { type: "FeatureCollection", features: [] }, lotes });
   }
 
   const params = new URLSearchParams({
@@ -52,7 +52,7 @@ export async function GET() {
         { status: 502 }
       );
     }
-    return NextResponse.json(await response.json());
+    return NextResponse.json({ geometria: await response.json(), lotes });
   } catch {
     return NextResponse.json(
       { error: "No se pudo consultar el catastro de ARBA" },

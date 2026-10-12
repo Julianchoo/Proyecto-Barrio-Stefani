@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -30,14 +30,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, Lock, Pencil } from "lucide-react";
-import { MapaLotes } from "@/components/crm/mapa-lotes";
+import { MapaLotes } from "@/components/mapa-lotes";
+import { CalculadoraCuota } from "@/components/calculadora-cuota";
 import { useSession } from "@/lib/auth-client";
-import {
-  ANTICIPO_STEP_USD,
-  calculateInstallment,
-  getMinimumAnticipoUsd,
-  roundCurrency,
-} from "@/lib/financiacion";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
 const estadoColors: Record<EstadoParcela, string> = {
@@ -166,13 +161,6 @@ const DEFAULT_COLS: Record<ColKey, boolean> = {
 
 const STORAGE_KEY = "lotes-visible-cols";
 
-function formatUsd(value: number): string {
-  return `USD ${value.toLocaleString("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 function formatMoneyString(value: string | null | undefined): string {
   if (!value) return "—";
   return `USD ${Number(value).toLocaleString("es-AR")}`;
@@ -193,11 +181,6 @@ function calculateValorM2Value(precioBase: string | null, superficieM2: string |
 
 function roundToHundreds(value: number): number {
   return Math.round(value / 100) * 100;
-}
-
-function formatDeliveryInstallment(value: number): string {
-  if (value === 0) return "Con el anticipo";
-  return `Despues de cuota ${value}`;
 }
 
 function toggleValue(values: string[], value: string) {
@@ -233,12 +216,6 @@ export default function LotesPage() {
   const [bulkPriceValue, setBulkPriceValue] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(DEFAULT_COLS);
-  const [calculator, setCalculator] = useState({
-    precio: 15000,
-    anticipo: 4500,
-    tasa: 1,
-    plazo: 48,
-  });
 
   // Load persisted columns on mount
   useEffect(() => {
@@ -541,58 +518,6 @@ export default function LotesPage() {
 
   const activeOptionalCols = OPTIONAL_COLS.filter((c) => visibleCols[c.key]);
 
-  const minimumAnticipo = getMinimumAnticipoUsd(calculator.precio);
-
-  const calculatorResult = useMemo(() => {
-    const saldo = Math.max(calculator.precio - calculator.anticipo, 0);
-    const plazo = Math.max(calculator.plazo, 1);
-    const cuotaMensual = calculateInstallment(saldo, calculator.tasa, plazo);
-    const totalFinanciado = roundCurrency(cuotaMensual * plazo);
-    const precioTotalNominal = roundCurrency(calculator.anticipo + totalFinanciado);
-    const umbralEntrega = precioTotalNominal * 0.5;
-    const cuotaEntrega = calculator.anticipo >= umbralEntrega
-      ? 0
-      : Math.ceil((umbralEntrega - calculator.anticipo) / cuotaMensual);
-
-    return {
-      cuotaMensual,
-      totalFinanciado,
-      precioTotalNominal,
-      cuotaEntrega: Math.min(cuotaEntrega, plazo),
-    };
-  }, [calculator]);
-
-  function updateCalculatorValue(
-    key: keyof typeof calculator,
-    value: number,
-    enforceAnticipoMinimum = true
-  ) {
-    setCalculator((current) => {
-      const next = { ...current, [key]: Math.max(value, key === "plazo" ? 1 : 0) };
-      if (key === "precio" && next.anticipo > value) {
-        next.anticipo = value;
-      }
-      if (key === "precio") {
-        next.anticipo = Math.max(
-          next.anticipo,
-          getMinimumAnticipoUsd(value)
-        );
-      }
-      if (key === "anticipo") {
-        next.anticipo = Math.min(
-          Math.max(
-            value,
-            enforceAnticipoMinimum
-              ? getMinimumAnticipoUsd(current.precio)
-              : 0
-          ),
-          current.precio
-        );
-      }
-      return next;
-    });
-  }
-
   function canEditLote(lote: ParcelaConReserva) {
     if (isSoldLote(lote)) return session?.user?.role === "admin";
 
@@ -632,107 +557,7 @@ export default function LotesPage() {
             Cuota mensual: saldo x (1 + tasa mensual x plazo) / plazo.
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-4">
-          {[
-            {
-              key: "precio" as const,
-              label: "Precio",
-              min: 0,
-              max: 100000,
-              step: 500,
-              suffix: "USD",
-            },
-            {
-              key: "anticipo" as const,
-              label: "Anticipo",
-              min: minimumAnticipo,
-              max: calculator.precio,
-              step: ANTICIPO_STEP_USD,
-              suffix: "USD",
-            },
-            {
-              key: "tasa" as const,
-              label: "Tasa mensual",
-              min: 0,
-              max: 5,
-              step: 0.1,
-              suffix: "%",
-            },
-            {
-              key: "plazo" as const,
-              label: "Plazo",
-              min: 1,
-              max: 120,
-              step: 1,
-              suffix: "meses",
-            },
-          ].map((item) => (
-            <label key={item.key} className="space-y-2">
-              <span className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-foreground">{item.label}</span>
-                <span className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={item.min}
-                    max={item.max}
-                    step={item.key === "anticipo" ? "any" : item.step}
-                    value={calculator[item.key]}
-                    onChange={(e) => {
-                      updateCalculatorValue(
-                        item.key,
-                        Number(e.target.value),
-                        item.key !== "anticipo"
-                      );
-                    }}
-                    aria-invalid={
-                      item.key === "anticipo" &&
-                      calculator.anticipo < minimumAnticipo
-                    }
-                    className={`h-8 w-28 text-right ${
-                      item.key === "anticipo" &&
-                      calculator.anticipo < minimumAnticipo
-                        ? "border-red-500 focus-visible:ring-red-500"
-                        : ""
-                    }`}
-                  />
-                  <span className="w-10 text-left text-muted-foreground">
-                    {item.suffix}
-                  </span>
-                </span>
-              </span>
-              <input
-                type="range"
-                min={item.min}
-                max={item.max}
-                step={item.step}
-                value={Math.min(calculator[item.key], item.max)}
-                onChange={(e) => {
-                  updateCalculatorValue(item.key, Number(e.target.value));
-                }}
-                className="w-full accent-primary"
-              />
-              {item.key === "anticipo" &&
-                calculator.anticipo < minimumAnticipo && (
-                  <p className="text-xs font-medium text-red-600" role="alert">
-                    Mínimo: {formatUsd(minimumAnticipo)}
-                  </p>
-                )}
-            </label>
-          ))}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-4">
-          {[
-            ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
-            ["Plazo total financiado", formatUsd(calculatorResult.totalFinanciado)],
-            ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
-            ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-md border bg-muted/40 px-3 py-2">
-              <p className="text-xs text-muted-foreground">{label}</p>
-              <p className="text-lg font-semibold text-foreground">{value}</p>
-            </div>
-          ))}
-        </div>
+        <CalculadoraCuota />
       </div>
 
       {/* Filters */}

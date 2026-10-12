@@ -1,10 +1,20 @@
 "use client";
 
-import { ArrowDown } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowDown, Map } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="relative min-h-[92vh] flex flex-col justify-end overflow-hidden bg-[url('/foto_aerea1.jpeg')] bg-cover bg-center bg-no-repeat bg-fixed">
+    <section className="relative min-h-[92vh] flex flex-col justify-end overflow-hidden bg-primary">
+      <Image
+        src="/foto_aerea1.jpeg"
+        alt="Vista aérea de Barrio Stefani"
+        fill
+        priority
+        className="object-cover"
+        sizes="100vw"
+      />
       {/* Gradient overlay - bottom-heavy for text legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
 
@@ -26,17 +36,23 @@ export function Hero() {
             Naturaleza
           </h1>
           <p className="font-body text-lg text-primary-foreground/70 max-w-xl mb-10 leading-relaxed">
-            Barrio Stefani — 360+ lotes en 10 hectáreas con boulevard central, calles
-            iluminadas e infraestructura completa. Financiación en hasta 60 cuotas.
+            Lotes residenciales y comerciales de 200 a 400 m² en Cuartel V, Moreno.
+            Anticipo y hasta 60 cuotas en dólares, con escritura.
           </p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <Link
+              href="/mapa"
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-body font-medium px-8 py-3.5 rounded-sm transition-colors tracking-wide text-sm"
+            >
+              <Map className="h-4 w-4" /> Ver lotes disponibles
+            </Link>
             <a
               href="#contacto"
               onClick={(e) => {
                 e.preventDefault();
                 document.getElementById("contacto")?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-body font-medium px-8 py-3.5 rounded-sm transition-colors tracking-wide text-sm"
+              className="inline-flex items-center gap-2 border border-primary-foreground/40 hover:bg-primary-foreground/10 text-primary-foreground font-body font-medium px-8 py-3.5 rounded-sm transition-colors tracking-wide text-sm"
             >
               Quiero mi lote
             </a>

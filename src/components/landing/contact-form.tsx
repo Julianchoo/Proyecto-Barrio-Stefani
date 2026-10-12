@@ -26,7 +26,15 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export function ContactForm() {
+// Consulta por un lote puntual (desde el mapa): viaja junto con los datos del contacto.
+export type ConsultaLote = {
+  parcelaId: number;
+  resumen: string;
+  anticipo?: number | undefined;
+  plazo?: number | undefined;
+};
+
+export function ContactForm({ consulta }: { consulta?: ConsultaLote }) {
   const [success, setSuccess] = useState(false);
 
   const form = useForm<FormValues>({
@@ -39,9 +47,20 @@ export function ContactForm() {
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          ...(consulta && {
+            parcelaId: consulta.parcelaId,
+            anticipo: consulta.anticipo,
+            plazo: consulta.plazo,
+          }),
+        }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(data?.error ?? "Hubo un error. Por favor intentá de nuevo.");
+        return;
+      }
       setSuccess(true);
       form.reset();
     } catch {
@@ -70,6 +89,11 @@ export function ContactForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {consulta && (
+          <p className="rounded-sm border bg-muted/40 px-3 py-2 text-sm text-foreground">
+            {consulta.resumen}
+          </p>
+        )}
         <div className="grid sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
