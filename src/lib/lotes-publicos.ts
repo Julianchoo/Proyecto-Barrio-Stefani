@@ -1,24 +1,8 @@
 import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { currentReservaJoin } from "@/lib/reservas";
+import type { LoteMapa } from "@/lib/lotes-mapa";
 import { parcelas, reservas, type EstadoParcela } from "@/lib/schema";
-
-// Datos de un lote que se pueden mostrar sin login: catastro, estado y precio de lista.
-// Nunca agregar acá datos de la reserva o del comprador.
-export type LoteMapa = {
-  id: number;
-  manzana: string | null;
-  parcela: string | null;
-  circunscripcion: string | null;
-  seccion: string | null;
-  partidaArba: string | null;
-  superficieM2: string | null;
-  metrosFrente: string | null;
-  metrosFondo: string | null;
-  estado: EstadoParcela;
-  // Precio de lista (precio base), sólo si el lote está disponible.
-  precio: number | null;
-};
 
 export async function getLotesPublicos(): Promise<LoteMapa[]> {
   const rows = await db

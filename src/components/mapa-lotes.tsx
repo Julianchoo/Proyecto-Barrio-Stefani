@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatUsd } from "@/lib/financiacion";
-import type { LoteMapa } from "@/lib/lotes-publicos";
+import { soloDisponibilidad, type LoteMapa } from "@/lib/lotes-mapa";
 import type { EstadoParcela } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import type { Feature, FeatureCollection, MultiPolygon } from "geojson";
@@ -32,6 +32,8 @@ const ESTADO_STYLE: Record<EstadoParcela, { color: string; label: string; dot: s
 };
 
 const ESTADOS = Object.keys(ESTADO_STYLE) as EstadoParcela[];
+// El público solo ve si el lote está a la venta o no.
+const ESTADOS_PUBLICOS: EstadoParcela[] = ["disponible", "no_disponible"];
 
 // "156", "2A" -> "156-2A". Normaliza ceros y mayúsculas para comparar con ARBA.
 function nomenclatura(manzana: string, parcela: string) {
@@ -107,7 +109,7 @@ export function MapaLotes({ publico = false }: { publico?: boolean }) {
       })
       .then((data) => {
         setGeometria(data.geometria);
-        setLotes(data.lotes);
+        setLotes(publico ? data.lotes.map(soloDisponibilidad) : data.lotes);
       })
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -321,7 +323,7 @@ export function MapaLotes({ publico = false }: { publico?: boolean }) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {ESTADOS.map((estado) => (
+        {(publico ? ESTADOS_PUBLICOS : ESTADOS).map((estado) => (
           <button
             key={estado}
             type="button"

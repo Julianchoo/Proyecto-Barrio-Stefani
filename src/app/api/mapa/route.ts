@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/api-auth";
+import { soloDisponibilidad } from "@/lib/lotes-mapa";
 import { getLotesPublicos } from "@/lib/lotes-publicos";
 
 // Público: lo usa el mapa de /mapa y la pestaña Mapa del CRM. Sólo expone
-// catastro, estado y precio de lista (ver getLotesPublicos).
+// catastro, estado y precio de lista (ver getLotesPublicos). Sin sesión, el estado
+// se reduce a disponible / no disponible: no se revela qué está reservado o vendido.
 
 // Geometría oficial de cada lote, tomada del WFS público de ARBA (catastro de PBA).
 // Moreno = partido 074, Circunscripción V (05), Sección F. El código catastral (cca)
@@ -15,7 +18,8 @@ function manzanaCca(manzana: string) {
 }
 
 export async function GET() {
-  const lotes = await getLotesPublicos();
+  const todos = await getLotesPublicos();
+  const lotes = (await getAuthenticatedUser()) ? todos : todos.map(soloDisponibilidad);
   const manzanas = [
     ...new Set(
       lotes
