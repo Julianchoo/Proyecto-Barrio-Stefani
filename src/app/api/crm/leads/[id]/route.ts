@@ -52,6 +52,13 @@ export async function PUT(
       return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
     }
 
+    // Asignar un lead nuevo lo pasa a "asignado"; desasignarlo lo devuelve a "nuevo".
+    // Solo desde esos estados, para no pisar el avance de un lead ya trabajado.
+    if ("asignadoA" in data && !data.estado) {
+      if (data.asignadoA && current.estado === "nuevo") data.estado = "asignado";
+      if (!data.asignadoA && current.estado === "asignado") data.estado = "nuevo";
+    }
+
     const [updated] = await db
       .update(leads)
       .set(data)

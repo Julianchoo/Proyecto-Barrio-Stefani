@@ -1,11 +1,15 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
+import Link from "next/link";
 import { MapPin, Users, CheckCircle, Clock } from "lucide-react";
 
 import { StatsCard } from "@/components/crm/stats-card";
 import { db } from "@/lib/db";
 import { parcelas, leads } from "@/lib/schema";
+import { requireAuth } from "@/lib/session";
 
-async function getStats() {
+// Admin ve todos los leads; el comercial, solo los asignados a él ("Mis leads").
+async function getStats(userId: string | null) {
+  const misLeads = userId ? eq(leads.asignadoA, userId) : undefined;
   const [
     totalParcelas,
     disponibles,
@@ -19,8 +23,15 @@ async function getStats() {
     db.select({ count: sql<number>`count(*)` }).from(parcelas).where(eq(parcelas.estado, "disponible")),
     db.select({ count: sql<number>`count(*)` }).from(parcelas).where(eq(parcelas.estado, "reservado")),
     db.select({ count: sql<number>`count(*)` }).from(parcelas).where(eq(parcelas.estado, "vendido")),
-    db.select({ count: sql<number>`count(*)` }).from(leads),
-    db.select({ count: sql<number>`count(*)` }).from(leads).where(eq(leads.estado, "nuevo")),
+    db.select({ count: sql<number>`count(*)` }).from(leads).where(misLeads),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(leads)
+      .where(
+        userId
+          ? and(misLeads, notInArray(leads.estado, ["closed_won", "closed_lost"]))
+          : eq(leads.estado, "nuevo")
+      ),
     db.select({
       id: leads.id,
       nombre: leads.nombre,
@@ -30,6 +41,7 @@ async function getStats() {
       createdAt: leads.createdAt,
     })
       .from(leads)
+      .where(misLeads)
       .orderBy(sql`${leads.createdAt} desc`)
       .limit(5),
   ]);
@@ -56,7 +68,10 @@ const estadoBadge: Record<string, { bg: string; text: string; label: string }> =
 };
 
 export default async function CrmDashboard() {
-  const stats = await getStats();
+  const session = await requireAuth();
+  const esAdmin = session.user.role === "admin";
+  const stats = await getStats(esAdmin ? null : session.user.id);
+  const cardLink = "rounded-xl transition-opacity hover:opacity-80";
 
   return (
     <div className="space-y-8">
@@ -66,41 +81,65 @@ export default async function CrmDashboard() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatsCard
-          title="Lotes disponibles"
-          value={stats.disponibles}
-          description={`de ${stats.totalParcelas} totales`}
-          icon={MapPin}
-          accent="green"
-        />
-        <StatsCard
-          title="Reservados"
-          value={stats.reservadas}
-          icon={Clock}
-          accent="amber"
-        />
-        <StatsCard
-          title="Vendidos"
-          value={stats.vendidas}
-          icon={CheckCircle}
-          accent="blue"
-        />
-        <StatsCard
-          title="Leads nuevos"
-          value={stats.leadsNuevos}
-          description={`de ${stats.totalLeads} totales`}
-          icon={Users}
-          accent="red"
-        />
+        <Link href="/crm/lotes?estado=disponible" className={cardLink}>
+          <StatsCard
+            title="Lotes disponibles"
+            value={stats.disponibles}
+            description={`de ${stats.totalParcelas} totales`}
+            icon={MapPin}
+            accent="green"
+          />
+        </Link>
+        <Link href="/crm/lotes?estado=reservado" className={cardLink}>
+          <StatsCard
+            title="Reservados"
+            value={stats.reservadas}
+            icon={Clock}
+            accent="amber"
+          />
+        </Link>
+        <Link href="/crm/lotes?estado=vendido" className={cardLink}>
+          <StatsCard
+            title="Vendidos"
+            value={stats.vendidas}
+            icon={CheckCircle}
+            accent="blue"
+          />
+        </Link>
+        {esAdmin ? (
+          <Link href="/crm/leads?estado=nuevo" className={cardLink}>
+            <StatsCard
+              title="Leads nuevos"
+              value={stats.leadsNuevos}
+              description={`de ${stats.totalLeads} totales`}
+              icon={Users}
+              accent="red"
+            />
+          </Link>
+        ) : (
+          <Link href="/crm/leads" className={cardLink}>
+            <StatsCard
+              title="Mis leads"
+              value={stats.leadsNuevos}
+              description={`activos de ${stats.totalLeads} asignados`}
+              icon={Users}
+              accent="red"
+            />
+          </Link>
+        )}
       </div>
 
       {/* Recent leads */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="px-6 py-4 border-b border-border">
-          <h2 className="font-body text-sm font-semibold text-foreground">Últimos leads recibidos</h2>
+          <h2 className="font-body text-sm font-semibold text-foreground">
+            {esAdmin ? "Últimos leads recibidos" : "Mis últimos leads"}
+          </h2>
         </div>
         {stats.recentLeads.length === 0 ? (
-          <p className="font-body text-sm text-muted-foreground py-10 text-center">No hay leads aún.</p>
+          <p className="font-body text-sm text-muted-foreground py-10 text-center">
+            {esAdmin ? "No hay leads aún." : "Todavía no tenés leads asignados."}
+          </p>
         ) : (
           <ul className="divide-y divide-border">
             {stats.recentLeads.map((lead) => {

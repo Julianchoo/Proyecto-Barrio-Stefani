@@ -1,20 +1,44 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowDown, Map } from "lucide-react";
 
 export function Hero() {
+  const fotoRef = useRef<HTMLDivElement>(null);
+
+  // Parallax: la foto baja más lento que el scroll. Se desactiva con "reducir movimiento".
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (fotoRef.current && window.scrollY < window.innerHeight * 1.2) {
+          fotoRef.current.style.transform = `translate3d(0, ${window.scrollY * 0.15}px, 0)`;
+        }
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
   return (
     <section className="relative min-h-[92vh] flex flex-col justify-end overflow-hidden bg-primary">
-      <Image
-        src="/foto_aerea1.jpeg"
-        alt="Vista aérea de Barrio Stefani"
-        fill
-        priority
-        className="object-cover"
-        sizes="100vw"
-      />
+      <div ref={fotoRef} className="absolute inset-0 will-change-transform">
+        <Image
+          src="/foto_aerea1.jpeg"
+          alt="Vista aérea de Barrio Stefani"
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+        />
+      </div>
       {/* Gradient overlay - bottom-heavy for text legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
 

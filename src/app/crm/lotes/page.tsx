@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { use, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -201,13 +201,19 @@ function loadVisibleCols(): Record<ColKey, boolean> {
   }
 }
 
-export default function LotesPage() {
+export default function LotesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
+  // Permite llegar prefiltrado desde las tarjetas del dashboard.
+  const { estado: estadoInicial } = use(searchParams);
   const { data: session } = useSession();
   const [lotes, setLotes] = useState<ParcelaConReserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [manzanas, setManzanas] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [filterEstado, setFilterEstado] = useState<string>("disponible");
+  const [filterEstado, setFilterEstado] = useState<string>(estadoInicial ?? "disponible");
   const [filterManzanas, setFilterManzanas] = useState<string[]>([]);
   const [filterSuperficie, setFilterSuperficie] = useState<string>("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());

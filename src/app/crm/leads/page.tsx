@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { use, useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
   Table,
@@ -85,14 +85,20 @@ const estadoLabels: Record<EstadoLead, string> = {
   closed_lost: "Closed lost",
 };
 
-export default function LeadsPage() {
+export default function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
+  // Permite llegar prefiltrado, p. ej. desde la tarjeta "Leads nuevos" del dashboard.
+  const { estado: estadoInicial } = use(searchParams);
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
   const canEditLead = (lead: LeadRow) => isAdmin || lead.asignadoA === session?.user?.id;
 
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterEstado, setFilterEstado] = useState<string>("all");
+  const [filterEstado, setFilterEstado] = useState<string>(estadoInicial ?? "all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkEstado, setBulkEstado] = useState<EstadoLead | "">("");
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -189,7 +195,11 @@ export default function LeadsPage() {
     if (!res.ok) {
       setLeads(prev);
       toast.error("No se pudo asignar el lead");
+      return;
     }
+    // El servidor puede haber pasado el estado a "asignado" (o de vuelta a "nuevo").
+    const updated = (await res.json()) as { estado: EstadoLead };
+    setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, estado: updated.estado } : l)));
   };
 
   const handleCheckbox = (id: number, index: number, shiftKey: boolean) => {
