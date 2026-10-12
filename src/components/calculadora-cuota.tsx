@@ -144,7 +144,6 @@ export function CalculadoraCuota({
         ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
         ["Total en cuotas", formatUsd(calculatorResult.totalFinanciado)],
         ["Precio total", formatUsd(calculatorResult.precioTotalNominal)],
-        ["Posesión", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
       ]
     : [
         ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
@@ -211,8 +210,11 @@ export function CalculadoraCuota({
         ))}
       </div>
       <div className={publico ? "grid grid-cols-2 gap-3" : "grid gap-3 sm:grid-cols-4"}>
-        {results.map(([label, value]) => (
-          <div key={label} className="rounded-md border bg-muted/40 px-3 py-2">
+        {results.map(([label, value], i) => (
+          <div
+            key={label}
+            className={`rounded-md border bg-muted/40 px-3 py-2 ${publico && i === 0 ? "col-span-2" : ""}`}
+          >
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className="text-lg font-semibold text-foreground">{value}</p>
           </div>

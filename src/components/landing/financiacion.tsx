@@ -6,7 +6,6 @@ import { MIN_ANTICIPO_PCT } from "@/lib/financiacion";
 const puntos = [
   `Anticipo desde el ${MIN_ANTICIPO_PCT}% del precio de lista`,
   "Saldo en hasta 60 cuotas mensuales",
-  "Posesión al completar el 50% del precio",
   "Escritura del lote a tu nombre",
 ];
 

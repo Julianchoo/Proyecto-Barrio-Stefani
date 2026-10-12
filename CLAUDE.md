@@ -41,8 +41,7 @@ src/
 │   │   └── reset-password/      # Reset password page
 │   ├── api/
 │   │   ├── auth/[...all]/       # Better Auth catch-all route
-│   │   ├── chat/route.ts        # AI chat endpoint (OpenRouter)
-│   │   └── diagnostics/         # System diagnostics
+│   │   └── chat/route.ts        # AI chat endpoint (OpenRouter)
 │   ├── chat/page.tsx            # AI chat interface (protected)
 │   ├── dashboard/page.tsx       # User dashboard (protected)
 │   ├── profile/page.tsx         # User profile (protected)

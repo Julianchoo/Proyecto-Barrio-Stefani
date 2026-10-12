@@ -59,7 +59,7 @@ Para cambiar colores de los badges de estado, editar el objeto `ESTADO_PARCELA_S
 
 ## Preview local
 
-Con el dev server corriendo, abrir:
+Con el dev server corriendo y logueado como admin, abrir:
 ```
 http://localhost:3000/api/cron/daily-report/preview
 ```

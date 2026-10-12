@@ -1,9 +1,14 @@
+import { isErrorResponse, requireApiAdmin } from "@/lib/api-auth";
 import { buildDailyReportHtml } from "@/lib/email-template";
 import { getParcelasSummary, getRecentReservations } from "@/lib/report-data";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  // Tiene datos de compradores: solo admins.
+  const authResult = await requireApiAdmin();
+  if (isErrorResponse(authResult)) return authResult;
+
   const [summary, reservations] = await Promise.all([
     getParcelasSummary(),
     getRecentReservations(),

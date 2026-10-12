@@ -31,10 +31,6 @@ const faqs = [
     a: "Sí. Los lotes se venden con escritura, y cada uno tiene su nomenclatura catastral y partida en ARBA, que podés ver en el mapa de lotes.",
   },
   {
-    q: "¿Cuándo tengo la posesión del lote?",
-    a: "La posesión se entrega al completar el pago del 50% del precio. El simulador te muestra en qué cuota se da según el anticipo y el plazo que elijas.",
-  },
-  {
     q: "¿Es posible visitar el lote antes de comprar?",
     a: "¡Por supuesto! Coordinamos visitas al terreno para que puedas recorrer el loteo, conocer la ubicación y elegir el lote que más te convenga. Contactanos para agendar tu visita.",
   },

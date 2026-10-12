@@ -1,3 +1,4 @@
+import { isErrorResponse, requireApiAdmin } from "@/lib/api-auth";
 import {
   getCurrentSigningWeekRange,
   getNextSigningWeekRange,
@@ -8,6 +9,10 @@ import { buildWeeklySigningsEmailHtml } from "@/lib/weekly-signings-email-templa
 export const runtime = "nodejs";
 
 export async function GET() {
+  // Tiene datos de compradores: solo admins.
+  const authResult = await requireApiAdmin();
+  if (isErrorResponse(authResult)) return authResult;
+
   const currentWeekRange = getCurrentSigningWeekRange();
   const nextWeekRange = getNextSigningWeekRange();
   const [currentWeekSignings, nextWeekSignings] = await Promise.all([
