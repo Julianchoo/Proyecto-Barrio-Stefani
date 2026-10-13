@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 // Cuotas en pesos se pasan a USD con el último dólar BNA vendedor cargado.
 // Se excluyen contratos de reservas canceladas.
 
+// El estado de cada cuota se recalcula con la fecha de hoy, con la misma regla que
+// statusForCuota en cuenta-corriente.ts: si cambia allá, hay que cambiarlo acá.
 const cuotasBase = sql`
   hoy AS (SELECT (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS d),
   tc AS (SELECT valor::numeric AS v, fecha FROM tipos_cambio WHERE tipo = 'bna_vendedor' ORDER BY fecha DESC LIMIT 1),
@@ -23,11 +25,16 @@ const cuotasBase = sql`
     WHERE r.estado <> 'cancelada' AND c.estado <> 'cancelada'
   )`;
 
+// Una fila por cuota pagada: días entre el vencimiento y el último pago que la canceló.
 const pagosConCuota = sql`
   p AS (
-    SELECT pg.fecha_pago - c.fecha_vencimiento AS dias
-    FROM pagos pg JOIN cuotas c ON c.id = pg.cuota_id
-    WHERE pg.estado = 'activo'
+    SELECT max(pg.fecha_pago) - c.fecha_vencimiento AS dias
+    FROM cuotas c
+    JOIN contratos k ON k.id = c.contrato_id
+    JOIN reservas r ON r.id = k.reserva_id
+    JOIN pagos pg ON pg.cuota_id = c.id AND pg.estado = 'activo'
+    WHERE r.estado <> 'cancelada' AND c.estado <> 'cancelada' AND c.saldo::numeric <= 0
+    GROUP BY c.id, c.fecha_vencimiento
   )`;
 
 type Raw = Record<string, string | number | null>;
@@ -62,9 +69,9 @@ export async function getInsights() {
         (SELECT count(*) FROM reservas WHERE estado = 'activa') AS reservas_activas,
         (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'activa') AS reservas_activas_usd,
         (SELECT round(sum(monto_usd::numeric)) FROM pagos WHERE estado = 'activo') AS cobrado_usd,
+        (SELECT count(*) FROM pagos WHERE estado = 'activo' AND monto_usd IS NULL) AS pagos_sin_tc,
         (SELECT count(*) FROM parcelas WHERE estado = 'disponible') AS lotes_disponibles,
-        (SELECT count(*) FROM parcelas WHERE estado IN ('vendido', 'reservado', 'disponible')) AS lotes_en_venta,
-        (SELECT count(*) FROM parcelas WHERE estado = 'vendido') AS lotes_estado_vendido`),
+        (SELECT count(*) FROM parcelas WHERE estado IN ('vendido', 'reservado', 'disponible')) AS lotes_en_venta`),
     rows(sql`
       SELECT to_char(date_trunc('month', fecha_firma), 'YYYY-MM') AS mes, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
       FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NOT NULL
@@ -116,23 +123,23 @@ export async function getInsights() {
     rows(sql`
       WITH ${cuotasBase}
       SELECT x.estado, x.orden, count(q.id) AS cuotas, round(coalesce(sum(q.saldo_usd), 0)) AS saldo_usd
-      FROM (VALUES ('Pagadas', 1), ('Vencidas', 2), ('A vencer · USD fijo', 3), ('A vencer · pesos CAC', 4)) AS x(estado, orden)
+      FROM (VALUES ('Pagadas', 1), ('Vencidas', 2), ('A vencer · en USD', 3), ('A vencer · en pesos', 4)) AS x(estado, orden)
       LEFT JOIN q ON (x.orden = 1 AND q.est = 'pagada')
         OR (x.orden = 2 AND q.est = 'vencida')
-        OR (x.orden = 3 AND q.est = 'a_vencer' AND q.modalidad = 'usd_fijo')
-        OR (x.orden = 4 AND q.est = 'a_vencer' AND q.modalidad = 'pesos_cac')
+        OR (x.orden = 3 AND q.est = 'a_vencer' AND q.moneda = 'usd')
+        OR (x.orden = 4 AND q.est = 'a_vencer' AND q.moneda = 'ars')
       GROUP BY 1, 2 ORDER BY 2`),
     rows(sql`
       WITH ${cuotasBase}
       SELECT to_char(date_trunc('month', fecha_vencimiento), 'YYYY-MM') AS mes,
-        round(coalesce(sum(saldo_usd) FILTER (WHERE modalidad = 'usd_fijo'), 0)) AS usd_fijo,
-        round(coalesce(sum(saldo_usd) FILTER (WHERE modalidad = 'pesos_cac'), 0)) AS pesos_cac,
+        round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'usd'), 0)) AS en_usd,
+        round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'ars'), 0)) AS en_pesos,
         count(*) AS cuotas
       FROM q WHERE est = 'a_vencer'
       GROUP BY 1 ORDER BY 1`),
     rows(sql`
       WITH ${pagosConCuota}
-      SELECT x.tramo, x.orden, count(p.dias) AS pagos
+      SELECT x.tramo, x.orden, count(p.dias) AS cuotas
       FROM (VALUES
         ('Más de 7 días antes', 1, -100000, -8),
         ('1 a 7 días antes', 2, -7, -1),
@@ -157,7 +164,11 @@ export async function getInsights() {
     rows(sql`
       WITH ${cuotasBase}
       SELECT q.contrato_id AS contrato, pa.manzana, pa.parcela,
-        CASE WHEN min(q.modalidad::text) = 'usd_fijo' THEN 'USD fijo' ELSE 'Pesos CAC' END AS modalidad,
+        CASE min(q.modalidad::text)
+          WHEN 'usd_fijo' THEN 'USD fijo'
+          WHEN 'pesos_cac' THEN 'Pesos CAC'
+          ELSE 'Requiere revisión'
+        END AS modalidad,
         count(*) FILTER (WHERE q.est = 'pagada') AS pagadas,
         count(*) AS cuotas,
         count(*) FILTER (WHERE q.est = 'vencida') AS vencidas,
@@ -184,9 +195,10 @@ export async function getInsights() {
       reservasActivas: num(vk.reservas_activas),
       reservasActivasUsd: num(vk.reservas_activas_usd),
       cobradoUsd: num(vk.cobrado_usd),
+      pagosSinTc: num(vk.pagos_sin_tc),
       lotesDisponibles: num(vk.lotes_disponibles),
       lotesEnVenta: enVenta,
-      pctVendido: enVenta > 0 ? num(vk.lotes_estado_vendido) / enVenta : 0,
+      pctVendido: enVenta > 0 ? num(vk.lotes_vendidos) / enVenta : 0,
       porMes: ventasMes.map((r) => ({ mes: String(r.mes), lotes: num(r.lotes), usd: num(r.usd) })),
       cobranzaPorMes: cobranzaMes.map((r) => ({ mes: String(r.mes), pagos: num(r.pagos), usd: num(r.usd) })),
       porCorredor: ventasCorredor.map((r) => ({ nombre: String(r.corredor), lotes: num(r.lotes), usd: num(r.usd) })),
@@ -217,8 +229,8 @@ export async function getInsights() {
       tipoCambio: ck.tipo_cambio === null || ck.tipo_cambio === undefined ? null : num(ck.tipo_cambio),
       fechaTipoCambio: str(ck.fecha_tc),
       estadoCuotas: cuotasEstado.map((r) => ({ estado: String(r.estado), cuotas: num(r.cuotas), saldoUsd: num(r.saldo_usd) })),
-      porMes: porCobrarMes.map((r) => ({ mes: String(r.mes), usdFijo: num(r.usd_fijo), pesosCac: num(r.pesos_cac), cuotas: num(r.cuotas) })),
-      puntualidad: puntualidad.map((r) => ({ tramo: String(r.tramo), tarde: num(r.orden) >= 4, pagos: num(r.pagos) })),
+      porMes: porCobrarMes.map((r) => ({ mes: String(r.mes), enUsd: num(r.en_usd), enPesos: num(r.en_pesos), cuotas: num(r.cuotas) })),
+      puntualidad: puntualidad.map((r) => ({ tramo: String(r.tramo), tarde: num(r.orden) >= 4, cuotas: num(r.cuotas) })),
       vencidas: cuotasVencidas.map((r) => ({
         cuota: num(r.cuota),
         contrato: num(r.contrato),

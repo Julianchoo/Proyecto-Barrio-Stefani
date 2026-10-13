@@ -1,4 +1,5 @@
 import { AlertTriangle, CalendarClock, CircleDollarSign, Clock3, MapPin, WalletCards } from "lucide-react";
+import { CargarTipoCambio } from "@/components/crm/cargar-tipo-cambio";
 import { StatsCard } from "@/components/crm/stats-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,8 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getBnaBilleteVendedor } from "@/lib/bna-exchange-rate";
 import { getInsights } from "@/lib/insights";
 import { requireAdmin } from "@/lib/session";
+import { argentinaTodayKey } from "@/lib/tipos-cambio";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -166,8 +169,11 @@ export default async function InsightsPage() {
   const ultimo = ventas.porMes[ventas.porMes.length - 1];
   const anterior = ventas.porMes[ventas.porMes.length - 2];
   const variacion = ultimo && anterior && anterior.usd > 0 ? ultimo.usd / anterior.usd - 1 : null;
-  const totalPagos = cobranza.puntualidad.reduce((s, r) => s + r.pagos, 0) || 1;
+  const totalCuotasPagadas = cobranza.puntualidad.reduce((s, r) => s + r.cuotas, 0) || 1;
   const lotes = (n: number) => `${int(n)} ${n === 1 ? "lote" : "lotes"}`;
+  const hoy = argentinaTodayKey();
+  const faltaTcHoy = cobranza.fechaTipoCambio !== hoy;
+  const tcSugerido = faltaTcHoy ? (await getBnaBilleteVendedor()).sell : null;
 
   return (
     <div className="space-y-5">
@@ -175,6 +181,18 @@ export default async function InsightsPage() {
         <h1 className="text-2xl font-semibold text-foreground">Insights</h1>
         <p className="mt-1 text-sm text-muted-foreground">Ventas y cobranza del barrio, en USD</p>
       </div>
+
+      {faltaTcHoy && (
+        <CargarTipoCambio
+          fecha={hoy}
+          sugerido={tcSugerido}
+          ultimo={
+            cobranza.tipoCambio !== null && cobranza.fechaTipoCambio
+              ? { valor: cobranza.tipoCambio, fecha: cobranza.fechaTipoCambio }
+              : null
+          }
+        />
+      )}
 
       <Tabs defaultValue="ventas" className="gap-5">
         <TabsList>
@@ -185,7 +203,7 @@ export default async function InsightsPage() {
         <TabsContent value="ventas" className="space-y-5">
           {ultimo && (
             <p className="text-sm text-muted-foreground">
-              En {mesLargo(ultimo.mes).split(" ")[0]} se firmaron{" "}
+              El último mes con firmas fue {mesLargo(ultimo.mes)}: se firmaron{" "}
               <span className="font-medium text-foreground">{lotes(ultimo.lotes)}</span> por{" "}
               <span className="font-medium text-foreground">{usd(ultimo.usd)}</span>
               {anterior && variacion !== null && (
@@ -202,7 +220,11 @@ export default async function InsightsPage() {
             <StatsCard title="Lotes vendidos" value={int(ventas.lotesVendidos)} description={`${pct(ventas.pctVendido)} del stock en venta`} icon={MapPin} accent="blue" />
             <StatsCard title="Ticket promedio" value={usd(ventas.ticketPromedioUsd)} description="Por lote vendido" icon={CircleDollarSign} accent="green" />
             <StatsCard title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} icon={CalendarClock} accent="amber" />
-            <StatsCard title="Cobrado a la fecha" value={usdCorto(ventas.cobradoUsd)} description="Pagos de cuotas registrados" icon={WalletCards} accent="green" />
+            <StatsCard title="Cobrado a la fecha" value={usdCorto(ventas.cobradoUsd)} description={
+                ventas.pagosSinTc > 0
+                  ? `Sin incluir ${int(ventas.pagosSinTc)} ${ventas.pagosSinTc === 1 ? "pago" : "pagos"} en pesos sin tipo de cambio`
+                  : "Pagos de cuotas registrados"
+              } icon={WalletCards} accent="green" />
             <StatsCard title="Lotes disponibles" value={int(ventas.lotesDisponibles)} description={`de ${int(ventas.lotesEnVenta)} comercializables`} icon={MapPin} accent="blue" />
           </div>
 
@@ -295,9 +317,9 @@ export default async function InsightsPage() {
             <StatsCard title="Vencido sin pagar" value={usd(cobranza.vencidoUsd)} description={`${int(cobranza.contratosConMora)} contratos con cuotas vencidas`} icon={AlertTriangle} accent={cobranza.vencidoUsd > 0 ? "red" : "green"} />
             <StatsCard title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" icon={CalendarClock} accent="amber" />
             <StatsCard
-              title="Pagos a término"
+              title="Cuotas pagadas a término"
               value={cobranza.pctATiempo === null ? "—" : pct(cobranza.pctATiempo)}
-              description={cobranza.diasAnticipoProm === null ? "Sin pagos registrados" : `En promedio ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(cobranza.diasAnticipoProm)} días antes del vencimiento`}
+              description={cobranza.diasAnticipoProm === null ? "Sin cuotas pagadas" : `En promedio ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(cobranza.diasAnticipoProm)} días antes del vencimiento`}
               icon={Clock3}
               accent="green"
             />
@@ -319,18 +341,18 @@ export default async function InsightsPage() {
 
           <Panel
             titulo="Cronograma de cobros"
-            nota="USD a cobrar por mes de vencimiento, cuotas todavía no vencidas. Los planes en pesos ajustan por CAC: su monto futuro es una proyección, pasada a USD con el dólar de hoy."
+            nota="USD a cobrar por mes de vencimiento, cuotas todavía no vencidas. Las cuotas en pesos ajustan por CAC: su monto futuro es una proyección, pasada a USD con el último dólar cargado."
           >
-            <Leyenda items={[{ nombre: "USD fijo", color: "bg-primary" }, { nombre: "Pesos CAC (proyectado)", color: "bg-amber-500" }]} />
+            <Leyenda items={[{ nombre: "En USD", color: "bg-primary" }, { nombre: "En pesos (proyectado)", color: "bg-amber-500" }]} />
             <BarrasMensuales
               soloAnios
               filas={cobranza.porMes.map((r) => ({
                 mes: r.mes,
                 series: [
-                  { nombre: "USD fijo", valor: r.usdFijo, color: "bg-primary" },
-                  { nombre: "Pesos CAC", valor: r.pesosCac, color: "bg-amber-500" },
+                  { nombre: "En USD", valor: r.enUsd, color: "bg-primary" },
+                  { nombre: "En pesos", valor: r.enPesos, color: "bg-amber-500" },
                 ],
-                detalle: `USD fijo: ${usd(r.usdFijo)}\nPesos CAC: ${usd(r.pesosCac)}\nTotal: ${usd(r.usdFijo + r.pesosCac)} · ${int(r.cuotas)} cuotas`,
+                detalle: `En USD: ${usd(r.enUsd)}\nEn pesos: ${usd(r.enPesos)}\nTotal: ${usd(r.enUsd + r.enPesos)} · ${int(r.cuotas)} cuotas`,
               }))}
             />
           </Panel>
@@ -351,9 +373,9 @@ export default async function InsightsPage() {
               <BarrasHorizontales
                 filas={cobranza.puntualidad.map((r) => ({
                   nombre: r.tramo,
-                  valor: r.pagos,
-                  etiqueta: `${int(r.pagos)} pagos`,
-                  nota: pct(r.pagos / totalPagos),
+                  valor: r.cuotas,
+                  etiqueta: `${int(r.cuotas)} cuotas`,
+                  nota: pct(r.cuotas / totalCuotasPagadas),
                   color: r.tarde ? "bg-rose-500" : "bg-blue-500",
                 }))}
               />
