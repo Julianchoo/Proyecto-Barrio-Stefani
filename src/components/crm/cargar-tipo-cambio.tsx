@@ -28,12 +28,34 @@ export function CargarTipoCambio({
     }
     setGuardando(true);
     try {
-      const res = await fetch("/api/crm/tipos-cambio", {
+      const payload = {
+        fecha,
+        valor: numero,
+        fuente: "Carga manual (Insights)",
+        confirmarImpacto: undefined as string | undefined,
+      };
+      let res = await fetch("/api/crm/tipos-cambio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fecha, valor: numero, fuente: "Carga manual (Insights)" }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => null);
+      let data = await res.json().catch(() => null);
+      // Si ya hay pagos de hoy en pesos (o contratos firmados hoy), el servidor pide confirmar.
+      if (res.status === 409 && data?.confirmarImpacto) {
+        if (
+          !window.confirm(
+            `Este TC cambiará importes de ${data.impact.pagos} pagos y ${data.impact.contratos} contratos sin pagos. ¿Confirmás el cambio?`
+          )
+        )
+          return;
+        payload.confirmarImpacto = data.confirmarImpacto;
+        res = await fetch("/api/crm/tipos-cambio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        data = await res.json().catch(() => null);
+      }
       if (!res.ok) {
         toast.error(data?.error ?? "No se pudo guardar el tipo de cambio");
         return;
