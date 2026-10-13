@@ -1,0 +1,442 @@
+import { AlertTriangle, CalendarClock, CircleDollarSign, Clock3, MapPin, WalletCards } from "lucide-react";
+import { StatsCard } from "@/components/crm/stats-card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getInsights } from "@/lib/insights";
+import { requireAdmin } from "@/lib/session";
+import { cn } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MESES_LARGOS = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+const int = (v: number) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(v);
+const usd = (v: number) => `USD ${int(v)}`;
+const usdCorto = (v: number) =>
+  `USD ${new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 }).format(v)}`;
+const pct = (v: number) =>
+  new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 1 }).format(v);
+const fecha = (s: string | null) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "—");
+const mesCorto = (m: string) => MESES[Number(m.slice(5, 7)) - 1];
+const mesLargo = (m: string) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+
+// Todos los meses entre el primero y el último, para que un mes sin datos quede como hueco.
+function mesesEntre(desde: string, hasta: string) {
+  const out: string[] = [];
+  let y = Number(desde.slice(0, 4));
+  let m = Number(desde.slice(5, 7));
+  const ey = Number(hasta.slice(0, 4));
+  const em = Number(hasta.slice(5, 7));
+  while (y < ey || (y === ey && m <= em)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+type Serie = { valor: number; color: string; nombre: string };
+
+function BarrasMensuales({
+  filas,
+  etiquetaArriba,
+  soloAnios = false,
+}: {
+  filas: { mes: string; series: Serie[]; detalle: string }[];
+  etiquetaArriba?: (mes: string) => string | null;
+  soloAnios?: boolean;
+}) {
+  const primera = filas[0];
+  const ultima = filas[filas.length - 1];
+  if (!primera || !ultima) return <p className="text-sm text-muted-foreground">Sin datos todavía.</p>;
+  const porMes = new Map(filas.map((f) => [f.mes, f]));
+  const meses = mesesEntre(primera.mes, ultima.mes);
+  const max = Math.max(...filas.map((f) => f.series.reduce((s, x) => s + x.valor, 0)), 1);
+
+  return (
+    <div>
+      <div className={cn("flex h-48 items-end border-b", soloAnios ? "gap-px" : "gap-2")}>
+        {meses.map((mes) => {
+          const fila = porMes.get(mes);
+          const total = fila ? fila.series.reduce((s, x) => s + x.valor, 0) : 0;
+          const arriba = fila && etiquetaArriba ? etiquetaArriba(mes) : null;
+          return (
+            <div
+              key={mes}
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+              title={fila ? `${mesLargo(mes)}\n${fila.detalle}` : `${mesLargo(mes)}: sin datos`}
+            >
+              {arriba && <span className="mb-1 text-xs tabular-nums text-foreground">{arriba}</span>}
+              <div
+                className={cn("flex w-full max-w-8 flex-col-reverse overflow-hidden", soloAnios ? "rounded-t-sm" : "rounded-t-md")}
+                style={{ height: `${(total / max) * 100}%` }}
+              >
+                {fila?.series.map((s) => (
+                  <div key={s.nombre} className={s.color} style={{ height: total > 0 ? `${(s.valor / total) * 100}%` : 0 }} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className={cn("mt-1 flex", soloAnios ? "gap-px" : "gap-2")}>
+        {meses.map((mes) => (
+          <span key={mes} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-xs text-muted-foreground">
+            {soloAnios ? (mes.endsWith("-01") ? mes.slice(0, 4) : "") : mesCorto(mes)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BarrasHorizontales({
+  filas,
+}: {
+  filas: { nombre: string; valor: number; etiqueta: string; nota: string; color?: string }[];
+}) {
+  const max = Math.max(...filas.map((f) => f.valor), 1);
+  return (
+    <div className="space-y-3">
+      {filas.map((f, i) => (
+        <div key={f.nombre}>
+          <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+            <span className="truncate">{f.nombre}</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{f.nota}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 flex-1 rounded-full bg-muted">
+              <div
+                className={cn("h-3 rounded-full", f.color ?? (i === 0 ? "bg-primary" : "bg-primary/40"))}
+                style={{ width: `${f.valor > 0 ? Math.max(1, (f.valor / max) * 100) : 0}%` }}
+              />
+            </div>
+            <span className="w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{f.etiqueta}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Leyenda({ items }: { items: { nombre: string; color: string }[] }) {
+  return (
+    <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+      {items.map((it) => (
+        <span key={it.nombre} className="flex items-center gap-1.5">
+          <span className={cn("inline-block h-2.5 w-2.5 rounded-sm", it.color)} />
+          {it.nombre}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Panel({ titulo, nota, children, className }: { titulo: string; nota: string; children: React.ReactNode; className?: string }) {
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle className="text-base">{titulo}</CardTitle>
+        <CardDescription>{nota}</CardDescription>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+export default async function InsightsPage() {
+  await requireAdmin();
+  const { ventas, cobranza } = await getInsights();
+
+  const ultimo = ventas.porMes[ventas.porMes.length - 1];
+  const anterior = ventas.porMes[ventas.porMes.length - 2];
+  const variacion = ultimo && anterior && anterior.usd > 0 ? ultimo.usd / anterior.usd - 1 : null;
+  const totalPagos = cobranza.puntualidad.reduce((s, r) => s + r.pagos, 0) || 1;
+  const lotes = (n: number) => `${int(n)} ${n === 1 ? "lote" : "lotes"}`;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Insights</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Ventas y cobranza del barrio, en USD</p>
+      </div>
+
+      <Tabs defaultValue="ventas" className="gap-5">
+        <TabsList>
+          <TabsTrigger value="ventas">Ventas</TabsTrigger>
+          <TabsTrigger value="cobranza">Cobranza</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ventas" className="space-y-5">
+          {ultimo && (
+            <p className="text-sm text-muted-foreground">
+              En {mesLargo(ultimo.mes).split(" ")[0]} se firmaron{" "}
+              <span className="font-medium text-foreground">{lotes(ultimo.lotes)}</span> por{" "}
+              <span className="font-medium text-foreground">{usd(ultimo.usd)}</span>
+              {anterior && variacion !== null && (
+                <>
+                  {" "}({variacion >= 0 ? "+" : ""}{pct(variacion)} vs {mesLargo(anterior.mes).split(" ")[0]}, {usd(anterior.usd)})
+                </>
+              )}
+              .
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatsCard title="Facturación vendida" value={usdCorto(ventas.facturacionUsd)} description="Precio total de boletos firmados" icon={CircleDollarSign} accent="green" />
+            <StatsCard title="Lotes vendidos" value={int(ventas.lotesVendidos)} description={`${pct(ventas.pctVendido)} del stock en venta`} icon={MapPin} accent="blue" />
+            <StatsCard title="Ticket promedio" value={usd(ventas.ticketPromedioUsd)} description="Por lote vendido" icon={CircleDollarSign} accent="green" />
+            <StatsCard title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} icon={CalendarClock} accent="amber" />
+            <StatsCard title="Cobrado a la fecha" value={usdCorto(ventas.cobradoUsd)} description="Pagos de cuotas registrados" icon={WalletCards} accent="green" />
+            <StatsCard title="Lotes disponibles" value={int(ventas.lotesDisponibles)} description={`de ${int(ventas.lotesEnVenta)} comercializables`} icon={MapPin} accent="blue" />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel titulo="Ventas por mes" nota="USD de boletos firmados, por mes de firma. Arriba de cada barra, los lotes.">
+              <BarrasMensuales
+                filas={ventas.porMes.map((r) => ({
+                  mes: r.mes,
+                  series: [{ nombre: "USD", valor: r.usd, color: "bg-primary" }],
+                  detalle: `${usd(r.usd)} · ${lotes(r.lotes)}`,
+                }))}
+                etiquetaArriba={(mes) => {
+                  const r = ventas.porMes.find((x) => x.mes === mes);
+                  return r ? int(r.lotes) : null;
+                }}
+              />
+            </Panel>
+            <Panel titulo="Cobranza por mes" nota="USD cobrados en cuotas (pagos no anulados), por mes de pago.">
+              <BarrasMensuales
+                filas={ventas.cobranzaPorMes.map((r) => ({
+                  mes: r.mes,
+                  series: [{ nombre: "USD", valor: r.usd, color: "bg-blue-500" }],
+                  detalle: `${usd(r.usd)} · ${int(r.pagos)} pagos`,
+                }))}
+                etiquetaArriba={(mes) => {
+                  const r = ventas.cobranzaPorMes.find((x) => x.mes === mes);
+                  return r ? usdCorto(r.usd).replace("USD ", "") : null;
+                }}
+              />
+            </Panel>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel titulo="Por corredor" nota="USD vendidos y lotes, desde el inicio.">
+              <BarrasHorizontales
+                filas={ventas.porCorredor.map((r) => ({ nombre: r.nombre, valor: r.usd, etiqueta: usdCorto(r.usd), nota: lotes(r.lotes) }))}
+              />
+            </Panel>
+            <Panel titulo="Por forma de pago" nota="USD vendidos y lotes según contado o modalidad del plan.">
+              <BarrasHorizontales
+                filas={ventas.porModalidad.map((r) => ({ nombre: r.nombre, valor: r.usd, etiqueta: usdCorto(r.usd), nota: lotes(r.lotes) }))}
+              />
+            </Panel>
+          </div>
+
+          <Panel titulo="Detalle de ventas" nota="Cada boleto firmado, más reciente primero.">
+            <div className="max-h-[28rem] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead>Venta</TableHead>
+                    <TableHead>Firma</TableHead>
+                    <TableHead>Mz.</TableHead>
+                    <TableHead>Parcela</TableHead>
+                    <TableHead className="text-right">m²</TableHead>
+                    <TableHead className="text-right">Precio USD</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Corredor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ventas.detalle.map((r) => (
+                    <TableRow key={r.venta}>
+                      <TableCell className="text-muted-foreground">{r.venta}</TableCell>
+                      <TableCell>{fecha(r.fechaFirma)}</TableCell>
+                      <TableCell>{r.manzana ?? "—"}</TableCell>
+                      <TableCell>{r.parcela ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(r.m2)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{int(r.precioUsd)}</TableCell>
+                      <TableCell>{r.plan}</TableCell>
+                      <TableCell>{r.corredor}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Panel>
+        </TabsContent>
+
+        <TabsContent value="cobranza" className="space-y-5">
+          <p className="text-sm text-muted-foreground">
+            Quedan <span className="font-medium text-foreground">{usd(cobranza.porCobrarUsd)}</span> por cobrar
+            {cobranza.ultimaCuota && <>, con la última cuota en {mesLargo(cobranza.ultimaCuota)}</>}. Hoy hay{" "}
+            <span className="font-medium text-foreground">{usd(cobranza.vencidoUsd)}</span> vencidos en{" "}
+            <span className="font-medium text-foreground">{int(cobranza.cuotasVencidas)}</span> cuotas impagas.
+          </p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatsCard title="Saldo por cobrar" value={usdCorto(cobranza.porCobrarUsd)} description={`Cuotas impagas de ${int(cobranza.contratos)} contratos`} icon={WalletCards} accent="blue" />
+            <StatsCard title="Vencido sin pagar" value={usd(cobranza.vencidoUsd)} description={`${int(cobranza.contratosConMora)} contratos con cuotas vencidas`} icon={AlertTriangle} accent={cobranza.vencidoUsd > 0 ? "red" : "green"} />
+            <StatsCard title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" icon={CalendarClock} accent="amber" />
+            <StatsCard
+              title="Pagos a término"
+              value={cobranza.pctATiempo === null ? "—" : pct(cobranza.pctATiempo)}
+              description={cobranza.diasAnticipoProm === null ? "Sin pagos registrados" : `En promedio ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(cobranza.diasAnticipoProm)} días antes del vencimiento`}
+              icon={Clock3}
+              accent="green"
+            />
+            <StatsCard
+              title="Cuotas pagadas"
+              value={int(cobranza.cuotasPagadas)}
+              description={`de ${int(cobranza.cuotasTotales)} (${pct(cobranza.cuotasTotales > 0 ? cobranza.cuotasPagadas / cobranza.cuotasTotales : 0)})`}
+              icon={WalletCards}
+              accent="green"
+            />
+            <StatsCard
+              title="Dólar usado"
+              value={cobranza.tipoCambio === null ? "—" : `$ ${int(cobranza.tipoCambio)}`}
+              description={`BNA vendedor del ${fecha(cobranza.fechaTipoCambio)}, para pasar cuotas en pesos a USD`}
+              icon={CircleDollarSign}
+              accent="blue"
+            />
+          </div>
+
+          <Panel
+            titulo="Cronograma de cobros"
+            nota="USD a cobrar por mes de vencimiento, cuotas todavía no vencidas. Los planes en pesos ajustan por CAC: su monto futuro es una proyección, pasada a USD con el dólar de hoy."
+          >
+            <Leyenda items={[{ nombre: "USD fijo", color: "bg-primary" }, { nombre: "Pesos CAC (proyectado)", color: "bg-amber-500" }]} />
+            <BarrasMensuales
+              soloAnios
+              filas={cobranza.porMes.map((r) => ({
+                mes: r.mes,
+                series: [
+                  { nombre: "USD fijo", valor: r.usdFijo, color: "bg-primary" },
+                  { nombre: "Pesos CAC", valor: r.pesosCac, color: "bg-amber-500" },
+                ],
+                detalle: `USD fijo: ${usd(r.usdFijo)}\nPesos CAC: ${usd(r.pesosCac)}\nTotal: ${usd(r.usdFijo + r.pesosCac)} · ${int(r.cuotas)} cuotas`,
+              }))}
+            />
+          </Panel>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel titulo="Estado de las cuotas" nota="Cantidad de cuotas de todos los planes y saldo en USD de cada grupo.">
+              <BarrasHorizontales
+                filas={cobranza.estadoCuotas.map((r) => ({
+                  nombre: r.estado,
+                  valor: r.cuotas,
+                  etiqueta: `${int(r.cuotas)} cuotas`,
+                  nota: r.saldoUsd > 0 ? `${usdCorto(r.saldoUsd)} de saldo` : "sin saldo",
+                  color: r.estado === "Vencidas" ? "bg-rose-500" : r.estado === "Pagadas" ? "bg-muted-foreground/40" : "bg-primary",
+                }))}
+              />
+            </Panel>
+            <Panel titulo="Tiempos de pago" nota="Cuándo se pagó cada cuota respecto de su vencimiento.">
+              <BarrasHorizontales
+                filas={cobranza.puntualidad.map((r) => ({
+                  nombre: r.tramo,
+                  valor: r.pagos,
+                  etiqueta: `${int(r.pagos)} pagos`,
+                  nota: pct(r.pagos / totalPagos),
+                  color: r.tarde ? "bg-rose-500" : "bg-blue-500",
+                }))}
+              />
+            </Panel>
+          </div>
+
+          <Panel titulo="Cuotas vencidas sin pagar" nota="Cada cuota con vencimiento pasado y saldo pendiente, la más atrasada primero.">
+            {cobranza.vencidas.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay cuotas vencidas sin pagar.</p>
+            ) : (
+              <div className="max-h-[28rem] overflow-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card">
+                    <TableRow>
+                      <TableHead>Contrato</TableHead>
+                      <TableHead>Mz.</TableHead>
+                      <TableHead>Parcela</TableHead>
+                      <TableHead className="text-right">N° cuota</TableHead>
+                      <TableHead>Vencimiento</TableHead>
+                      <TableHead className="text-right">Días de atraso</TableHead>
+                      <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead className="text-right">Saldo USD</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cobranza.vencidas.map((r) => (
+                      <TableRow key={r.cuota}>
+                        <TableCell className="text-muted-foreground">{r.contrato}</TableCell>
+                        <TableCell>{r.manzana ?? "—"}</TableCell>
+                        <TableCell>{r.parcela ?? "—"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.numero}</TableCell>
+                        <TableCell>{fecha(r.vencimiento)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-rose-600 dark:text-rose-400">{int(r.diasAtraso)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {r.moneda} {new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(r.saldo)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{int(r.saldoUsd)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Panel>
+
+          <Panel titulo="Estado por contrato" nota="Avance de cada plan de pagos. Primero los que tienen deuda vencida.">
+            <div className="max-h-[32rem] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead>Contrato</TableHead>
+                    <TableHead>Mz.</TableHead>
+                    <TableHead>Parcela</TableHead>
+                    <TableHead>Modalidad</TableHead>
+                    <TableHead className="text-right">Pagadas</TableHead>
+                    <TableHead className="text-right">Vencidas</TableHead>
+                    <TableHead className="text-right">Vencido USD</TableHead>
+                    <TableHead className="text-right">Saldo USD</TableHead>
+                    <TableHead>Próximo venc.</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cobranza.contratosEstado.map((r) => (
+                    <TableRow key={r.contrato}>
+                      <TableCell className="text-muted-foreground">{r.contrato}</TableCell>
+                      <TableCell>{r.manzana ?? "—"}</TableCell>
+                      <TableCell>{r.parcela ?? "—"}</TableCell>
+                      <TableCell>{r.modalidad}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {int(r.pagadas)} / {int(r.cuotas)}
+                      </TableCell>
+                      <TableCell className={cn("text-right tabular-nums", r.vencidas > 0 && "text-rose-600 dark:text-rose-400")}>{int(r.vencidas)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", r.vencidoUsd > 0 && "text-rose-600 dark:text-rose-400")}>{int(r.vencidoUsd)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{int(r.saldoUsd)}</TableCell>
+                      <TableCell>{fecha(r.proximoVenc)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Panel>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
