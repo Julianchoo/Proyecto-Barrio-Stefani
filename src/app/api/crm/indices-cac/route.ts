@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-auth";
 import { recomputeAllPesosCacCuotas } from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
+import { crmTransaction } from "@/lib/crm-transaction";
 import { indicesCac } from "@/lib/schema";
 
 const indiceSchema = z.object({
@@ -42,34 +43,36 @@ export async function POST(request: Request) {
     );
   }
 
-  const existing = await db
-    .select({ id: indicesCac.id })
-    .from(indicesCac)
-    .where(eq(indicesCac.periodo, parsed.data.periodo))
-    .limit(1);
+  await crmTransaction(async (tx) => {
+    const existing = await tx
+      .select({ id: indicesCac.id })
+      .from(indicesCac)
+      .where(eq(indicesCac.periodo, parsed.data.periodo))
+      .limit(1);
 
-  if (existing.length > 0) {
-    await db
-      .update(indicesCac)
-      .set({
+    if (existing.length > 0) {
+      await tx
+        .update(indicesCac)
+        .set({
+          valor: String(parsed.data.valor),
+          fuente: parsed.data.fuente ?? null,
+          nota: parsed.data.nota ?? null,
+          creadoPor: authResult.email,
+          updatedAt: new Date(),
+        })
+        .where(eq(indicesCac.periodo, parsed.data.periodo));
+    } else {
+      await tx.insert(indicesCac).values({
+        periodo: parsed.data.periodo,
         valor: String(parsed.data.valor),
         fuente: parsed.data.fuente ?? null,
         nota: parsed.data.nota ?? null,
         creadoPor: authResult.email,
-        updatedAt: new Date(),
-      })
-      .where(eq(indicesCac.periodo, parsed.data.periodo));
-  } else {
-    await db.insert(indicesCac).values({
-      periodo: parsed.data.periodo,
-      valor: String(parsed.data.valor),
-      fuente: parsed.data.fuente ?? null,
-      nota: parsed.data.nota ?? null,
-      creadoPor: authResult.email,
-    });
-  }
+      });
+    }
 
-  await recomputeAllPesosCacCuotas();
+    await recomputeAllPesosCacCuotas(tx);
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -86,10 +89,10 @@ export async function DELETE(request: Request) {
     );
   }
 
-  await db
-    .delete(indicesCac)
-    .where(eq(indicesCac.periodo, parsed.data.periodo));
+  await crmTransaction(async (tx) => {
+    await tx.delete(indicesCac).where(eq(indicesCac.periodo, parsed.data.periodo));
 
-  await recomputeAllPesosCacCuotas();
+    await recomputeAllPesosCacCuotas(tx);
+  });
   return NextResponse.json({ ok: true });
 }

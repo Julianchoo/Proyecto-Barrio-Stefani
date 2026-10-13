@@ -3,7 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getMinimumAnticipoUsd } from "@/lib/financiacion";
-import { leads, parcelas, reservas } from "@/lib/schema";
+import { contratos, leads, parcelas, reservas } from "@/lib/schema";
+import { crmTransaction } from "@/lib/crm-transaction";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import {
@@ -11,6 +12,7 @@ import {
   flattenParcelaReserva,
   hasReservaData,
   pickReservaData,
+  compradorSnapshot,
 } from "@/lib/reservas";
 
 const COMERCIAL_FIELDS = [
@@ -207,7 +209,7 @@ export async function PUT(
       }
     }
 
-    const result = await db.transaction(async (tx) => {
+    const result = await crmTransaction(async (tx) => {
       // Bloquea el lote: PATCH /reservas/[id] hace lo mismo, asi que crear o reactivar
       // reservas del mismo lote no corren en paralelo y no pueden quedar dos vigentes.
       await tx
@@ -229,8 +231,7 @@ export async function PUT(
       const requestedFormaPago = data.formaPago ?? activeReserva?.formaPago;
       const requestedAnticipo = numericValue(data.anticipoNum);
       const currentAnticipo = numericValue(activeReserva?.anticipoNum);
-      const changesAnticipo =
-        "anticipoNum" in data && requestedAnticipo !== currentAnticipo;
+      const changesAnticipo = "anticipoNum" in data && requestedAnticipo !== currentAnticipo;
       const shouldValidateAnticipo =
         requestedFormaPago !== "contado" &&
         "anticipoNum" in data &&
@@ -271,10 +272,7 @@ export async function PUT(
 
       if (isReservedByOther) return { kind: "forbidden" as const };
 
-      const touchesCommercialParcelaFields = hasAnyField(
-        allowedData,
-        PARCELA_COMERCIAL_FIELDS
-      );
+      const touchesCommercialParcelaFields = hasAnyField(allowedData, PARCELA_COMERCIAL_FIELDS);
       const canComercialEditParcelaFields =
         authResult.role === "admin" ||
         current.estado === "disponible" ||
@@ -302,7 +300,7 @@ export async function PUT(
         parcelaData.valorM2 = calculateValorM2(
           "precioBase" in allowedData
             ? allowedData.precioBase
-            : current.precioBase ?? current.precioEtapa1,
+            : (current.precioBase ?? current.precioEtapa1),
           "superficieM2" in parcelaData ? parcelaData.superficieM2 : current.superficieM2
         );
       }
@@ -312,8 +310,47 @@ export async function PUT(
         ? hasReservaData(reservaData)
         : hasReservaValue(reservaData);
       const requestedLeadId =
-        "leadId" in reservaData ? (reservaData.leadId as number | null) : activeReserva?.leadId ?? null;
+        "leadId" in reservaData
+          ? (reservaData.leadId as number | null)
+          : (activeReserva?.leadId ?? null);
       const createsReserva = !activeReserva && shouldTouchReserva;
+      if (
+        activeReserva?.leadId &&
+        "leadId" in reservaData &&
+        (!requestedLeadId ||
+          (activeReserva.estado === "realizada" && requestedLeadId !== activeReserva.leadId))
+      ) {
+        return { kind: "protected-lead" as const };
+      }
+      if (activeReserva) {
+        const [contrato] = await tx
+          .select({ id: contratos.id })
+          .from(contratos)
+          .where(eq(contratos.reservaId, activeReserva.id));
+        const protectedFields = [
+          "formaPago",
+          "modalidadContrato",
+          "fechaFirma",
+          "fechaReserva",
+          "precioTotalNum",
+          "precioTotalPalabras",
+          "anticipoNum",
+          "anticipoPalabras",
+          "saldoNum",
+          "saldoPalabras",
+          "cantidadCuotas",
+          "cuotaMensual",
+          "cuotaMensualPalabras",
+        ] as const;
+        if (
+          contrato &&
+          protectedFields.some(
+            (field) => field in reservaData && reservaData[field] !== activeReserva[field]
+          )
+        ) {
+          return { kind: "protected-contract" as const };
+        }
+      }
 
       if (allowedData.estado !== undefined) {
         // Para liberar un lote reservado o vendido hay que cancelar su reserva.
@@ -336,11 +373,13 @@ export async function PUT(
           leadConditions.push(eq(leads.asignadoA, authResult.id));
         }
         const [selectedLead] = await tx
-          .select({ id: leads.id })
+          .select()
           .from(leads)
           .where(and(...leadConditions));
 
         if (!selectedLead) return { kind: "invalid-lead" as const };
+        if (createsReserva || requestedLeadId !== activeReserva?.leadId)
+          Object.assign(reservaData, compradorSnapshot(selectedLead));
       }
 
       if (allowedData.estado !== undefined) {
@@ -370,10 +409,7 @@ export async function PUT(
       }
 
       if (Object.keys(parcelaData).length > 0) {
-        await tx
-          .update(parcelas)
-          .set(parcelaData)
-          .where(eq(parcelas.id, parcelaId));
+        await tx.update(parcelas).set(parcelaData).where(eq(parcelas.id, parcelaId));
       }
 
       const [updatedRow] = await tx
@@ -410,6 +446,17 @@ export async function PUT(
 
     if (result.kind === "not-found") {
       return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
+    }
+    if (result.kind === "protected-lead" || result.kind === "protected-contract") {
+      return NextResponse.json(
+        {
+          error:
+            result.kind === "protected-lead"
+              ? "No se puede desvincular ni reemplazar el comprador de una reserva"
+              : "La reserva tiene contrato: no se pueden cambiar sus condiciones económicas desde el lote",
+        },
+        { status: 409 }
+      );
     }
     if (result.kind === "forbidden") {
       return NextResponse.json(

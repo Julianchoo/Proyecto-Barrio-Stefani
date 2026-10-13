@@ -3,7 +3,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
-import { db } from "@/lib/db";
+import { crmTransaction } from "@/lib/crm-transaction";
 import { cuotas, pagos } from "@/lib/schema";
 import { deleteFile, upload } from "@/lib/storage";
 import { getTipoCambioOnOrBefore } from "@/lib/tipos-cambio";
@@ -61,116 +61,113 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   let uploadedUrl: string | null = null;
-  const result = await db
-    .transaction(async (tx) => {
-      const [initial] = await tx.select().from(pagos).where(eq(pagos.id, pagoId));
-      if (!initial?.cuotaId)
-        return { error: "Pago sin cuota o no encontrado", status: 404 as const };
-      const cuotaId = initial.cuotaId;
-      await tx.execute(sql`SELECT id FROM cuotas WHERE id = ${cuotaId} FOR UPDATE`);
-      await tx.execute(sql`SELECT id FROM pagos WHERE id = ${pagoId} FOR UPDATE`);
-      const [current] = await tx.select().from(pagos).where(eq(pagos.id, pagoId));
-      const [cuota] = await tx.select().from(cuotas).where(eq(cuotas.id, cuotaId));
-      if (!current || !cuota) return { error: "Pago no encontrado", status: 404 as const };
-      if (current.estado !== "activo") {
-        return { error: "No se puede editar un pago anulado", status: 409 as const };
-      }
-      if (parsed.data.moneda !== current.moneda) {
-        return { error: "No se puede cambiar la moneda del pago", status: 409 as const };
-      }
-      const amountChanged = parsed.data.monto !== Number(current.monto);
-      if (amountChanged && ["cancelada", "pendiente_indice"].includes(cuota.estado)) {
-        return {
-          error: "No se puede cambiar el monto de una cuota cancelada o sin CAC",
-          status: 409 as const,
-        };
-      }
-      const activePayments = await tx
-        .select({ monto: pagos.monto })
-        .from(pagos)
-        .where(and(eq(pagos.cuotaId, cuotaId), eq(pagos.estado, "activo"), ne(pagos.id, pagoId)));
-      const paid = activePayments.reduce((total, payment) => total + Number(payment.monto), 0);
-      const amount = Number(cuota.importeAjustado ?? cuota.importeBase);
-      const remaining = Math.max(amount - paid, 0);
-      if (amountChanged && parsed.data.monto > remaining + 0.005) {
-        return {
-          error:
-            remaining <= 0
-              ? "La cuota ya está pagada"
-              : `El pago supera el saldo de la cuota (${remaining.toFixed(2)})`,
-          status: 409 as const,
-        };
-      }
+  const result = await crmTransaction(async (tx) => {
+    const [initial] = await tx.select().from(pagos).where(eq(pagos.id, pagoId));
+    if (!initial?.cuotaId) return { error: "Pago sin cuota o no encontrado", status: 404 as const };
+    const cuotaId = initial.cuotaId;
+    await tx.execute(sql`SELECT id FROM cuotas WHERE id = ${cuotaId} FOR UPDATE`);
+    await tx.execute(sql`SELECT id FROM pagos WHERE id = ${pagoId} FOR UPDATE`);
+    const [current] = await tx.select().from(pagos).where(eq(pagos.id, pagoId));
+    const [cuota] = await tx.select().from(cuotas).where(eq(cuotas.id, cuotaId));
+    if (!current || !cuota) return { error: "Pago no encontrado", status: 404 as const };
+    if (current.estado !== "activo") {
+      return { error: "No se puede editar un pago anulado", status: 409 as const };
+    }
+    if (parsed.data.moneda !== current.moneda) {
+      return { error: "No se puede cambiar la moneda del pago", status: 409 as const };
+    }
+    const amountChanged = parsed.data.monto !== Number(current.monto);
+    if (amountChanged && ["cancelada", "pendiente_indice"].includes(cuota.estado)) {
+      return {
+        error: "No se puede cambiar el monto de una cuota cancelada o sin CAC",
+        status: 409 as const,
+      };
+    }
+    const activePayments = await tx
+      .select({ monto: pagos.monto })
+      .from(pagos)
+      .where(and(eq(pagos.cuotaId, cuotaId), eq(pagos.estado, "activo"), ne(pagos.id, pagoId)));
+    const paid = activePayments.reduce((total, payment) => total + Number(payment.monto), 0);
+    const amount = Number(cuota.importeAjustado ?? cuota.importeBase);
+    const remaining = Math.max(amount - paid, 0);
+    if (amountChanged && parsed.data.monto > remaining + 0.005) {
+      return {
+        error:
+          remaining <= 0
+            ? "La cuota ya está pagada"
+            : `El pago supera el saldo de la cuota (${remaining.toFixed(2)})`,
+        status: 409 as const,
+      };
+    }
 
-      const dateChanged = parsed.data.fechaPago !== current.fechaPago;
-      const tipoCambio =
-        dateChanged && current.moneda === "ars"
-          ? await getTipoCambioOnOrBefore(parsed.data.fechaPago)
-          : null;
-      const tipoCambioValor = dateChanged
-        ? tipoCambio
-          ? Number(tipoCambio.valor)
-          : null
-        : current.tipoCambioAplicado
-          ? Number(current.tipoCambioAplicado)
-          : null;
-      const uploaded = comprobante
-        ? await upload(
-            Buffer.from(await comprobante.arrayBuffer()),
-            `${Date.now()}-${comprobante.name}`,
-            `comprobantes/pagos/contrato-${current.contratoId}`,
-            { maxSize: MAX_COMPROBANTE_SIZE }
-          )
+    const dateChanged = parsed.data.fechaPago !== current.fechaPago;
+    const tipoCambio =
+      dateChanged && current.moneda === "ars"
+        ? await getTipoCambioOnOrBefore(parsed.data.fechaPago, tx)
         : null;
-      uploadedUrl = uploaded?.url ?? null;
+    const tipoCambioValor = dateChanged
+      ? tipoCambio
+        ? Number(tipoCambio.valor)
+        : null
+      : current.tipoCambioAplicado
+        ? Number(current.tipoCambioAplicado)
+        : null;
+    const uploaded = comprobante
+      ? await upload(
+          Buffer.from(await comprobante.arrayBuffer()),
+          `${Date.now()}-${comprobante.name}`,
+          `comprobantes/pagos/contrato-${current.contratoId}`,
+          { maxSize: MAX_COMPROBANTE_SIZE }
+        )
+      : null;
+    uploadedUrl = uploaded?.url ?? null;
 
-      const [pago] = await tx
-        .update(pagos)
-        .set({
-          fechaPago: parsed.data.fechaPago,
-          monto: String(parsed.data.monto),
-          moneda: parsed.data.moneda,
-          ...(dateChanged || amountChanged
+    const [pago] = await tx
+      .update(pagos)
+      .set({
+        fechaPago: parsed.data.fechaPago,
+        monto: String(parsed.data.monto),
+        moneda: parsed.data.moneda,
+        ...(dateChanged || amountChanged
+          ? {
+              tipoCambioAplicado:
+                tipoCambioValor && tipoCambioValor > 0 ? String(tipoCambioValor) : null,
+              montoUsd:
+                current.moneda === "usd"
+                  ? String(parsed.data.monto)
+                  : tipoCambioValor && tipoCambioValor > 0
+                    ? String(parsed.data.monto / tipoCambioValor)
+                    : null,
+            }
+          : {}),
+        medio: parsed.data.medio ?? null,
+        observacion: parsed.data.observacion ?? null,
+        ...(uploaded
+          ? {
+              comprobanteUrl: uploaded.url,
+              comprobantePathname: uploaded.pathname,
+              comprobanteNombre: comprobante!.name,
+            }
+          : formData.get("quitarComprobante") === "true"
             ? {
-                tipoCambioAplicado:
-                  tipoCambioValor && tipoCambioValor > 0 ? String(tipoCambioValor) : null,
-                montoUsd:
-                  current.moneda === "usd"
-                    ? String(parsed.data.monto)
-                    : tipoCambioValor && tipoCambioValor > 0
-                      ? String(parsed.data.monto / tipoCambioValor)
-                      : null,
+                comprobanteUrl: null,
+                comprobantePathname: null,
+                comprobanteNombre: null,
               }
             : {}),
-          medio: parsed.data.medio ?? null,
-          observacion: parsed.data.observacion ?? null,
-          ...(uploaded
-            ? {
-                comprobanteUrl: uploaded.url,
-                comprobantePathname: uploaded.pathname,
-                comprobanteNombre: comprobante!.name,
-              }
-            : formData.get("quitarComprobante") === "true"
-              ? {
-                  comprobanteUrl: null,
-                  comprobantePathname: null,
-                  comprobanteNombre: null,
-                }
-              : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(pagos.id, pagoId))
-        .returning();
-      return { pago, contratoId: current.contratoId, amountChanged };
-    })
-    .catch(async (error) => {
-      if (uploadedUrl) await deleteFile(uploadedUrl).catch(() => undefined);
-      throw error;
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(pagos.id, pagoId))
+      .returning();
+    if (amountChanged) await recomputeContratoCuotas(current.contratoId, tx);
+    return { pago, contratoId: current.contratoId, amountChanged };
+  }).catch(async (error) => {
+    if (uploadedUrl) await deleteFile(uploadedUrl).catch(() => undefined);
+    throw error;
+  });
 
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: result.status ?? 409 });
   }
-  if (result.amountChanged) await recomputeContratoCuotas(result.contratoId);
   return NextResponse.json(result.pago);
 }

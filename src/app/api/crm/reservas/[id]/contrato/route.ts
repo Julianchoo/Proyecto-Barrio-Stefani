@@ -53,6 +53,15 @@ export async function POST(
   }
 
   const result = await createContratoForReserva(reservaId, parsed.data, authResult.email);
+  if (result.kind === "invalid-data" || result.kind === "contado") {
+    return NextResponse.json(
+      {
+        error:
+          "El contrato requiere financiación, cuotas enteras positivas, importes positivos y una fecha válida",
+      },
+      { status: 400 }
+    );
+  }
   if (result.kind === "not-realizada") {
     return NextResponse.json(
       { error: "La cuenta corriente nace desde una reserva realizada" },
@@ -87,5 +96,7 @@ export async function POST(
     return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
   }
 
+  if (result.kind !== "ok")
+    return NextResponse.json({ error: "No se pudo crear el contrato" }, { status: 409 });
   return NextResponse.json({ contratoId: result.contratoId }, { status: 201 });
 }

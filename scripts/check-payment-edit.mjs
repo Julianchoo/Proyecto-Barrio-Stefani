@@ -32,6 +32,7 @@ async function edit(fields = {}, options = {}) {
   ];
   let update,
     recomputed = false,
+    inTransaction = false,
     deleted = false,
     lookedUp = false;
   const tx = {
@@ -57,10 +58,21 @@ async function edit(fields = {}, options = {}) {
         options.denied ? Response.json({}, { status: 403 }) : { email: "admin" },
       isErrorResponse: (value) => value instanceof Response,
     },
-    "@/lib/db": { db: { transaction: async (fn) => fn(tx) } },
+    "@/lib/crm-transaction": {
+      crmTransaction: async (fn) => {
+        inTransaction = true;
+        try {
+          return await fn(tx);
+        } finally {
+          inTransaction = false;
+        }
+      },
+    },
     "@/lib/schema": { pagos: { id: "id" }, cuotas: { id: "id" } },
     "@/lib/cuenta-corriente": {
-      recomputeContratoCuotas: async () => {
+      recomputeContratoCuotas: async (_id, executor) => {
+        assert.equal(inTransaction, true);
+        assert.equal(executor, tx);
         recomputed = true;
       },
     },

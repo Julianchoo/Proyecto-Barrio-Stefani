@@ -47,6 +47,20 @@ export const RESERVA_FIELDS = [
 
 export type ReservaField = (typeof RESERVA_FIELDS)[number];
 
+export function compradorSnapshot(lead: Lead) {
+  return {
+    nombreComprador: lead.nombre,
+    dniCuit: lead.dniCuit,
+    telefono: lead.telefono,
+    emailComprador: lead.email,
+    domicilioComprador: lead.domicilio,
+    nacionalidad: lead.nacionalidad,
+    fechaNacimiento: lead.fechaNacimiento,
+    estadoCivil: lead.estadoCivil,
+    cuitComprador: lead.cuitComprador,
+  };
+}
+
 const EMPTY_RESERVA_FIELDS = {
   leadId: null,
   nombreComprador: null,
@@ -119,29 +133,30 @@ export function flattenParcelaReserva(
     };
   }
 
-  const leadData = lead
-    ? {
-        nombreComprador: lead.nombre,
-        dniCuit: lead.dniCuit,
-        telefono: lead.telefono,
-        emailComprador: lead.email,
-        domicilioComprador: lead.domicilio,
-        nacionalidad: lead.nacionalidad,
-        fechaNacimiento: lead.fechaNacimiento,
-        estadoCivil: lead.estadoCivil,
-        cuitComprador: lead.cuitComprador,
-      }
-    : {
-        nombreComprador: reserva.nombreComprador,
-        dniCuit: reserva.dniCuit,
-        telefono: reserva.telefono,
-        emailComprador: reserva.emailComprador,
-        domicilioComprador: reserva.domicilioComprador,
-        nacionalidad: reserva.nacionalidad,
-        fechaNacimiento: reserva.fechaNacimiento,
-        estadoCivil: reserva.estadoCivil,
-        cuitComprador: reserva.cuitComprador,
-      };
+  const leadData =
+    lead && !(reserva.estado === "realizada" && reserva.nombreComprador)
+      ? {
+          nombreComprador: lead.nombre,
+          dniCuit: lead.dniCuit,
+          telefono: lead.telefono,
+          emailComprador: lead.email,
+          domicilioComprador: lead.domicilio,
+          nacionalidad: lead.nacionalidad,
+          fechaNacimiento: lead.fechaNacimiento,
+          estadoCivil: lead.estadoCivil,
+          cuitComprador: lead.cuitComprador,
+        }
+      : {
+          nombreComprador: reserva.nombreComprador,
+          dniCuit: reserva.dniCuit,
+          telefono: reserva.telefono,
+          emailComprador: reserva.emailComprador,
+          domicilioComprador: reserva.domicilioComprador,
+          nacionalidad: reserva.nacionalidad,
+          fechaNacimiento: reserva.fechaNacimiento,
+          estadoCivil: reserva.estadoCivil,
+          cuitComprador: reserva.cuitComprador,
+        };
 
   return {
     ...parcela,

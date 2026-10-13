@@ -1,5 +1,8 @@
 import { and, asc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { crmTransaction, type CrmTransaction } from "@/lib/crm-transaction";
+import { z } from "zod";
+import { flattenParcelaReserva } from "@/lib/reservas";
 import { logAudit } from "@/lib/audit";
 import { contratos, cuotas, indicesCac, leads, pagos, parcelas, reservas } from "@/lib/schema";
 import type {
@@ -109,6 +112,19 @@ export type CreateContratoInput = {
 };
 
 const FINAL_CUOTA_STATES: EstadoCuota[] = ["pagada", "cancelada"];
+
+type CreateContratoResult =
+  | { kind: "ok" | "exists"; contratoId: number }
+  | {
+      kind:
+        | "not-found"
+        | "not-realizada"
+        | "contado"
+        | "missing-data"
+        | "invalid-data"
+        | "missing-exchange-rate"
+        | "missing-base-cac";
+    };
 
 function toNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
@@ -225,14 +241,18 @@ function computeCuotaAmount(
   return { amount: null, indiceCac: null, amountKind: "missing" as const };
 }
 
-export async function recomputeContratoCuotas(contratoId: number) {
-  const [contrato] = await db.select().from(contratos).where(eq(contratos.id, contratoId));
+export async function recomputeContratoCuotas(
+  contratoId: number,
+  tx?: CrmTransaction
+): Promise<void> {
+  if (!tx) return crmTransaction((executor) => recomputeContratoCuotas(contratoId, executor));
+  const [contrato] = await tx.select().from(contratos).where(eq(contratos.id, contratoId));
   if (!contrato) return;
 
   const [cuotaRows, pagoRows, indexRows] = await Promise.all([
-    db.select().from(cuotas).where(eq(cuotas.contratoId, contratoId)).orderBy(asc(cuotas.numero)),
-    db.select().from(pagos).where(eq(pagos.contratoId, contratoId)),
-    db.select().from(indicesCac),
+    tx.select().from(cuotas).where(eq(cuotas.contratoId, contratoId)).orderBy(asc(cuotas.numero)),
+    tx.select().from(pagos).where(eq(pagos.contratoId, contratoId)),
+    tx.select().from(indicesCac),
   ]);
   const indicesByPeriodo = new Map(
     indexRows.map((item) => [item.periodo, toNumber(item.valor) ?? 0])
@@ -256,7 +276,7 @@ export async function recomputeContratoCuotas(contratoId: number) {
       cuota.estado
     );
 
-    await db
+    await tx
       .update(cuotas)
       .set({
         periodoCac:
@@ -271,31 +291,36 @@ export async function recomputeContratoCuotas(contratoId: number) {
   }
 }
 
-export async function recomputeAllPesosCacCuotas() {
-  const rows = await db
+export async function recomputeAllPesosCacCuotas(tx?: CrmTransaction): Promise<void> {
+  if (!tx) return crmTransaction((executor) => recomputeAllPesosCacCuotas(executor));
+  const rows = await tx
     .select({ id: contratos.id })
     .from(contratos)
     .where(eq(contratos.modalidad, "pesos_cac"));
 
   for (const row of rows) {
-    await recomputeContratoCuotas(row.id);
+    await recomputeContratoCuotas(row.id, tx);
   }
 }
 
 export async function createContratoForReserva(
   reservaId: number,
   input: CreateContratoInput,
-  userEmail: string
-) {
-  const [reserva] = await db.select().from(reservas).where(eq(reservas.id, reservaId));
+  userEmail: string,
+  executor?: CrmTransaction
+): Promise<CreateContratoResult> {
+  if (!executor)
+    return crmTransaction((tx) => createContratoForReserva(reservaId, input, userEmail, tx));
+  const [reserva] = await executor.select().from(reservas).where(eq(reservas.id, reservaId));
   if (!reserva) return { kind: "not-found" as const };
   if (reserva.estado !== "realizada") return { kind: "not-realizada" as const };
 
-  const [existing] = await db
+  const [existing] = await executor
     .select({ id: contratos.id })
     .from(contratos)
     .where(eq(contratos.reservaId, reservaId));
   if (existing) return { kind: "exists" as const, contratoId: existing.id };
+  if (reserva.formaPago === "contado") return { kind: "contado" };
 
   const cantidadCuotas = input.cantidadCuotas ?? toNumber(reserva.cantidadCuotas);
   const cuotaBaseUsd = input.cuotaBase ?? toNumber(reserva.cuotaMensual);
@@ -305,7 +330,22 @@ export async function createContratoForReserva(
   if (!cantidadCuotas || !cuotaBaseUsd || !saldoInicialUsd || !fechaInicio) {
     return { kind: "missing-data" as const };
   }
-  if (input.modalidad === "pesos_cac" && (!input.tipoCambioBna || input.tipoCambioBna <= 0)) {
+  if (
+    !Number.isInteger(cantidadCuotas) ||
+    cantidadCuotas <= 0 ||
+    !Number.isFinite(cuotaBaseUsd) ||
+    cuotaBaseUsd <= 0 ||
+    !Number.isFinite(saldoInicialUsd) ||
+    saldoInicialUsd <= 0 ||
+    !z.iso.date().safeParse(fechaInicio).success ||
+    !["usd_fijo", "pesos_cac"].includes(input.modalidad)
+  ) {
+    return { kind: "invalid-data" };
+  }
+  if (
+    input.modalidad === "pesos_cac" &&
+    (!input.tipoCambioBna || !Number.isFinite(input.tipoCambioBna) || input.tipoCambioBna <= 0)
+  ) {
     return { kind: "missing-exchange-rate" as const };
   }
 
@@ -315,7 +355,7 @@ export async function createContratoForReserva(
     input.modalidad === "pesos_cac" ? (input.periodoBaseCac ?? periodFromDate(fechaInicio)) : null;
   let indiceBaseCac: number | null = null;
   if (input.modalidad === "pesos_cac") {
-    const [baseIndexRow] = await db
+    const [baseIndexRow] = await executor
       .select({ valor: indicesCac.valor })
       .from(indicesCac)
       .where(eq(indicesCac.periodo, periodoBaseCac!))
@@ -329,71 +369,76 @@ export async function createContratoForReserva(
   const conversionRate = input.modalidad === "pesos_cac" ? input.tipoCambioBna! : 1;
   const cuotaBase = cuotaBaseUsd * conversionRate;
   const saldoInicial = saldoInicialUsd * conversionRate;
+  if (
+    !Number.isFinite(cuotaBase) ||
+    !Number.isFinite(saldoInicial) ||
+    Math.round(cuotaBase * 100) <= 0 ||
+    Math.round(saldoInicial * 100) <= 0
+  ) {
+    return { kind: "invalid-data" };
+  }
 
-  const result = await db.transaction(async (tx) => {
-    const [contrato] = await tx
-      .insert(contratos)
-      .values({
-        reservaId,
-        modalidad: input.modalidad,
-        fechaInicio,
-        fechaPrimerVencimiento,
-        cantidadCuotas,
-        diaVencimiento,
-        saldoInicial: moneyString(saldoInicial),
-        cuotaBase: moneyString(cuotaBase),
-        monedaBase,
-        tipoCambioBna:
-          input.modalidad === "pesos_cac" ? moneyString(conversionRate) : null,
-        periodoBaseCac,
-        indiceBaseCac: indiceBaseCac === null ? null : moneyString(indiceBaseCac),
-        requiereRevision: false,
-        observaciones: input.observaciones ?? null,
-        creadoPor: userEmail,
-      })
-      .returning();
-    if (!contrato) throw new Error("No se pudo crear el contrato");
+  const tx = executor;
+  const [contrato] = await tx
+    .insert(contratos)
+    .values({
+      reservaId,
+      modalidad: input.modalidad,
+      fechaInicio,
+      fechaPrimerVencimiento,
+      cantidadCuotas,
+      diaVencimiento,
+      saldoInicial: moneyString(saldoInicial),
+      cuotaBase: moneyString(cuotaBase),
+      monedaBase,
+      tipoCambioBna: input.modalidad === "pesos_cac" ? moneyString(conversionRate) : null,
+      periodoBaseCac,
+      indiceBaseCac: indiceBaseCac === null ? null : moneyString(indiceBaseCac),
+      requiereRevision: false,
+      observaciones: input.observaciones ?? null,
+      creadoPor: userEmail,
+    })
+    .returning();
+  if (!contrato) throw new Error("No se pudo crear el contrato");
 
-    const [reservaActualizada] = await tx
-      .update(reservas)
-      .set({
-        formaPago: "financiado",
-        modalidadContrato: input.modalidad,
-        updatedAt: new Date(),
-      })
-      .where(eq(reservas.id, reservaId))
-      .returning();
-    await logAudit(tx, {
-      entidad: "reserva",
-      entidadId: reservaId,
-      usuario: userEmail,
-      antes: reserva,
-      despues: reservaActualizada,
-    });
-
-    const cuotaValues = Array.from({ length: cantidadCuotas }, (_, index) => {
-      const fechaVencimiento = addMonthsOnDay(fechaPrimerVencimiento, index, diaVencimiento);
-      return {
-        contratoId: contrato.id,
-        numero: index + 1,
-        fechaVencimiento,
-        periodoCac: input.modalidad === "pesos_cac" ? cacPeriodForDueDate(fechaVencimiento) : null,
-        importeBase: moneyString(cuotaBase),
-        importeAjustado: input.modalidad === "usd_fijo" ? moneyString(cuotaBase) : null,
-        moneda: monedaBase,
-        saldo: moneyString(cuotaBase),
-        estado:
-          input.modalidad === "pesos_cac" ? ("pendiente_indice" as const) : ("pendiente" as const),
-      };
-    });
-
-    await tx.insert(cuotas).values(cuotaValues);
-    return contrato;
+  const [reservaActualizada] = await tx
+    .update(reservas)
+    .set({
+      formaPago: "financiado",
+      modalidadContrato: input.modalidad,
+      updatedAt: new Date(),
+    })
+    .where(eq(reservas.id, reservaId))
+    .returning();
+  await logAudit(tx, {
+    entidad: "reserva",
+    entidadId: reservaId,
+    usuario: userEmail,
+    antes: reserva,
+    despues: reservaActualizada,
   });
 
-  if (!result) throw new Error("No se pudo crear el contrato");
-  await recomputeContratoCuotas(result.id);
-  return { kind: "ok" as const, contratoId: result.id };
+  const cuotaValues = Array.from({ length: cantidadCuotas }, (_, index) => {
+    const fechaVencimiento = addMonthsOnDay(fechaPrimerVencimiento, index, diaVencimiento);
+    return {
+      contratoId: contrato.id,
+      numero: index + 1,
+      fechaVencimiento,
+      periodoCac: input.modalidad === "pesos_cac" ? cacPeriodForDueDate(fechaVencimiento) : null,
+      importeBase: moneyString(cuotaBase),
+      importeAjustado: input.modalidad === "usd_fijo" ? moneyString(cuotaBase) : null,
+      moneda: monedaBase,
+      saldo: moneyString(cuotaBase),
+      estado:
+        input.modalidad === "pesos_cac" ? ("pendiente_indice" as const) : ("pendiente" as const),
+    };
+  });
+
+  await tx.insert(cuotas).values(cuotaValues);
+
+
+  await recomputeContratoCuotas(contrato.id, tx);
+  return { kind: "ok" as const, contratoId: contrato.id };
 }
 
 export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
@@ -622,6 +667,7 @@ function buildPendingSummary(row: {
   lead: typeof leads.$inferSelect | null;
 }): CuentaCorrienteSummary {
   const modalidad = row.reserva.modalidadContrato ?? "requiere_revision";
+  const comprador = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
   return {
     contratoId: null,
     reservaId: row.reserva.id,
@@ -629,10 +675,10 @@ function buildPendingSummary(row: {
     loteNumero: row.parcela.numero,
     manzana: row.parcela.manzana,
     parcela: row.parcela.parcela,
-    comprador: row.lead?.nombre ?? row.reserva.nombreComprador,
-    dniCuit: row.lead?.dniCuit ?? row.reserva.dniCuit,
-    telefono: row.lead?.telefono ?? row.reserva.telefono,
-    email: row.lead?.email ?? row.reserva.emailComprador,
+    comprador: comprador.nombreComprador ?? null,
+    dniCuit: comprador.dniCuit ?? null,
+    telefono: comprador.telefono ?? null,
+    email: comprador.emailComprador ?? null,
     reservadoPor: row.reserva.reservadoPor,
     modalidad,
     requiereRevision: modalidad === "requiere_revision",
@@ -812,6 +858,7 @@ function buildSummary(
   rateRows: TipoCambio[] = [],
   currentCac: { periodo: string; valor: number } | null = null
 ): CuentaCorrienteSummary {
+  const comprador = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
   const today = todayKey();
   const activeCuotas = cuotaRows.filter((cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado));
   const overdueCuotas = activeCuotas.filter((cuota) => cuota.fechaVencimiento < today);
@@ -853,10 +900,10 @@ function buildSummary(
     loteNumero: row.parcela.numero,
     manzana: row.parcela.manzana,
     parcela: row.parcela.parcela,
-    comprador: row.lead?.nombre ?? row.reserva.nombreComprador,
-    dniCuit: row.lead?.dniCuit ?? row.reserva.dniCuit,
-    telefono: row.lead?.telefono ?? row.reserva.telefono,
-    email: row.lead?.email ?? row.reserva.emailComprador,
+    comprador: comprador.nombreComprador ?? null,
+    dniCuit: comprador.dniCuit ?? null,
+    telefono: comprador.telefono ?? null,
+    email: comprador.emailComprador ?? null,
     reservadoPor: row.reserva.reservadoPor,
     modalidad: row.contrato.modalidad,
     requiereRevision: row.contrato.requiereRevision,

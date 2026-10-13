@@ -45,4 +45,7 @@ next-env.d.ts
 # uploads
 public/uploads
 
+# Local database backups and isolated integrity checks
+.cache/crm-safety/
+
 nul

@@ -5,7 +5,9 @@ import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { createContratoForReserva } from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
-import { parcelas, reservas, user } from "@/lib/schema";
+import { leads, parcelas, reservas, user } from "@/lib/schema";
+import { crmTransaction } from "@/lib/crm-transaction";
+import { compradorSnapshot } from "@/lib/reservas";
 
 const updateSchema = z
   .object({
@@ -38,6 +40,8 @@ function cuentaCorrienteMessage(kind: string) {
   if (kind === "ok") return "Cuenta corriente creada";
   if (kind === "exists") return "La reserva ya tenia cuenta corriente";
   if (kind === "missing-data") return "Faltan datos para generar la cuenta corriente";
+  if (kind === "invalid-data")
+    return "Corregí las cuotas, importes o fecha antes de generar la cuenta corriente";
   if (kind === "missing-exchange-rate") {
     return "Falta tipo de cambio BNA para generar la cuenta Pesos + CAC";
   }
@@ -113,7 +117,7 @@ export async function PATCH(
     const body = await request.json();
     const data = updateSchema.parse(body);
 
-    const result = await db.transaction(async (tx) => {
+    const result = await crmTransaction(async (tx) => {
       const [current] = await tx
         .select({ reserva: reservas, parcela: parcelas })
         .from(reservas)
@@ -123,6 +127,11 @@ export async function PATCH(
       if (!current) return { kind: "not-found" as const };
 
       const { reserva, parcela } = current;
+      await tx
+        .select({ id: parcelas.id })
+        .from(parcelas)
+        .where(eq(parcelas.id, reserva.parcelaId))
+        .for("update");
       const cambiaEstado = Boolean(data.estado && data.estado !== reserva.estado);
       const nextEstado = data.estado ?? reserva.estado;
 
@@ -142,8 +151,7 @@ export async function PATCH(
         return { kind: "estado-confirmation-required" as const };
       }
 
-      const isSoldOrRealizada =
-        parcela.estado === "vendido" || reserva.estado === "realizada";
+      const isSoldOrRealizada = parcela.estado === "vendido" || reserva.estado === "realizada";
       if (data.reservadoPor && isSoldOrRealizada && data.confirmarEdicionVendida !== true) {
         return { kind: "sold-confirmation-required" as const };
       }
@@ -199,9 +207,14 @@ export async function PATCH(
         }
       }
 
+      const [lead] =
+        reserva.leadId && nextEstado === "realizada"
+          ? await tx.select().from(leads).where(eq(leads.id, reserva.leadId))
+          : [];
       await tx
         .update(reservas)
         .set({
+          ...(cambiaEstado && nextEstado === "realizada" && lead ? compradorSnapshot(lead) : {}),
           ...(data.estado ? { estado: data.estado } : {}),
           ...(data.reservadoPor ? { reservadoPor: data.reservadoPor } : {}),
           modificadoPor: authResult.email,
@@ -267,7 +280,19 @@ export async function PATCH(
         .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
         .where(eq(reservas.id, reserva.id));
 
-      return { kind: "ok" as const, data: updated };
+      const cuentaResult =
+        data.estado === "realizada" &&
+        updated &&
+        updated.formaPago !== "contado" &&
+        (updated.modalidadContrato === "usd_fijo" || updated.modalidadContrato === "pesos_cac")
+          ? await createContratoForReserva(
+              reservaId,
+              { modalidad: updated.modalidadContrato },
+              authResult.email,
+              tx
+            )
+          : null;
+      return { kind: "ok" as const, data: updated, cuentaResult };
     });
 
     if (result.kind === "not-found") {
@@ -338,11 +363,7 @@ export async function PATCH(
       (updatedReserva.modalidadContrato === "usd_fijo" ||
         updatedReserva.modalidadContrato === "pesos_cac")
     ) {
-      const cuentaResult = await createContratoForReserva(
-        reservaId,
-        { modalidad: updatedReserva.modalidadContrato },
-        authResult.email
-      );
+      const cuentaResult = result.cuentaResult!;
       return NextResponse.json({
         ...updatedReserva,
         cuentaCorriente: {
