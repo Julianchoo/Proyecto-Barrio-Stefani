@@ -104,13 +104,13 @@ type ReservaForCuenta = Pick<
 
 const estadoColors: Record<string, string> = {
   pendiente: "bg-muted text-muted-foreground",
-  pendiente_indice: "bg-amber-100 text-amber-800",
-  parcial: "bg-blue-100 text-blue-700",
-  pagada: "bg-green-100 text-green-700",
-  vencida: "bg-red-100 text-red-700",
-  calculada: "bg-emerald-100 text-emerald-800",
-  proyectada: "bg-sky-100 text-sky-800",
-  parcial_vencida: "bg-orange-100 text-orange-800",
+  pendiente_indice: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  parcial: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  pagada: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  vencida: "bg-destructive/10 text-destructive",
+  calculada: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  proyectada: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  parcial_vencida: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
   cancelada: "bg-muted text-muted-foreground",
 };
 
@@ -499,7 +499,7 @@ export default function CuentaDetallePage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Acceso restringido</CardTitle>
+          <CardTitle className="text-base font-medium">Acceso restringido</CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
           Solo un administrador puede ver cuentas corrientes y cuotas.
@@ -518,7 +518,7 @@ export default function CuentaDetallePage() {
               Volver a cuotas
             </Link>
           </Button>
-          <h1 className="text-foreground mt-2 text-2xl font-semibold">Cuenta corriente</h1>
+          <h1 className="mt-2 font-serif text-3xl font-normal text-foreground">Cuenta corriente</h1>
         </div>
         <Button type="button" variant="outline" onClick={fetchDetail}>
           <RefreshCw className="mr-1 h-4 w-4" />
@@ -536,7 +536,7 @@ export default function CuentaDetallePage() {
       ) : missing && reservaForCuenta?.formaPago === "contado" ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Reserva de contado</CardTitle>
+            <CardTitle className="text-base font-medium">Reserva de contado</CardTitle>
           </CardHeader>
           <CardContent className="text-muted-foreground space-y-3 text-sm">
             <p>
@@ -557,7 +557,7 @@ export default function CuentaDetallePage() {
       ) : missing ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Crear cuenta corriente</CardTitle>
+            <CardTitle className="text-base font-medium">Crear cuenta corriente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
@@ -649,7 +649,7 @@ export default function CuentaDetallePage() {
                               size="sm"
                               className={
                                 hasCac && !isSelected
-                                  ? "border-green-300 bg-green-50 text-green-800 hover:bg-green-100"
+                                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400"
                                   : ""
                               }
                               onClick={() => {
@@ -663,7 +663,7 @@ export default function CuentaDetallePage() {
                         })}
                       </div>
                       <div className="text-muted-foreground mt-3 flex items-center gap-2 text-xs">
-                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                         Mes con CAC cargado
                       </div>
                     </div>
@@ -685,7 +685,6 @@ export default function CuentaDetallePage() {
                 type="button"
                 onClick={createContrato}
                 disabled={creating || createModalidad === "requiere_revision"}
-                className="bg-green-700 text-white hover:bg-green-800"
               >
                 {creating ? "Creando..." : "Crear cuenta"}
               </Button>
@@ -697,7 +696,7 @@ export default function CuentaDetallePage() {
           <div className="grid gap-4 lg:grid-cols-4">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="text-base font-medium">
                   Lote {detail.loteNumero}
                   <span className="text-muted-foreground ml-2 text-sm font-normal">
                     Mz {detail.manzana ?? "-"} / Parc. {detail.parcela ?? "-"}
@@ -729,7 +728,7 @@ export default function CuentaDetallePage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Próxima cuota</CardTitle>
+                <CardTitle className="text-base font-medium">Próxima cuota</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-foreground text-2xl font-semibold">
@@ -742,7 +741,7 @@ export default function CuentaDetallePage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Comunicación</CardTitle>
+                <CardTitle className="text-base font-medium">Comunicación</CardTitle>
               </CardHeader>
               <CardContent>
                 <Button type="button" onClick={copyMessage} className="w-full">
@@ -754,22 +753,22 @@ export default function CuentaDetallePage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.35fr]">
-            <Card className="border-emerald-200 bg-emerald-50/60">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-emerald-900">
+                <CardTitle className="text-sm font-normal text-muted-foreground">
                   Total cobrado
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold tracking-tight text-emerald-950">
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {formatMoney(detail.totalCobradoUsd, "usd")}
                 </p>
-                <p className="mt-2 text-xs text-emerald-800">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Incluye anticipo de {formatMoney(detail.anticipoCobradoUsd, "usd")} y pagos
                   activos dolarizados a su fecha.
                 </p>
                 {detail.fechasPagoSinTipoCambio.length > 0 && (
-                  <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                  <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-400">
                     Falta BNA para completar:{" "}
                     {detail.fechasPagoSinTipoCambio.map(formatDate).join(", ")}.
                   </div>
@@ -777,17 +776,17 @@ export default function CuentaDetallePage() {
               </CardContent>
             </Card>
 
-            <Card className="border-sky-200 bg-sky-50/60">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-sky-900">
+                <CardTitle className="text-sm font-normal text-muted-foreground">
                   Total pendiente a hoy
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-semibold tracking-tight text-sky-950">
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {formatMoney(detail.totalFuturoUsd, "usd")}
                 </p>
-                <p className="mt-2 text-xs text-sky-800">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Incluye cuotas vencidas y futuras. BNA vendedor actual:{" "}
                   {formatMoney(detail.tipoCambioActual, "ars")}.
                 </p>
@@ -945,7 +944,7 @@ export default function CuentaDetallePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Pagos registrados</CardTitle>
+              <CardTitle className="text-base font-medium">Pagos registrados</CardTitle>
             </CardHeader>
             <CardContent>
               {sortedPayments.length === 0 ? (
@@ -1167,7 +1166,6 @@ export default function CuentaDetallePage() {
                   type="button"
                   onClick={registerPayment}
                   disabled={registeringPayment}
-                  className="bg-green-700 text-white hover:bg-green-800"
                 >
                   {registeringPayment ? (
                     <Loader2 className="mr-1 h-4 w-4 animate-spin" />

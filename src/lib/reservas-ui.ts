@@ -38,10 +38,10 @@ export const estadoLabels: Record<EstadoReserva, string> = {
 };
 
 export const estadoColors: Record<EstadoReserva, string> = {
-  activa: "bg-green-100 text-green-700",
-  cancelada: "bg-gray-100 text-gray-700",
-  vencida: "bg-amber-100 text-amber-700",
-  realizada: "bg-blue-100 text-blue-700",
+  activa: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  cancelada: "bg-muted text-foreground",
+  vencida: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  realizada: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
 };
 
 const modalidadContratoLabels: Record<ModalidadContrato, string> = {

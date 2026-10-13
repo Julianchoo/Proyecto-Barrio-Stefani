@@ -289,8 +289,8 @@ export default function LoteDetailPage() {
   if (loading || !lote) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-        <div className="h-64 bg-gray-200 rounded animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-64 bg-muted rounded animate-pulse" />
       </div>
     );
   }
@@ -338,12 +338,12 @@ export default function LoteDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="font-serif text-3xl font-normal text-foreground">
             Lote N° {lote.numero}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Manzana {lote.manzana} · Parcela {lote.parcela} · Estado:{" "}
-            <span className="font-medium text-gray-900">{loteEstadoLabels[lote.estado]}</span>
+            <span className="font-medium text-foreground">{loteEstadoLabels[lote.estado]}</span>
             {lote.reservaId ? ` (por la reserva #${lote.reservaId})` : ""}
           </p>
         </div>
@@ -396,7 +396,7 @@ export default function LoteDetailPage() {
       </div>
 
       {isReservedByOther && (
-          <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-400">
             <Lock className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
               Este lote fue reservado por <strong>{lote.reservadoPor}</strong>. Solo ese comercial o un administrador puede modificarlo.
@@ -405,7 +405,7 @@ export default function LoteDetailPage() {
         )}
 
       {isSoldLocked && (
-        <div className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Este lote o reserva ya figura como vendido. Los datos est?n bloqueados; solo un administrador puede habilitar edici?n con confirmaci?n.
@@ -416,7 +416,7 @@ export default function LoteDetailPage() {
       {/* Read-only property data */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Datos del lote</CardTitle>
+          <CardTitle className="text-base font-medium">Datos del lote</CardTitle>
         </CardHeader>
         <CardContent>
           {canEditLoteParams && !isLocked ? (
@@ -424,21 +424,21 @@ export default function LoteDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 {readonlyCatastralFields.map(({ key, label }) => (
                   <div key={key}>
-                    <span className="text-gray-500">{label}</span>
-                    <p className="font-medium text-gray-900 mt-0.5">{lote[key] ?? "-"}</p>
+                    <span className="text-muted-foreground">{label}</span>
+                    <p className="font-medium text-foreground mt-0.5">{lote[key] ?? "-"}</p>
                   </div>
                 ))}
                 <div>
-                  <span className="text-gray-500">Valuación Fiscal</span>
-                  <p className="font-medium text-gray-900 mt-0.5">
+                  <span className="text-muted-foreground">Valuación Fiscal</span>
+                  <p className="font-medium text-foreground mt-0.5">
                     {lote.valuacionFiscal
                       ? `$ ${Number(lote.valuacionFiscal).toLocaleString("es-AR")}`
                       : "-"}
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500">VF al Acto</span>
-                  <p className="font-medium text-gray-900 mt-0.5">
+                  <span className="text-muted-foreground">VF al Acto</span>
+                  <p className="font-medium text-foreground mt-0.5">
                     {lote.vfAlActo ? `$ ${Number(lote.vfAlActo).toLocaleString("es-AR")}` : "-"}
                   </p>
                 </div>
@@ -447,7 +447,7 @@ export default function LoteDetailPage() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {visibleEditableLoteFields.map(({ name, label, suffix }) => (
                   <div key={name} className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-500" htmlFor={name}>
+                    <label className="text-xs font-medium text-muted-foreground" htmlFor={name}>
                       {label}
                     </label>
                     <div className="flex items-center gap-2">
@@ -471,17 +471,17 @@ export default function LoteDetailPage() {
                         step="0.01"
                         className="h-9"
                       />
-                      {suffix && <span className="w-9 text-xs text-gray-500">{suffix}</span>}
+                      {suffix && <span className="w-9 text-xs text-muted-foreground">{suffix}</span>}
                     </div>
                   </div>
                 ))}
                 <div>
-                  <span className="text-xs font-medium text-gray-500">Anticipo</span>
-                  <p className="font-medium text-gray-900 mt-1.5">{DEFAULT_ANTICIPO_PCT}%</p>
+                  <span className="text-xs font-medium text-muted-foreground">Anticipo</span>
+                  <p className="font-medium text-foreground mt-1.5">{DEFAULT_ANTICIPO_PCT}%</p>
                 </div>
                 <div>
-                  <span className="text-xs font-medium text-gray-500">Tasa mensual</span>
-                  <p className="font-medium text-gray-900 mt-1.5">{DEFAULT_TASA_MENSUAL}%</p>
+                  <span className="text-xs font-medium text-muted-foreground">Tasa mensual</span>
+                  <p className="font-medium text-foreground mt-1.5">{DEFAULT_TASA_MENSUAL}%</p>
                 </div>
               </div>
 
@@ -490,8 +490,8 @@ export default function LoteDetailPage() {
                   const value = form.watch(name);
                   return (
                     <div key={name}>
-                      <span className="text-gray-500">{label}</span>
-                      <p className="font-medium text-gray-900 mt-0.5">
+                      <span className="text-muted-foreground">{label}</span>
+                      <p className="font-medium text-foreground mt-0.5">
                         {value ? `${suffix} ${Number(value).toLocaleString("es-AR")}` : "-"}
                       </p>
                     </div>
@@ -502,7 +502,6 @@ export default function LoteDetailPage() {
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting}
-                className="bg-green-700 hover:bg-green-800 text-white"
               >
                 {form.formState.isSubmitting ? "Guardando..." : "Guardar parámetros"}
               </Button>
@@ -533,8 +532,8 @@ export default function LoteDetailPage() {
                 ["60 cuotas", readonlyCuotas60 !== null ? `USD ${readonlyCuotas60}` : "-"],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <span className="text-gray-500">{label}</span>
-                  <p className="font-medium text-gray-900 mt-0.5">{value}</p>
+                  <span className="text-muted-foreground">{label}</span>
+                  <p className="font-medium text-foreground mt-0.5">{value}</p>
                 </div>
               ))}
             </div>
@@ -546,7 +545,7 @@ export default function LoteDetailPage() {
       {lote.reservaId && lote.reservaEstado ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
               Reserva actual ·{" "}
               <Link href={`/crm/reservas/${lote.reservaId}`} className="hover:underline">
                 #{lote.reservaId}
@@ -575,15 +574,15 @@ export default function LoteDetailPage() {
                 ["Reservado por", lote.reservadoPor],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <span className="text-gray-500">{label}</span>
-                  <p className="mt-0.5 font-medium text-gray-900">{value || "-"}</p>
+                  <span className="text-muted-foreground">{label}</span>
+                  <p className="mt-0.5 font-medium text-foreground">{value || "-"}</p>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
       ) : lote.estado === "no_disponible" ? (
-        <div className="rounded-md border bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        <div className="rounded-md border bg-muted px-4 py-3 text-sm text-muted-foreground">
           Este lote está marcado como no disponible. Pasalo a disponible desde la lista de lotes para
           reservarlo.
         </div>
@@ -598,29 +597,29 @@ export default function LoteDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Historial de reservas del lote</CardTitle>
+          <CardTitle className="text-base font-medium">Historial de reservas del lote</CardTitle>
         </CardHeader>
         <CardContent>
           {historial.length === 0 ? (
-            <p className="text-sm text-gray-500">Este lote no tiene reservas registradas.</p>
+            <p className="text-sm text-muted-foreground">Este lote no tiene reservas registradas.</p>
           ) : (
             <div className="divide-y rounded-md border text-sm">
               {historial.map((reserva) => (
                 <Link
                   key={reserva.id}
                   href={`/crm/reservas/${reserva.id}`}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 hover:bg-gray-50"
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 hover:bg-muted/50"
                 >
-                  <span className="w-14 font-mono text-gray-500">#{reserva.id}</span>
+                  <span className="w-14 font-mono text-muted-foreground">#{reserva.id}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${estadoColors[reserva.estado]}`}
                   >
                     {estadoLabels[reserva.estado]}
                   </span>
-                  <span className="flex-1 font-medium text-gray-900">
+                  <span className="flex-1 font-medium text-foreground">
                     {reserva.nombreComprador ?? "Sin comprador"}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     Reserva {formatDate(reserva.fechaReserva)} · Creada {formatDate(reserva.reservaCreatedAt)}
                   </span>
                 </Link>

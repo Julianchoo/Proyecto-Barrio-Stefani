@@ -1,4 +1,4 @@
-import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
+import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,7 +10,7 @@ const cormorant = Cormorant_Garamond({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const jakarta = Plus_Jakarta_Sans({
+const inter = Inter({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -50,7 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${cormorant.variable} ${jakarta.variable}`}
+      className={`${cormorant.variable} ${inter.variable}`}
       suppressHydrationWarning
     >
       <body className="antialiased font-body">

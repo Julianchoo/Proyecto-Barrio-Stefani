@@ -100,7 +100,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
             {session?.user?.name}
           </p>
           <p className="text-xs text-sidebar-foreground/70 truncate">{session?.user?.email}</p>
-          <span className="mt-1 inline-block text-xs bg-green-100 text-primary px-2 py-0.5 rounded-full capitalize">
+          <span className="mt-1 inline-block text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full capitalize">
             {role ?? "comercial"}
           </span>
         </div>

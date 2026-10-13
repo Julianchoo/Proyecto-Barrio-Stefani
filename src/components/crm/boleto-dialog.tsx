@@ -439,7 +439,7 @@ export function BoletoDialog({
                 />
                 <label
                   htmlFor="hasApoderado"
-                  className="text-sm font-semibold text-gray-700 cursor-pointer"
+                  className="text-sm font-semibold text-foreground cursor-pointer"
                 >
                   La parte vendedora actúa por apoderado
                 </label>
@@ -481,7 +481,7 @@ export function BoletoDialog({
 
             {/* ── Fecha de firma ── */}
             <section>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Fecha de firma</p>
+              <p className="text-sm font-semibold text-foreground mb-3">Fecha de firma</p>
               <FormField
                 control={form.control}
                 name="fechaFirma"
@@ -501,7 +501,7 @@ export function BoletoDialog({
 
             {/* ── Fecha del boleto (generada automáticamente desde fecha de firma) ── */}
             <section>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Fecha del boleto</p>
+              <p className="text-sm font-semibold text-foreground mb-3">Fecha del boleto</p>
               <div className="grid grid-cols-3 gap-3">
                 <FormField
                   control={form.control}
@@ -560,7 +560,7 @@ export function BoletoDialog({
 
             {/* ── Datos comprador ── */}
             <section>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Comprador</p>
+              <p className="text-sm font-semibold text-foreground mb-3">Comprador</p>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   { name: "nombreComprador" as const, label: "Nombre completo", placeholder: "Juan Pérez" },
@@ -624,7 +624,7 @@ export function BoletoDialog({
                 />
                 <label
                   htmlFor="hasCoComprador"
-                  className="text-sm font-semibold text-gray-700 cursor-pointer"
+                  className="text-sm font-semibold text-foreground cursor-pointer"
                 >
                   Agregar co-comprador
                 </label>
@@ -689,7 +689,7 @@ export function BoletoDialog({
             {/* ── Precio ── */}
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-gray-700">Precio (USD)</p>
+                <p className="text-sm font-semibold text-foreground">Precio (USD)</p>
                 <Button type="button" variant="outline" size="sm" onClick={fillAmountWords}>
                   Completar letras
                 </Button>
@@ -697,7 +697,7 @@ export function BoletoDialog({
 
               {/* Tipo de pago */}
               <div className="mb-3">
-                <p className="text-sm font-medium text-gray-700 mb-1">Tipo de pago</p>
+                <p className="text-sm font-medium text-foreground mb-1">Tipo de pago</p>
                 <Select value={tipoPago} onValueChange={(v) => setTipoPago(v as "contado" | "financiado")}>
                   <SelectTrigger>
                     <SelectValue />
@@ -711,7 +711,7 @@ export function BoletoDialog({
 
               {tipoPago === "financiado" && (
                 <div className="mb-3">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Moneda del boleto</p>
+                  <p className="text-sm font-medium text-foreground mb-1">Moneda del boleto</p>
                   <Select value={monedaBoleto} onValueChange={(v) => setMonedaBoleto(v as "usd" | "pesos_cac")}>
                     <SelectTrigger>
                       <SelectValue />
@@ -795,7 +795,7 @@ export function BoletoDialog({
                     checked={entregaCuota}
                     onCheckedChange={(checked) => setEntregaCuota(!!checked)}
                   />
-                  <label htmlFor="entregaCuota" className="text-sm text-gray-700 cursor-pointer">
+                  <label htmlFor="entregaCuota" className="text-sm text-foreground cursor-pointer">
                     Entrega contra pago de cuota número específico
                   </label>
                 </div>
@@ -821,7 +821,7 @@ export function BoletoDialog({
 
             {/* ── Inmueble extras ── */}
             <section>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Datos del inmueble (opcionales)</p>
+              <p className="text-sm font-semibold text-foreground mb-3">Datos del inmueble (opcionales)</p>
               <div className="grid sm:grid-cols-2 gap-3">
                 {[
                   { name: "calleInmueble" as const, label: "Calle con frente", placeholder: "Av. Ejemplo" },
@@ -853,7 +853,7 @@ export function BoletoDialog({
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting}
-                className="bg-green-700 hover:bg-green-800 text-white gap-2"
+                className="gap-2"
               >
                 {form.formState.isSubmitting ? (
                   <>

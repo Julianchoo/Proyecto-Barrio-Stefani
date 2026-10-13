@@ -1,66 +1,44 @@
-import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   description?: string;
-  icon?: LucideIcon;
-  accent?: "green" | "amber" | "blue" | "red";
+  note?: string | undefined;
+  tone?: "danger" | undefined;
+  href?: string | undefined;
 }
 
-const accents = {
-  green: {
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-700",
-    bar: "bg-emerald-500",
-    value: "text-emerald-900",
-  },
-  amber: {
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-700",
-    bar: "bg-amber-500",
-    value: "text-amber-900",
-  },
-  blue: {
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-700",
-    bar: "bg-blue-500",
-    value: "text-blue-900",
-  },
-  red: {
-    bg: "bg-rose-50",
-    border: "border-rose-100",
-    iconBg: "bg-rose-100",
-    iconColor: "text-rose-700",
-    bar: "bg-rose-500",
-    value: "text-rose-900",
-  },
-};
-
-export function StatsCard({ title, value, description, icon: Icon, accent = "green" }: StatsCardProps) {
-  const a = accents[accent];
-  return (
-    <div className={`relative rounded-xl border ${a.border} ${a.bg} p-5 overflow-hidden`}>
-      {/* Top accent bar */}
-      <div className={`absolute top-0 left-0 right-0 h-0.5 ${a.bar}`} />
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-xs font-medium text-gray-500 font-body leading-tight">{title}</span>
-        {Icon && (
-          <span className={`flex-shrink-0 p-1.5 rounded-lg ${a.iconBg}`}>
-            <Icon className={`h-4 w-4 ${a.iconColor}`} />
-          </span>
+export function StatsCard({ title, value, description, note, tone, href }: StatsCardProps) {
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{title}</p>
+        {href && (
+          <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
         )}
       </div>
-      <div className={`text-3xl font-display font-light ${a.value} leading-none mb-1`}>{value}</div>
-      {description && (
-        <p className="text-xs text-gray-400 font-body mt-1.5">{description}</p>
-      )}
-    </div>
+      <p
+        className={cn(
+          "mt-2 text-2xl font-semibold leading-none tracking-tight tabular-nums text-foreground",
+          tone === "danger" && "text-destructive"
+        )}
+      >
+        {value}
+      </p>
+      {description && <p className="mt-2 text-xs text-muted-foreground">{description}</p>}
+      {note && <p className="mt-1 text-[11px] text-muted-foreground/70">{note}</p>}
+    </>
+  );
+
+  const card = "h-full rounded-xl border bg-card p-5";
+  return href ? (
+    <Link href={href} className={cn(card, "group block transition-colors hover:bg-muted/50")}>
+      {body}
+    </Link>
+  ) : (
+    <div className={card}>{body}</div>
   );
 }

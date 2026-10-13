@@ -41,14 +41,14 @@ function Section({ title, items }: { title: string; items: Array<[string, string
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
           {items.map(([label, value]) => (
             <div key={label}>
-              <span className="text-gray-500">{label}</span>
-              <p className="mt-0.5 font-medium text-gray-900">{value || "-"}</p>
+              <span className="text-muted-foreground">{label}</span>
+              <p className="mt-0.5 font-medium text-foreground">{value || "-"}</p>
             </div>
           ))}
         </div>
@@ -93,8 +93,8 @@ export default function ReservaDetailPage() {
   if (!reservas) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
-        <div className="h-64 animate-pulse rounded bg-gray-200" />
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-64 animate-pulse rounded bg-muted" />
       </div>
     );
   }
@@ -108,7 +108,7 @@ export default function ReservaDetailPage() {
             Reservas
           </Link>
         </Button>
-        <p className="text-sm text-gray-500">Reserva no encontrada</p>
+        <p className="text-sm text-muted-foreground">Reserva no encontrada</p>
       </div>
     );
   }
@@ -123,7 +123,7 @@ export default function ReservaDetailPage() {
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-900">Reserva #{reserva.id}</h1>
+            <h1 className="font-serif text-3xl font-normal text-foreground">Reserva #{reserva.id}</h1>
             {isAdmin ? (
               <CambiarEstadoReserva reserva={reserva} onChanged={fetchReservas} />
             ) : (
@@ -132,7 +132,7 @@ export default function ReservaDetailPage() {
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {reserva.nombreComprador ?? "Sin comprador"} · Lote {reserva.loteNumero} · Mz{" "}
             {reserva.manzana ?? "-"} / Parc. {reserva.parcela ?? "-"}
           </p>
@@ -160,9 +160,9 @@ export default function ReservaDetailPage() {
                   Editar vendida
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="border-4 border-red-500">
+              <AlertDialogContent className="border-4 border-destructive">
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-xl text-red-700">
+                  <AlertDialogTitle className="text-xl text-destructive">
                     OJO! Estás por editar una reserva ya vendida
                   </AlertDialogTitle>
                   <AlertDialogDescription>
@@ -226,7 +226,7 @@ export default function ReservaDetailPage() {
       </div>
 
       {!isVigente(reserva.estado) && (
-        <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-400">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Esta reserva está {estadoLabels[reserva.estado].toLowerCase()}.{" "}
@@ -323,10 +323,10 @@ export default function ReservaDetailPage() {
         {reserva.observaciones && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Observaciones</CardTitle>
+              <CardTitle className="text-base font-medium">Observaciones</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap text-sm text-gray-900">{reserva.observaciones}</p>
+              <p className="whitespace-pre-wrap text-sm text-foreground">{reserva.observaciones}</p>
             </CardContent>
           </Card>
         )}

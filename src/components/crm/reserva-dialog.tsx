@@ -277,7 +277,7 @@ export function ReservaDialog({
         </DialogHeader>
 
         {loading || !targetParcela ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
+          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando datos...
           </div>
@@ -285,7 +285,7 @@ export function ReservaDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <section className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">Fecha</p>
+                <p className="text-sm font-semibold text-foreground">Fecha</p>
                 <FormField
                   control={form.control}
                   name="fechaReserva"
@@ -312,7 +312,7 @@ export function ReservaDialog({
               <Separator />
 
               <section className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">Comprador</p>
+                <p className="text-sm font-semibold text-foreground">Comprador</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     ["nombreComprador", "Nombre comprador"],
@@ -341,7 +341,7 @@ export function ReservaDialog({
 
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-gray-700">Importes</p>
+                  <p className="text-sm font-semibold text-foreground">Importes</p>
                   <Button type="button" variant="outline" size="sm" onClick={fillAmountWords}>
                     Completar letras
                   </Button>
@@ -382,7 +382,7 @@ export function ReservaDialog({
               <Separator />
 
               <section className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">Lote y broker</p>
+                <p className="text-sm font-semibold text-foreground">Lote y broker</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     ["lote", "Lote"],
@@ -415,7 +415,7 @@ export function ReservaDialog({
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-green-700 hover:bg-green-800 text-white">
+                <Button type="submit">
                   Descargar reserva
                 </Button>
               </div>
