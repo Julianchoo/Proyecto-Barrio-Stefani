@@ -6,7 +6,6 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
-import { logAudit } from "@/lib/audit";
 import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
 import { formatMoneyAr } from "@/lib/money";
@@ -147,22 +146,6 @@ export async function POST(
     honorariosNum: form.honorariosNum || "450",
   };
 
-  const [reservaActualizada] = await db
-    .update(reservas)
-    .set({
-      reservaPalabras,
-      reservaNum,
-      updatedAt: new Date(),
-    })
-    .where(eq(reservas.id, row.reserva.id))
-    .returning();
-  await logAudit(db, {
-    entidad: "reserva",
-    entidadId: row.reserva.id,
-    usuario: authResult.email,
-    antes: row.reserva,
-    despues: reservaActualizada,
-  });
 
   const templatePath = path.join(
     process.cwd(),

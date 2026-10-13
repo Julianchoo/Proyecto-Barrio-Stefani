@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { leads, parcelas, reservas } from "@/lib/schema";
+import { contratos, leads, parcelas, reservas } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
-import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
@@ -185,12 +184,50 @@ export async function POST(
   }
 
   const parcela = flattenParcelaReserva(row.parcela, row.reserva, row.lead);
-  const modalidadContrato =
-    form.tipoPago === "financiado"
-      ? form.monedaBoleto === "usd"
-        ? "usd_fijo"
-        : "pesos_cac"
-      : null;
+  if (row.reserva) {
+    const [contrato] = await db
+      .select()
+      .from(contratos)
+      .where(eq(contratos.reservaId, row.reserva.id));
+    if (contrato) {
+      const economicFields = [
+        "precioTotalNum",
+        "anticipoNum",
+        "saldoNum",
+        "cuotaMensual",
+        "cantidadCuotas",
+      ] as const;
+      const differs = economicFields.some(
+        (field) => form[field] && parseMoney(form[field]) !== parseMoney(row.reserva![field])
+      );
+      const modalidad = form.monedaBoleto === "usd" ? "usd_fijo" : "pesos_cac";
+      if (
+        form.tipoPago !== "financiado" ||
+        modalidad !== contrato.modalidad ||
+        differs ||
+        (contrato.modalidad === "pesos_cac" &&
+          form.tipoCambioBna &&
+          parseMoney(form.tipoCambioBna) !== Number(contrato.tipoCambioBna))
+      ) {
+        return NextResponse.json(
+          {
+            error: "El boleto debe respetar las condiciones de la reserva y el contrato existente",
+          },
+          { status: 409 }
+        );
+      }
+      form.precioTotalNum = row.reserva.precioTotalNum ?? "";
+      form.anticipoNum = row.reserva.anticipoNum ?? "";
+      form.saldoNum = row.reserva.saldoNum ?? "";
+      form.cuotaMensual = row.reserva.cuotaMensual ?? "";
+      form.cantidadCuotas = String(contrato.cantidadCuotas);
+      form.tipoCambioBna = contrato.tipoCambioBna ?? "";
+      form.precioTotalPalabras = amountToSpanishWords(form.precioTotalNum) ?? "";
+      form.anticipoPalabras = amountToSpanishWords(form.anticipoNum) ?? "";
+      form.saldoPalabras = amountToSpanishWords(form.saldoNum) ?? "";
+      form.cuotaMensualPalabras = amountToSpanishWords(form.cuotaMensual) ?? "";
+    }
+  }
   const numeroCuotaEntrega = form.numeroCuotaEntrega.trim();
   const entregaCuota = form.entregaCuota && Boolean(numeroCuotaEntrega);
   const saldoNum = form.saldoNum || formatUsd(parcela.saldoUsd);
@@ -296,20 +333,6 @@ export async function POST(
       ? "boleto-template-cuotas-usd.docx"
       : "boleto-template-cuotas.docx";
   const templatePath = path.join(process.cwd(), "src", "templates", templateName);
-  if (row.reserva && modalidadContrato) {
-    const [reservaActualizada] = await db
-      .update(reservas)
-      .set({ modalidadContrato, updatedAt: new Date() })
-      .where(eq(reservas.id, row.reserva.id))
-      .returning();
-    await logAudit(db, {
-      entidad: "reserva",
-      entidadId: row.reserva.id,
-      usuario: authResult.email,
-      antes: row.reserva,
-      despues: reservaActualizada,
-    });
-  }
 
   let templateBuf: Buffer;
   try {

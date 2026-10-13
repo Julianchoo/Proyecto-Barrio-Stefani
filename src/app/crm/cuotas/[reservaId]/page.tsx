@@ -270,12 +270,33 @@ export default function CuentaDetallePage() {
     }
     setSavingRate(true);
     try {
-      const res = await fetch("/api/crm/tipos-cambio", {
+      const payload = {
+        fecha: rateDate,
+        valor: numericValue,
+        fuente: "Carga manual",
+        confirmarImpacto: undefined as string | undefined,
+      };
+      let res = await fetch("/api/crm/tipos-cambio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fecha: rateDate, valor: numericValue, fuente: "Carga manual" }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => null);
+      let data = await res.json().catch(() => null);
+      if (res.status === 409 && data?.confirmarImpacto) {
+        if (
+          !window.confirm(
+            `Este TC cambiará importes de ${data.impact.pagos} pagos y ${data.impact.contratos} contratos sin pagos. ¿Confirmás el cambio?`
+          )
+        )
+          return;
+        payload.confirmarImpacto = data.confirmarImpacto;
+        res = await fetch("/api/crm/tipos-cambio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        data = await res.json().catch(() => null);
+      }
       if (!res.ok) {
         toast.error(data?.error ?? "No se pudo guardar el tipo de cambio");
         return;

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
-import { db } from "@/lib/db";
-import { contratos, cuotas } from "@/lib/schema";
+import { crmTransaction } from "@/lib/crm-transaction";
+import { contratos, cuotas, pagos } from "@/lib/schema";
 
 const updateSchema = z
   .object({
-    fechaVencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    fechaVencimiento: z.iso.date().optional(),
     importeBase: z.number().positive().optional(),
     estado: z
       .enum([
@@ -54,30 +54,74 @@ export async function PATCH(
     );
   }
 
-  const [row] = await db
-    .select({ cuota: cuotas, contrato: contratos })
-    .from(cuotas)
-    .innerJoin(contratos, eq(cuotas.contratoId, contratos.id))
-    .where(eq(cuotas.id, cuotaId));
-  if (!row) return NextResponse.json({ error: "Cuota no encontrada" }, { status: 404 });
+  const result = await crmTransaction(async (tx) => {
+    const [row] = await tx
+      .select({ cuota: cuotas, contrato: contratos })
+      .from(cuotas)
+      .innerJoin(contratos, eq(cuotas.contratoId, contratos.id))
+      .where(eq(cuotas.id, cuotaId));
+    if (!row) return { error: "Cuota no encontrada", status: 404 };
+    if (
+      parsed.data.importeBase !== undefined &&
+      (row.cuota.estado === "cancelada" || parsed.data.estado === "cancelada")
+    ) {
+      return { error: "No se puede cambiar el importe de una cuota cancelada", status: 409 };
+    }
+    if (
+      parsed.data.fechaVencimiento &&
+      parsed.data.fechaVencimiento !== row.cuota.fechaVencimiento &&
+      row.contrato.modalidad === "pesos_cac"
+    ) {
+      const [payment] = await tx
+        .select({ id: pagos.id })
+        .from(pagos)
+        .where(and(eq(pagos.cuotaId, cuotaId), eq(pagos.estado, "activo")))
+        .limit(1);
+      if (payment)
+        return { error: "No se puede cambiar el período CAC de una cuota con pagos", status: 409 };
+    }
 
-  await db
-    .update(cuotas)
-    .set({
-      ...(parsed.data.fechaVencimiento
-        ? { fechaVencimiento: parsed.data.fechaVencimiento }
-        : {}),
-      ...(parsed.data.importeBase
-        ? { importeBase: String(parsed.data.importeBase) }
-        : {}),
-      ...(parsed.data.estado ? { estado: parsed.data.estado } : {}),
-      ...(parsed.data.observaciones !== undefined
-        ? { observaciones: parsed.data.observaciones }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(cuotas.id, cuotaId));
+    await tx
+      .update(cuotas)
+      .set({
+        ...(parsed.data.fechaVencimiento ? { fechaVencimiento: parsed.data.fechaVencimiento } : {}),
+        ...(parsed.data.importeBase ? { importeBase: String(parsed.data.importeBase) } : {}),
+        ...(parsed.data.estado ? { estado: parsed.data.estado } : {}),
+        ...(parsed.data.observaciones !== undefined
+          ? { observaciones: parsed.data.observaciones }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(cuotas.id, cuotaId));
 
-  await recomputeContratoCuotas(row.contrato.id);
+    await recomputeContratoCuotas(row.contrato.id, tx);
+    if (parsed.data.importeBase !== undefined) {
+      const [updated] = await tx.select().from(cuotas).where(eq(cuotas.id, cuotaId));
+      const paymentRows = await tx
+        .select({ monto: pagos.monto })
+        .from(pagos)
+        .where(and(eq(pagos.cuotaId, cuotaId), eq(pagos.estado, "activo")));
+      const paid = paymentRows.reduce((sum, payment) => sum + Number(payment.monto), 0);
+      if (
+        Math.round(Number(updated!.importeAjustado ?? updated!.importeBase) * 100) <
+        Math.round(paid * 100)
+      ) {
+        throw new Error(
+          "El importe recalculado no puede quedar por debajo de los pagos registrados"
+        );
+      }
+    }
+    return { ok: true };
+  }).catch((error: unknown) => {
+    if (
+      error instanceof Error &&
+      error.message === "El importe recalculado no puede quedar por debajo de los pagos registrados"
+    ) {
+      return { error: error.message, status: 409 };
+    }
+    throw error;
+  });
+  if ("error" in result)
+    return NextResponse.json({ error: result.error }, { status: result.status ?? 409 });
   return NextResponse.json({ ok: true });
 }

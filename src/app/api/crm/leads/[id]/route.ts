@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { leads } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { leads, reservas } from "@/lib/schema";
+import { and, eq } from "drizzle-orm";
+import { crmTransaction } from "@/lib/crm-transaction";
 import { requireApiAdmin, requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
 
@@ -43,40 +43,50 @@ export async function PUT(
       return NextResponse.json({ error: "Sin permisos para asignar leads" }, { status: 403 });
     }
 
-    const [current] = await db.select().from(leads).where(eq(leads.id, leadId));
-    if (!current) {
-      return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
-    }
-    // Comercials can only edit their own leads
-    if (authResult.role !== "admin" && current.asignadoA !== authResult.id) {
-      return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
-    }
+    return await crmTransaction(async (tx) => {
+      const [current] = await tx.select().from(leads).where(eq(leads.id, leadId));
+      if (!current) {
+        return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+      }
+      // Comercials can only edit their own leads
+      if (authResult.role !== "admin" && current.asignadoA !== authResult.id) {
+        return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
+      }
+      if (authResult.role !== "admin") {
+        const [realizada] = await tx
+          .select({ id: reservas.id })
+          .from(reservas)
+          .where(and(eq(reservas.leadId, leadId), eq(reservas.estado, "realizada")))
+          .limit(1);
+        if (realizada)
+          return NextResponse.json(
+            { error: "Solo un administrador puede modificar un lead con una reserva realizada" },
+            { status: 403 }
+          );
+      }
 
-    // Asignar un lead nuevo lo pasa a "asignado"; desasignarlo lo devuelve a "nuevo".
-    // Solo desde esos estados, para no pisar el avance de un lead ya trabajado.
-    if ("asignadoA" in data && !data.estado) {
-      if (data.asignadoA && current.estado === "nuevo") data.estado = "asignado";
-      if (!data.asignadoA && current.estado === "asignado") data.estado = "nuevo";
-    }
+      // Asignar un lead nuevo lo pasa a "asignado"; desasignarlo lo devuelve a "nuevo".
+      // Solo desde esos estados, para no pisar el avance de un lead ya trabajado.
+      if ("asignadoA" in data && !data.estado) {
+        if (data.asignadoA && current.estado === "nuevo") data.estado = "asignado";
+        if (!data.asignadoA && current.estado === "asignado") data.estado = "nuevo";
+      }
 
-    const [updated] = await db
-      .update(leads)
-      .set(data)
-      .where(eq(leads.id, leadId))
-      .returning();
+      const [updated] = await tx.update(leads).set(data).where(eq(leads.id, leadId)).returning();
 
-    if (!updated) {
-      return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
-    }
-    await logAudit(db, {
-      entidad: "lead",
-      entidadId: leadId,
-      usuario: authResult.email,
-      antes: current,
-      despues: updated,
+      if (!updated) {
+        return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+      }
+      await logAudit(tx, {
+        entidad: "lead",
+        entidadId: leadId,
+        usuario: authResult.email,
+        antes: current,
+        despues: updated,
+      });
+
+      return NextResponse.json(updated);
     });
-
-    return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -104,21 +114,33 @@ export async function DELETE(
     return NextResponse.json({ error: "ID invalido" }, { status: 400 });
   }
 
-  const [deleted] = await db
-    .delete(leads)
-    .where(eq(leads.id, leadId))
-    .returning();
+  return crmTransaction(async (tx) => {
+    const [linked] = await tx
+      .select({ id: reservas.id })
+      .from(reservas)
+      .where(eq(reservas.leadId, leadId))
+      .limit(1);
+    if (linked)
+      return NextResponse.json(
+        {
+          error:
+            "No se puede eliminar un lead vinculado a una reserva; se debe conservar su historial",
+        },
+        { status: 409 }
+      );
+    const [deleted] = await tx.delete(leads).where(eq(leads.id, leadId)).returning();
 
-  if (!deleted) {
-    return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
-  }
-  await logAudit(db, {
-    entidad: "lead",
-    entidadId: leadId,
-    usuario: authResult.email,
-    antes: deleted,
-    despues: null,
+    if (!deleted) {
+      return NextResponse.json({ error: "Lead no encontrado" }, { status: 404 });
+    }
+    await logAudit(tx, {
+      entidad: "lead",
+      entidadId: leadId,
+      usuario: authResult.email,
+      antes: deleted,
+      despues: null,
+    });
+
+    return NextResponse.json({ ok: true });
   });
-
-  return NextResponse.json({ ok: true });
 }
