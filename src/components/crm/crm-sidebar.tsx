@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
+  BarChart3,
   CalendarDays,
   CreditCard,
   History,
@@ -35,6 +36,7 @@ function NavLinks({ role, onClose }: { role?: string; onClose?: () => void }) {
     ? [
         ...baseNavItems,
         { href: "/crm/cuotas", icon: CreditCard, label: "Cuotas" },
+        { href: "/crm/insights", icon: BarChart3, label: "Insights" },
         { href: "/crm/usuarios", icon: UserCog, label: "Usuarios" },
         { href: "/crm/auditoria", icon: History, label: "Auditoría" },
       ]
