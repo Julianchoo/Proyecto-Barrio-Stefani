@@ -22,7 +22,7 @@ export function StatsCard({ title, value, description, note, tone, href }: Stats
       </div>
       <p
         className={cn(
-          "mt-2 font-serif text-3xl font-normal leading-none lining-nums tabular-nums text-foreground",
+          "mt-2 text-2xl font-semibold leading-none tracking-tight tabular-nums text-foreground",
           tone === "danger" && "text-destructive"
         )}
       >

@@ -760,7 +760,7 @@ export default function CuentaDetallePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-serif text-3xl font-normal tabular-nums">
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {formatMoney(detail.totalCobradoUsd, "usd")}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -783,7 +783,7 @@ export default function CuentaDetallePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-serif text-3xl font-normal tabular-nums">
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {formatMoney(detail.totalFuturoUsd, "usd")}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
