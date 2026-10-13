@@ -73,20 +73,31 @@ function BarrasMensuales({
   return (
     <div>
       <div className={cn("flex h-48 items-end border-b", soloAnios ? "gap-px" : "gap-2")}>
-        {meses.map((mes) => {
+        {meses.map((mes, i) => {
           const fila = porMes.get(mes);
           const total = fila ? fila.series.reduce((s, x) => s + x.valor, 0) : 0;
           const arriba = fila && etiquetaArriba ? etiquetaArriba(mes) : null;
+          const alto = (total / max) * 100;
           return (
-            <div
-              key={mes}
-              className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-              title={fila ? `${mesLargo(mes)}\n${fila.detalle}` : `${mesLargo(mes)}: sin datos`}
-            >
+            <div key={mes} className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+              {/* Tooltip propio: el title nativo del navegador tarda ~1 s en aparecer. */}
+              <div
+                className={cn(
+                  "pointer-events-none absolute z-20 mb-6 hidden w-max max-w-56 rounded-md border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md group-hover:block",
+                  i < meses.length / 2 ? "left-0" : "right-0"
+                )}
+                style={{ bottom: `${alto}%` }}
+              >
+                <p className="font-medium capitalize">{mesLargo(mes)}</p>
+                <p className="whitespace-pre-line tabular-nums text-muted-foreground">{fila ? fila.detalle : "Sin datos"}</p>
+              </div>
               {arriba && <span className="mb-1 text-xs tabular-nums text-foreground">{arriba}</span>}
               <div
-                className={cn("flex w-full max-w-8 flex-col-reverse overflow-hidden", soloAnios ? "rounded-t-sm" : "rounded-t-md")}
-                style={{ height: `${(total / max) * 100}%` }}
+                className={cn(
+                  "flex w-full max-w-8 flex-col-reverse overflow-hidden transition-opacity group-hover:opacity-80",
+                  soloAnios ? "rounded-t-sm" : "rounded-t-md"
+                )}
+                style={{ height: `${alto}%` }}
               >
                 {fila?.series.map((s) => (
                   <div key={s.nombre} className={s.color} style={{ height: total > 0 ? `${(s.valor / total) * 100}%` : 0 }} />
@@ -170,6 +181,7 @@ export default async function InsightsPage() {
   const variacion = ultimo && anterior && anterior.usd > 0 ? ultimo.usd / anterior.usd - 1 : null;
   const totalCuotasPagadas = cobranza.puntualidad.reduce((s, r) => s + r.cuotas, 0) || 1;
   const lotes = (n: number) => `${int(n)} ${n === 1 ? "lote" : "lotes"}`;
+  const proyectada = ventas.cobranzaProyectada;
   const hoy = argentinaTodayKey();
   const faltaTcHoy = cobranza.fechaTipoCambio !== hoy;
   const tcSugerido = faltaTcHoy ? (await getBnaBilleteVendedor()).sell : null;
@@ -215,16 +227,23 @@ export default async function InsightsPage() {
           )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatsCard title="Facturación vendida" value={usdCorto(ventas.facturacionUsd)} description="Precio total de boletos firmados" />
-            <StatsCard title="Lotes vendidos" value={int(ventas.lotesVendidos)} description={`${pct(ventas.pctVendido)} del stock en venta`} />
-            <StatsCard title="Ticket promedio" value={usd(ventas.ticketPromedioUsd)} description="Por lote vendido" />
-            <StatsCard title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} />
-            <StatsCard title="Cobrado a la fecha" value={usdCorto(ventas.cobradoUsd)} description={
+            <StatsCard href="/crm/reservas?estado=realizada" title="Facturación vendida" value={usdCorto(ventas.facturacionUsd)} description="Precio total de boletos firmados" />
+            <StatsCard href="/crm/lotes?estado=vendido" title="Lotes vendidos" value={int(ventas.lotesVendidos)} description={`${pct(ventas.pctVendido)} del stock en venta`} />
+            <StatsCard href="/crm/reservas?estado=realizada" title="Ticket promedio" value={usd(ventas.ticketPromedioUsd)} description="Por lote vendido" />
+            <StatsCard href="/crm/reservas?estado=activa" title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} />
+            <StatsCard href="/crm/cuotas" title="Cobrado a la fecha" value={usdCorto(ventas.cobradoUsd)} description={
                 ventas.pagosSinTc > 0
                   ? `Sin incluir ${int(ventas.pagosSinTc)} ${ventas.pagosSinTc === 1 ? "pago" : "pagos"} en pesos sin tipo de cambio`
                   : "Pagos de cuotas registrados"
               } />
-            <StatsCard title="Lotes disponibles" value={int(ventas.lotesDisponibles)} description={`de ${int(ventas.lotesEnVenta)} comercializables`} />
+            <StatsCard href="/crm/lotes?estado=disponible" title="Lotes disponibles" value={int(ventas.lotesDisponibles)} description={`de ${int(ventas.lotesEnVenta)} comercializables`} />
+            <StatsCard
+              href="/crm/lotes?estado=all"
+              title="Valuación de lotes restantes"
+              value={usdCorto(ventas.valuacionRestantesUsd)}
+              description={`Precio de lista de ${int(ventas.lotesRestantes)} lotes sin vender`}
+              note={ventas.lotesSinPrecio > 0 ? `${int(ventas.lotesSinPrecio)} ${ventas.lotesSinPrecio === 1 ? "lote" : "lotes"} sin precio` : undefined}
+            />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -241,14 +260,36 @@ export default async function InsightsPage() {
                 }}
               />
             </Panel>
-            <Panel titulo="Cobranza por mes" nota="USD cobrados en cuotas (pagos no anulados), por mes de pago.">
+            <Panel
+              titulo="Cobranza por mes"
+              nota="USD cobrados en cuotas (pagos no anulados), por mes de pago. La barra punteada es lo que vence el mes que viene y sigue impago."
+            >
               <BarrasMensuales
-                filas={ventas.cobranzaPorMes.map((r) => ({
-                  mes: r.mes,
-                  series: [{ nombre: "USD", valor: r.usd, color: "bg-primary" }],
-                  detalle: `${usd(r.usd)} · ${int(r.pagos)} pagos`,
-                }))}
+                filas={[
+                  ...ventas.cobranzaPorMes.map((r) => ({
+                    mes: r.mes,
+                    series: [{ nombre: "USD", valor: r.usd, color: "bg-primary" }],
+                    detalle: `${usd(r.usd)} · ${int(r.pagos)} pagos`,
+                  })),
+                  ...(proyectada.usd > 0 && proyectada.mes > (ventas.cobranzaPorMes.at(-1)?.mes ?? "")
+                    ? [
+                        {
+                          mes: proyectada.mes,
+                          series: [
+                            {
+                              nombre: "Proyectado",
+                              valor: proyectada.usd,
+                              color: "rounded-t-md border-2 border-dashed border-primary/50 bg-primary/10",
+                            },
+                          ],
+                          detalle: `Proyección: ${usd(proyectada.usd)}
+${int(proyectada.cuotas)} cuotas a vencer, impagas`,
+                        },
+                      ]
+                    : []),
+                ]}
                 etiquetaArriba={(mes) => {
+                  if (mes === proyectada.mes) return `~${usdCorto(proyectada.usd).replace("USD ", "")}`;
                   const r = ventas.cobranzaPorMes.find((x) => x.mes === mes);
                   return r ? usdCorto(r.usd).replace("USD ", "") : null;
                 }}
@@ -312,15 +353,17 @@ export default async function InsightsPage() {
           </p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatsCard title="Saldo por cobrar" value={usdCorto(cobranza.porCobrarUsd)} description={`Cuotas impagas de ${int(cobranza.contratos)} contratos`} />
-            <StatsCard title="Vencido sin pagar" value={usd(cobranza.vencidoUsd)} description={`${int(cobranza.contratosConMora)} contratos con cuotas vencidas`} tone={cobranza.vencidoUsd > 0 ? "danger" : undefined} />
-            <StatsCard title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" />
+            <StatsCard href="/crm/cuotas" title="Saldo por cobrar" value={usdCorto(cobranza.porCobrarUsd)} description={`Cuotas impagas de ${int(cobranza.contratos)} contratos`} />
+            <StatsCard href="/crm/cuotas?estado=vencidas" title="Vencido sin pagar" value={usd(cobranza.vencidoUsd)} description={`${int(cobranza.contratosConMora)} contratos con cuotas vencidas`} tone={cobranza.vencidoUsd > 0 ? "danger" : undefined} />
+            <StatsCard href="/crm/cuotas" title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" />
             <StatsCard
+              href="/crm/cuotas"
               title="Cuotas pagadas a término"
               value={cobranza.pctATiempo === null ? "—" : pct(cobranza.pctATiempo)}
               description={cobranza.diasAnticipoProm === null ? "Sin cuotas pagadas" : `En promedio ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(cobranza.diasAnticipoProm)} días antes del vencimiento`}
             />
             <StatsCard
+              href="/crm/cuotas"
               title="Cuotas pagadas"
               value={int(cobranza.cuotasPagadas)}
               description={`de ${int(cobranza.cuotasTotales)} (${pct(cobranza.cuotasTotales > 0 ? cobranza.cuotasPagadas / cobranza.cuotasTotales : 0)})`}

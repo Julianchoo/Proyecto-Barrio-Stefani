@@ -55,6 +55,7 @@ export async function getInsights() {
     ventasModalidad,
     ventasDetalle,
     cobranzaKpis,
+    proyeccion,
     cuotasEstado,
     porCobrarMes,
     puntualidad,
@@ -71,7 +72,11 @@ export async function getInsights() {
         (SELECT round(sum(monto_usd::numeric)) FROM pagos WHERE estado = 'activo') AS cobrado_usd,
         (SELECT count(*) FROM pagos WHERE estado = 'activo' AND monto_usd IS NULL) AS pagos_sin_tc,
         (SELECT count(*) FROM parcelas WHERE estado = 'disponible') AS lotes_disponibles,
-        (SELECT count(*) FROM parcelas WHERE estado IN ('vendido', 'reservado', 'disponible')) AS lotes_en_venta`),
+        (SELECT count(*) FROM parcelas WHERE estado IN ('vendido', 'reservado', 'disponible')) AS lotes_en_venta,
+        -- Precio de lista: precio_base y, si falta, precio_etapa1 (igual que la API de parcelas).
+        (SELECT round(sum(coalesce(precio_base, precio_etapa1)::numeric)) FROM parcelas WHERE estado <> 'vendido') AS valuacion_restantes_usd,
+        (SELECT count(*) FROM parcelas WHERE estado <> 'vendido') AS lotes_restantes,
+        (SELECT count(*) FROM parcelas WHERE estado <> 'vendido' AND coalesce(precio_base, precio_etapa1) IS NULL) AS lotes_sin_precio`),
     rows(sql`
       SELECT to_char(date_trunc('month', fecha_firma), 'YYYY-MM') AS mes, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
       FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NOT NULL
@@ -121,6 +126,13 @@ export async function getInsights() {
         (SELECT v FROM tc) AS tipo_cambio,
         (SELECT to_char(fecha, 'YYYY-MM-DD') FROM tc) AS fecha_tc
       FROM q`),
+    rows(sql`
+      WITH ${cuotasBase}
+      SELECT to_char((SELECT d FROM hoy) + interval '1 month', 'YYYY-MM') AS mes,
+        round(coalesce(sum(saldo_usd), 0)) AS usd, count(*) AS cuotas
+      FROM q
+      WHERE est <> 'pagada'
+        AND date_trunc('month', fecha_vencimiento) = date_trunc('month', (SELECT d FROM hoy) + interval '1 month')`),
     rows(sql`
       WITH ${cuotasBase}
       SELECT x.estado, x.orden, count(q.id) AS cuotas, round(coalesce(sum(q.saldo_usd), 0)) AS saldo_usd
@@ -199,8 +211,17 @@ export async function getInsights() {
       pagosSinTc: num(vk.pagos_sin_tc),
       lotesDisponibles: num(vk.lotes_disponibles),
       lotesEnVenta: enVenta,
+      valuacionRestantesUsd: num(vk.valuacion_restantes_usd),
+      lotesRestantes: num(vk.lotes_restantes),
+      lotesSinPrecio: num(vk.lotes_sin_precio),
       pctVendido: enVenta > 0 ? num(vk.lotes_vendidos) / enVenta : 0,
       porMes: ventasMes.map((r) => ({ mes: String(r.mes), lotes: num(r.lotes), usd: num(r.usd) })),
+      // Lo que vence el mes que viene y sigue impago: barra "fantasma" del gráfico de cobranza.
+      cobranzaProyectada: {
+        mes: String(proyeccion[0]?.mes),
+        usd: num(proyeccion[0]?.usd),
+        cuotas: num(proyeccion[0]?.cuotas),
+      },
       cobranzaPorMes: cobranzaMes.map((r) => ({ mes: String(r.mes), pagos: num(r.pagos), usd: num(r.usd) })),
       porCorredor: ventasCorredor.map((r) => ({ nombre: String(r.corredor), lotes: num(r.lotes), usd: num(r.usd) })),
       porModalidad: ventasModalidad.map((r) => ({ nombre: String(r.modalidad), lotes: num(r.lotes), usd: num(r.usd) })),

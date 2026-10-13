@@ -1,5 +1,4 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
-import Link from "next/link";
 
 import { StatsCard } from "@/components/crm/stats-card";
 import { db } from "@/lib/db";
@@ -72,7 +71,6 @@ export default async function CrmDashboard() {
   const session = await requireAuth();
   const esAdmin = session.user.role === "admin";
   const stats = await getStats(esAdmin ? null : session.user.id);
-  const cardLink = "block rounded-xl [&>div]:transition-colors [&>div]:hover:bg-muted/50";
 
   return (
     <div className="space-y-6">
@@ -82,41 +80,28 @@ export default async function CrmDashboard() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link href="/crm/lotes?estado=disponible" className={cardLink}>
-          <StatsCard
-            title="Lotes disponibles"
-            value={stats.disponibles}
-            description={`de ${stats.totalParcelas} totales`}
-          />
-        </Link>
-        <Link href="/crm/lotes?estado=reservado" className={cardLink}>
-          <StatsCard
-            title="Reservados"
-            value={stats.reservadas}
-          />
-        </Link>
-        <Link href="/crm/lotes?estado=vendido" className={cardLink}>
-          <StatsCard
-            title="Vendidos"
-            value={stats.vendidas}
-          />
-        </Link>
+        <StatsCard
+          href="/crm/lotes?estado=disponible"
+          title="Lotes disponibles"
+          value={stats.disponibles}
+          description={`de ${stats.totalParcelas} totales`}
+        />
+        <StatsCard href="/crm/lotes?estado=reservado" title="Reservados" value={stats.reservadas} />
+        <StatsCard href="/crm/lotes?estado=vendido" title="Vendidos" value={stats.vendidas} />
         {esAdmin ? (
-          <Link href="/crm/leads?estado=nuevo" className={cardLink}>
-            <StatsCard
-              title="Leads nuevos"
-              value={stats.leadsNuevos}
-              description={`de ${stats.totalLeads} totales`}
-            />
-          </Link>
+          <StatsCard
+            href="/crm/leads?estado=nuevo"
+            title="Leads nuevos"
+            value={stats.leadsNuevos}
+            description={`de ${stats.totalLeads} totales`}
+          />
         ) : (
-          <Link href="/crm/leads" className={cardLink}>
-            <StatsCard
-              title="Mis leads"
-              value={stats.leadsNuevos}
-              description={`activos de ${stats.totalLeads} asignados`}
-            />
-          </Link>
+          <StatsCard
+            href="/crm/leads"
+            title="Mis leads"
+            value={stats.leadsNuevos}
+            description={`activos de ${stats.totalLeads} asignados`}
+          />
         )}
       </div>
 

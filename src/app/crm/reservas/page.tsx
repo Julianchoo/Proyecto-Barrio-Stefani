@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, Filter, List, Mail, Search, X } from "lucide-react";
@@ -176,12 +176,22 @@ function toggleValue<T extends string>(values: T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
-export default function ReservasPage() {
+export default function ReservasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
+  // Permite llegar prefiltrado desde las tarjetas de Insights (?estado=realizada).
+  const { estado: estadoInicial } = use(searchParams);
+  const filtrosIniciales =
+    estadoInicial && estadoInicial in estadoLabels
+      ? { ...defaultFilters, estado: [estadoInicial as EstadoReserva] }
+      : defaultFilters;
   const { data: session } = useSession();
   const [reservas, setReservas] = useState<ReservaRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<ReservaFilters>(defaultFilters);
-  const [draftFilters, setDraftFilters] = useState<ReservaFilters>(defaultFilters);
+  const [filters, setFilters] = useState<ReservaFilters>(filtrosIniciales);
+  const [draftFilters, setDraftFilters] = useState<ReservaFilters>(filtrosIniciales);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"lista" | "calendario">("lista");

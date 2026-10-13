@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -233,14 +233,24 @@ function estadoResumen(row: CuentaRow) {
   return "Al dia";
 }
 
-export default function CuotasPage() {
+const ESTADOS_CUENTA = ["todos", "vencidas", "pendiente_cuenta", "al_dia"];
+
+export default function CuotasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
+  // Permite llegar prefiltrado desde las tarjetas de Insights (?estado=vencidas).
+  const { estado: estadoInicial } = use(searchParams);
   const { data: session } = useSession();
   const [rows, setRows] = useState<CuentaRow[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [estado, setEstado] = useState("todos");
+  const [estado, setEstado] = useState(
+    estadoInicial && ESTADOS_CUENTA.includes(estadoInicial) ? estadoInicial : "todos"
+  );
   const [modalidad, setModalidad] = useState("todas");
   const [periodo, setPeriodo] = useState("");
   const [valor, setValor] = useState("");
