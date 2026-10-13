@@ -1,11 +1,12 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import Link from "next/link";
-import { MapPin, Users, CheckCircle, Clock } from "lucide-react";
 
 import { StatsCard } from "@/components/crm/stats-card";
 import { db } from "@/lib/db";
 import { parcelas, leads } from "@/lib/schema";
 import { requireAuth } from "@/lib/session";
+import { tones, type Tone } from "@/lib/tones";
+import { cn } from "@/lib/utils";
 
 // Admin ve todos los leads; el comercial, solo los asignados a él ("Mis leads").
 async function getStats(userId: string | null) {
@@ -57,27 +58,27 @@ async function getStats(userId: string | null) {
   };
 }
 
-const estadoBadge: Record<string, { bg: string; text: string; label: string }> = {
-  nuevo: { bg: "bg-blue-100", text: "text-blue-700", label: "Nuevo" },
-  asignado: { bg: "bg-purple-100", text: "text-purple-700", label: "Asignado" },
-  a_contactar: { bg: "bg-orange-100", text: "text-orange-700", label: "A contactar" },
-  contactado: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Contactado" },
-  sin_respuesta: { bg: "bg-red-100", text: "text-red-700", label: "Sin respuesta" },
-  closed_won: { bg: "bg-green-100", text: "text-green-700", label: "Cerrado ganado" },
-  closed_lost: { bg: "bg-gray-100", text: "text-gray-600", label: "Cerrado perdido" },
+const estadoBadge: Record<string, { tone: Tone; label: string }> = {
+  nuevo: { tone: "info", label: "Nuevo" },
+  asignado: { tone: "info", label: "Asignado" },
+  a_contactar: { tone: "warning", label: "A contactar" },
+  contactado: { tone: "warning", label: "Contactado" },
+  sin_respuesta: { tone: "danger", label: "Sin respuesta" },
+  closed_won: { tone: "positive", label: "Cerrado ganado" },
+  closed_lost: { tone: "neutral", label: "Cerrado perdido" },
 };
 
 export default async function CrmDashboard() {
   const session = await requireAuth();
   const esAdmin = session.user.role === "admin";
   const stats = await getStats(esAdmin ? null : session.user.id);
-  const cardLink = "rounded-xl transition-opacity hover:opacity-80";
+  const cardLink = "block rounded-xl [&>div]:transition-colors [&>div]:hover:bg-muted/50";
 
   return (
-    <div className="space-y-8">
-      <div className="border-b pb-6">
-        <h1 className="font-display text-3xl font-light text-foreground">Dashboard</h1>
-        <p className="font-body text-sm text-muted-foreground mt-1">Resumen general del proyecto Barrio Stefani</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-serif text-3xl font-normal text-foreground">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Resumen general del proyecto Barrio Stefani</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -86,24 +87,18 @@ export default async function CrmDashboard() {
             title="Lotes disponibles"
             value={stats.disponibles}
             description={`de ${stats.totalParcelas} totales`}
-            icon={MapPin}
-            accent="green"
           />
         </Link>
         <Link href="/crm/lotes?estado=reservado" className={cardLink}>
           <StatsCard
             title="Reservados"
             value={stats.reservadas}
-            icon={Clock}
-            accent="amber"
           />
         </Link>
         <Link href="/crm/lotes?estado=vendido" className={cardLink}>
           <StatsCard
             title="Vendidos"
             value={stats.vendidas}
-            icon={CheckCircle}
-            accent="blue"
           />
         </Link>
         {esAdmin ? (
@@ -112,8 +107,6 @@ export default async function CrmDashboard() {
               title="Leads nuevos"
               value={stats.leadsNuevos}
               description={`de ${stats.totalLeads} totales`}
-              icon={Users}
-              accent="red"
             />
           </Link>
         ) : (
@@ -122,8 +115,6 @@ export default async function CrmDashboard() {
               title="Mis leads"
               value={stats.leadsNuevos}
               description={`activos de ${stats.totalLeads} asignados`}
-              icon={Users}
-              accent="red"
             />
           </Link>
         )}
@@ -132,25 +123,25 @@ export default async function CrmDashboard() {
       {/* Recent leads */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="px-6 py-4 border-b border-border">
-          <h2 className="font-body text-sm font-semibold text-foreground">
+          <h2 className="text-base font-medium text-foreground">
             {esAdmin ? "Últimos leads recibidos" : "Mis últimos leads"}
           </h2>
         </div>
         {stats.recentLeads.length === 0 ? (
-          <p className="font-body text-sm text-muted-foreground py-10 text-center">
+          <p className="text-sm text-muted-foreground py-10 text-center">
             {esAdmin ? "No hay leads aún." : "Todavía no tenés leads asignados."}
           </p>
         ) : (
           <ul className="divide-y divide-border">
             {stats.recentLeads.map((lead) => {
-              const badge = estadoBadge[lead.estado] ?? { bg: "bg-gray-100", text: "text-gray-600", label: lead.estado };
+              const badge = estadoBadge[lead.estado] ?? { tone: "neutral" as const, label: lead.estado };
               return (
                 <li key={lead.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors">
                   <div className="min-w-0">
-                    <p className="font-body text-sm font-semibold text-foreground truncate">{lead.nombre}</p>
-                    <p className="font-body text-xs text-muted-foreground mt-0.5">{lead.email} · {lead.telefono}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{lead.nombre}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{lead.email} · {lead.telefono}</p>
                   </div>
-                  <span className={`ml-4 flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-medium font-body ${badge.bg} ${badge.text}`}>
+                  <span className={cn("ml-4 flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium", tones[badge.tone])}>
                     {badge.label}
                   </span>
                 </li>

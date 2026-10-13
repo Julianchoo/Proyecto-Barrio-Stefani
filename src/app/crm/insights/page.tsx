@@ -1,4 +1,3 @@
-import { AlertTriangle, CalendarClock, CircleDollarSign, Clock3, MapPin, WalletCards } from "lucide-react";
 import { CargarTipoCambio } from "@/components/crm/cargar-tipo-cambio";
 import { StatsCard } from "@/components/crm/stats-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,7 +124,7 @@ function BarrasHorizontales({
           <div className="flex items-center gap-2">
             <div className="h-3 flex-1 rounded-full bg-muted">
               <div
-                className={cn("h-3 rounded-full", f.color ?? (i === 0 ? "bg-primary" : "bg-primary/40"))}
+                className={cn("h-3 rounded-full", f.color ?? (i === 0 ? "bg-primary" : "bg-muted-foreground/30"))}
                 style={{ width: `${f.valor > 0 ? Math.max(1, (f.valor / max) * 100) : 0}%` }}
               />
             </div>
@@ -154,7 +153,7 @@ function Panel({ titulo, nota, children, className }: { titulo: string; nota: st
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-base">{titulo}</CardTitle>
+        <CardTitle className="text-base font-medium">{titulo}</CardTitle>
         <CardDescription>{nota}</CardDescription>
       </CardHeader>
       <CardContent>{children}</CardContent>
@@ -176,9 +175,9 @@ export default async function InsightsPage() {
   const tcSugerido = faltaTcHoy ? (await getBnaBilleteVendedor()).sell : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Insights</h1>
+        <h1 className="font-serif text-3xl font-normal text-foreground">Insights</h1>
         <p className="mt-1 text-sm text-muted-foreground">Ventas y cobranza del barrio, en USD</p>
       </div>
 
@@ -194,13 +193,13 @@ export default async function InsightsPage() {
         />
       )}
 
-      <Tabs defaultValue="ventas" className="gap-5">
+      <Tabs defaultValue="ventas" className="gap-6">
         <TabsList>
           <TabsTrigger value="ventas">Ventas</TabsTrigger>
           <TabsTrigger value="cobranza">Cobranza</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ventas" className="space-y-5">
+        <TabsContent value="ventas" className="space-y-6">
           {ultimo && (
             <p className="text-sm text-muted-foreground">
               El último mes con firmas fue {mesLargo(ultimo.mes)}: se firmaron{" "}
@@ -216,16 +215,16 @@ export default async function InsightsPage() {
           )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatsCard title="Facturación vendida" value={usdCorto(ventas.facturacionUsd)} description="Precio total de boletos firmados" icon={CircleDollarSign} accent="green" />
-            <StatsCard title="Lotes vendidos" value={int(ventas.lotesVendidos)} description={`${pct(ventas.pctVendido)} del stock en venta`} icon={MapPin} accent="blue" />
-            <StatsCard title="Ticket promedio" value={usd(ventas.ticketPromedioUsd)} description="Por lote vendido" icon={CircleDollarSign} accent="green" />
-            <StatsCard title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} icon={CalendarClock} accent="amber" />
+            <StatsCard title="Facturación vendida" value={usdCorto(ventas.facturacionUsd)} description="Precio total de boletos firmados" />
+            <StatsCard title="Lotes vendidos" value={int(ventas.lotesVendidos)} description={`${pct(ventas.pctVendido)} del stock en venta`} />
+            <StatsCard title="Ticket promedio" value={usd(ventas.ticketPromedioUsd)} description="Por lote vendido" />
+            <StatsCard title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} />
             <StatsCard title="Cobrado a la fecha" value={usdCorto(ventas.cobradoUsd)} description={
                 ventas.pagosSinTc > 0
                   ? `Sin incluir ${int(ventas.pagosSinTc)} ${ventas.pagosSinTc === 1 ? "pago" : "pagos"} en pesos sin tipo de cambio`
                   : "Pagos de cuotas registrados"
-              } icon={WalletCards} accent="green" />
-            <StatsCard title="Lotes disponibles" value={int(ventas.lotesDisponibles)} description={`de ${int(ventas.lotesEnVenta)} comercializables`} icon={MapPin} accent="blue" />
+              } />
+            <StatsCard title="Lotes disponibles" value={int(ventas.lotesDisponibles)} description={`de ${int(ventas.lotesEnVenta)} comercializables`} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -246,7 +245,7 @@ export default async function InsightsPage() {
               <BarrasMensuales
                 filas={ventas.cobranzaPorMes.map((r) => ({
                   mes: r.mes,
-                  series: [{ nombre: "USD", valor: r.usd, color: "bg-blue-500" }],
+                  series: [{ nombre: "USD", valor: r.usd, color: "bg-primary" }],
                   detalle: `${usd(r.usd)} · ${int(r.pagos)} pagos`,
                 }))}
                 etiquetaArriba={(mes) => {
@@ -304,7 +303,7 @@ export default async function InsightsPage() {
           </Panel>
         </TabsContent>
 
-        <TabsContent value="cobranza" className="space-y-5">
+        <TabsContent value="cobranza" className="space-y-6">
           <p className="text-sm text-muted-foreground">
             Quedan <span className="font-medium text-foreground">{usd(cobranza.porCobrarUsd)}</span> por cobrar
             {cobranza.ultimaCuota && <>, con la última cuota en {mesLargo(cobranza.ultimaCuota)}</>}. Hoy hay{" "}
@@ -313,29 +312,23 @@ export default async function InsightsPage() {
           </p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatsCard title="Saldo por cobrar" value={usdCorto(cobranza.porCobrarUsd)} description={`Cuotas impagas de ${int(cobranza.contratos)} contratos`} icon={WalletCards} accent="blue" />
-            <StatsCard title="Vencido sin pagar" value={usd(cobranza.vencidoUsd)} description={`${int(cobranza.contratosConMora)} contratos con cuotas vencidas`} icon={AlertTriangle} accent={cobranza.vencidoUsd > 0 ? "red" : "green"} />
-            <StatsCard title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" icon={CalendarClock} accent="amber" />
+            <StatsCard title="Saldo por cobrar" value={usdCorto(cobranza.porCobrarUsd)} description={`Cuotas impagas de ${int(cobranza.contratos)} contratos`} />
+            <StatsCard title="Vencido sin pagar" value={usd(cobranza.vencidoUsd)} description={`${int(cobranza.contratosConMora)} contratos con cuotas vencidas`} tone={cobranza.vencidoUsd > 0 ? "danger" : undefined} />
+            <StatsCard title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" />
             <StatsCard
               title="Cuotas pagadas a término"
               value={cobranza.pctATiempo === null ? "—" : pct(cobranza.pctATiempo)}
               description={cobranza.diasAnticipoProm === null ? "Sin cuotas pagadas" : `En promedio ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(cobranza.diasAnticipoProm)} días antes del vencimiento`}
-              icon={Clock3}
-              accent="green"
             />
             <StatsCard
               title="Cuotas pagadas"
               value={int(cobranza.cuotasPagadas)}
               description={`de ${int(cobranza.cuotasTotales)} (${pct(cobranza.cuotasTotales > 0 ? cobranza.cuotasPagadas / cobranza.cuotasTotales : 0)})`}
-              icon={WalletCards}
-              accent="green"
             />
             <StatsCard
               title="Dólar usado"
               value={cobranza.tipoCambio === null ? "—" : `$ ${int(cobranza.tipoCambio)}`}
               description={`BNA vendedor del ${fecha(cobranza.fechaTipoCambio)}, para pasar cuotas en pesos a USD`}
-              icon={CircleDollarSign}
-              accent="blue"
             />
           </div>
 
@@ -343,14 +336,14 @@ export default async function InsightsPage() {
             titulo="Cronograma de cobros"
             nota="USD a cobrar por mes de vencimiento, cuotas todavía no vencidas. Las cuotas en pesos ajustan por CAC: su monto futuro es una proyección, pasada a USD con el último dólar cargado."
           >
-            <Leyenda items={[{ nombre: "En USD", color: "bg-primary" }, { nombre: "En pesos (proyectado)", color: "bg-amber-500" }]} />
+            <Leyenda items={[{ nombre: "En USD", color: "bg-primary" }, { nombre: "En pesos (proyectado)", color: "bg-muted-foreground/30" }]} />
             <BarrasMensuales
               soloAnios
               filas={cobranza.porMes.map((r) => ({
                 mes: r.mes,
                 series: [
                   { nombre: "En USD", valor: r.enUsd, color: "bg-primary" },
-                  { nombre: "En pesos", valor: r.enPesos, color: "bg-amber-500" },
+                  { nombre: "En pesos", valor: r.enPesos, color: "bg-muted-foreground/30" },
                 ],
                 detalle: `En USD: ${usd(r.enUsd)}\nEn pesos: ${usd(r.enPesos)}\nTotal: ${usd(r.enUsd + r.enPesos)} · ${int(r.cuotas)} cuotas`,
               }))}
@@ -365,7 +358,7 @@ export default async function InsightsPage() {
                   valor: r.cuotas,
                   etiqueta: `${int(r.cuotas)} cuotas`,
                   nota: r.saldoUsd > 0 ? `${usdCorto(r.saldoUsd)} de saldo` : "sin saldo",
-                  color: r.estado === "Vencidas" ? "bg-rose-500" : r.estado === "Pagadas" ? "bg-muted-foreground/40" : "bg-primary",
+                  color: r.estado === "Vencidas" ? "bg-destructive" : r.estado === "Pagadas" ? "bg-muted-foreground/30" : "bg-primary",
                 }))}
               />
             </Panel>
@@ -376,7 +369,7 @@ export default async function InsightsPage() {
                   valor: r.cuotas,
                   etiqueta: `${int(r.cuotas)} cuotas`,
                   nota: pct(r.cuotas / totalCuotasPagadas),
-                  color: r.tarde ? "bg-rose-500" : "bg-blue-500",
+                  color: r.tarde ? "bg-destructive" : "bg-primary",
                 }))}
               />
             </Panel>
@@ -408,7 +401,7 @@ export default async function InsightsPage() {
                         <TableCell>{r.parcela ?? "—"}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.numero}</TableCell>
                         <TableCell>{fecha(r.vencimiento)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-rose-600 dark:text-rose-400">{int(r.diasAtraso)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-destructive">{int(r.diasAtraso)}</TableCell>
                         <TableCell className="text-right tabular-nums">
                           {r.moneda} {new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(r.saldo)}
                         </TableCell>
@@ -447,8 +440,8 @@ export default async function InsightsPage() {
                       <TableCell className="text-right tabular-nums">
                         {int(r.pagadas)} / {int(r.cuotas)}
                       </TableCell>
-                      <TableCell className={cn("text-right tabular-nums", r.vencidas > 0 && "text-rose-600 dark:text-rose-400")}>{int(r.vencidas)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", r.vencidoUsd > 0 && "text-rose-600 dark:text-rose-400")}>{int(r.vencidoUsd)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", r.vencidas > 0 && "text-destructive")}>{int(r.vencidas)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", r.vencidoUsd > 0 && "text-destructive")}>{int(r.vencidoUsd)}</TableCell>
                       <TableCell className="text-right tabular-nums">{int(r.saldoUsd)}</TableCell>
                       <TableCell>{fecha(r.proximoVenc)}</TableCell>
                     </TableRow>

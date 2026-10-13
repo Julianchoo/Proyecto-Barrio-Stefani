@@ -6,6 +6,8 @@ import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toneBorders, tones } from "@/lib/tones";
+import { cn } from "@/lib/utils";
 
 export function CargarTipoCambio({
   fecha,
@@ -46,8 +48,8 @@ export function CargarTipoCambio({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center">
-      <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+    <div className={cn("flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center", tones.warning, toneBorders.warning)}>
+      <AlertTriangle className="h-5 w-5 shrink-0" />
       <p className="flex-1 text-sm text-foreground">
         No hay BNA vendedor cargado para hoy.{" "}
         {ultimo
