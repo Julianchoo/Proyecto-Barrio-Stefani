@@ -87,13 +87,14 @@ export async function getInsights() {
     rows(sql`
       SELECT
         CASE
-          WHEN forma_pago = 'contado' THEN 'Contado'
-          WHEN modalidad_contrato = 'usd_fijo' THEN 'Financiado USD fijo'
-          WHEN modalidad_contrato = 'pesos_cac' THEN 'Financiado pesos CAC'
+          WHEN r.forma_pago = 'contado' THEN 'Contado'
+          WHEN coalesce(k.modalidad, r.modalidad_contrato) = 'usd_fijo' THEN 'Financiado USD fijo'
+          WHEN coalesce(k.modalidad, r.modalidad_contrato) = 'pesos_cac' THEN 'Financiado pesos CAC'
           ELSE 'Financiado (sin modalidad)'
         END AS modalidad,
-        count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
-      FROM reservas WHERE estado = 'realizada'
+        count(*) AS lotes, round(sum(r.precio_total_num::numeric)) AS usd
+      FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+      WHERE r.estado = 'realizada'
       GROUP BY 1 ORDER BY lotes DESC`),
     rows(sql`
       SELECT r.id AS venta, to_char(r.fecha_firma, 'YYYY-MM-DD') AS fecha_firma, p.manzana, p.parcela,
