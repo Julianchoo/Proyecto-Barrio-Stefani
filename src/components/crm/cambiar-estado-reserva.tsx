@@ -131,10 +131,10 @@ export function CambiarEstadoReserva({
 
       <AlertDialog open={target !== null} onOpenChange={(isOpen) => !isOpen && !saving && setTarget(null)}>
         {target && (
-          <AlertDialogContent className={mueveLote ? "border-4 border-red-500" : undefined}>
+          <AlertDialogContent className={mueveLote ? "border-4 border-destructive" : undefined}>
             <AlertDialogHeader>
               <AlertDialogTitle
-                className={`flex items-center gap-2 ${mueveLote ? "text-xl text-red-700" : ""}`}
+                className={`flex items-center gap-2 ${mueveLote ? "text-xl text-destructive" : ""}`}
               >
                 {mueveLote && <AlertTriangle className="h-7 w-7 shrink-0" />}
                 {mueveLote ? "OJO! " : ""}Reserva #{reserva.id}: {estadoLabels[reserva.estado]} →{" "}
@@ -147,7 +147,7 @@ export function CambiarEstadoReserva({
                   </p>
                   <ul
                     className={`list-disc space-y-1 rounded-md px-6 py-3 ${
-                      mueveLote ? "bg-red-50 font-medium text-red-800" : "bg-muted"
+                      mueveLote ? "bg-destructive/10 font-medium text-destructive" : "bg-muted"
                     }`}
                   >
                     {consecuencias(reserva.estado, target, reserva.loteNumero).map((item) => (

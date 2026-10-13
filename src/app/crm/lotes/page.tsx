@@ -36,10 +36,10 @@ import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
 
 const estadoColors: Record<EstadoParcela, string> = {
-  disponible: "bg-green-100 text-green-700",
-  reservado: "bg-yellow-100 text-yellow-700",
+  disponible: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  reservado: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
   vendido: "bg-muted text-muted-foreground",
-  no_disponible: "bg-red-100 text-red-700",
+  no_disponible: "bg-destructive/10 text-destructive",
 };
 
 const isSoldLote = (lote: ParcelaConReserva) =>
@@ -537,7 +537,7 @@ export default function LotesPage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Lotes</h1>
+        <h1 className="font-serif text-3xl font-normal text-foreground">Lotes</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Gestión de parcelas del barrio
         </p>
@@ -802,7 +802,7 @@ export default function LotesPage({
                               {estadoLabels[lote.estado]}
                             </span>
                             {(isLoteLocked || Boolean(lote.reservaId)) && (
-                                <Lock className="h-3 w-3 text-amber-600" />
+                                <Lock className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                               )}
                           </span>
                         </SelectTrigger>

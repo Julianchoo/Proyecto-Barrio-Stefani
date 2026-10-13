@@ -474,7 +474,7 @@ export default function ReservasPage() {
         variant="ghost"
         size="sm"
         onClick={() => toggleSort(sortKey)}
-        className="-ml-3 h-8 px-3 text-inherit hover:bg-gray-100 hover:text-gray-900"
+        className="-ml-3 h-8 px-3 text-inherit hover:bg-muted/50 hover:text-foreground"
       >
         {children}
         <Icon className="ml-1 h-3.5 w-3.5" />
@@ -486,8 +486,8 @@ export default function ReservasPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Reservas</h1>
-          <p className="mt-1 text-sm text-gray-500">Reservas por lote y estado</p>
+          <h1 className="font-serif text-3xl font-normal text-foreground">Reservas</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Reservas por lote y estado</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button
@@ -510,7 +510,7 @@ export default function ReservasPage() {
             <Mail className="mr-1 h-4 w-4" />
             {sendingSummary ? "Enviando..." : "Enviar resumen"}
           </Button>
-          <div className="inline-flex rounded-md border bg-white p-1">
+          <div className="inline-flex rounded-md border bg-card p-1">
             <Button
               type="button"
               variant={view === "lista" ? "default" : "ghost"}
@@ -536,7 +536,7 @@ export default function ReservasPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative sm:max-w-xs">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar comprador, DNI, lote..."
               value={search}
@@ -766,9 +766,9 @@ export default function ReservasPage() {
       </div>
 
       {view === "lista" ? (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           <Table className="min-w-[1180px]">
-            <TableHeader className="bg-gray-50 [&_th]:h-11 [&_th]:px-3 [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-normal [&_th]:text-gray-600">
+            <TableHeader className="bg-muted [&_th]:h-11 [&_th]:px-3 [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-normal [&_th]:text-muted-foreground">
               <TableRow className="hover:bg-transparent">
                 <TableHead>
                   <SortHeader sortKey="loteNumero">Lote</SortHeader>
@@ -800,7 +800,7 @@ export default function ReservasPage() {
                 <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
-            <TableBody className="[&_tr]:bg-white [&_tr:hover]:bg-gray-50 [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-gray-700">
+            <TableBody className="[&_tr]:bg-card [&_tr:hover]:bg-muted [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-foreground">
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <TableRow key={i}>
@@ -823,17 +823,17 @@ export default function ReservasPage() {
                           title="Ver lote"
                         >
                           {reserva.loteNumero}
-                          <span className="ml-2 font-sans text-xs text-gray-500">
+                          <span className="ml-2 font-sans text-xs text-muted-foreground">
                             Mz {reserva.manzana ?? "-"} / Parc. {reserva.parcela ?? "-"}
                           </span>
                         </Link>
-                        <div className="font-sans text-xs text-gray-400">Reserva #{reserva.id}</div>
+                        <div className="font-sans text-xs text-muted-foreground">Reserva #{reserva.id}</div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-foreground">
                           {reserva.nombreComprador ?? "-"}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {reserva.dniCuit ?? reserva.emailComprador ?? reserva.telefono ?? "-"}
                         </div>
                       </TableCell>
@@ -855,7 +855,7 @@ export default function ReservasPage() {
                       <TableCell>
                         {reserva.precioTotalNum ? `USD ${reserva.precioTotalNum}` : "-"}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
+                      <TableCell className="text-sm text-muted-foreground">
                         {session?.user?.role === "admin" ? (
                           <Select
                             value={reserva.reservadoPor ?? ""}
@@ -897,25 +897,25 @@ export default function ReservasPage() {
             </TableBody>
           </Table>
           {!loading && reservas.length === 0 && (
-            <p className="py-8 text-center text-sm text-gray-500">No se encontraron reservas</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No se encontraron reservas</p>
           )}
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border bg-white px-4 py-3">
+          <div className="flex items-center justify-between rounded-lg border bg-card px-4 py-3">
             <Button type="button" variant="outline" size="sm" onClick={() => moveMonth(-1)}>
               Anterior
             </Button>
-            <h2 className="text-base font-semibold text-gray-900 capitalize">{monthLabel}</h2>
+            <h2 className="text-base font-semibold text-foreground capitalize">{monthLabel}</h2>
             <Button type="button" variant="outline" size="sm" onClick={() => moveMonth(1)}>
               Siguiente
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-lg border bg-white">
-            <div className="grid grid-cols-7 border-b bg-gray-50">
+          <div className="overflow-hidden rounded-lg border bg-card">
+            <div className="grid grid-cols-7 border-b bg-muted">
               {weekdayNames.map((day) => (
-                <div key={day} className="px-2 py-2 text-xs font-medium text-gray-500">
+                <div key={day} className="px-2 py-2 text-xs font-medium text-muted-foreground">
                   {day}
                 </div>
               ))}
@@ -929,7 +929,7 @@ export default function ReservasPage() {
                     className="min-h-32 border-r border-b p-2 last:border-r-0"
                   >
                     {day.day && (
-                      <div className="mb-2 text-xs font-medium text-gray-500">{day.day}</div>
+                      <div className="mb-2 text-xs font-medium text-muted-foreground">{day.day}</div>
                     )}
                     <div className="space-y-1">
                       {dayEvents.slice(0, 3).map((event) => (
@@ -943,7 +943,7 @@ export default function ReservasPage() {
                         </Link>
                       ))}
                       {dayEvents.length > 3 && (
-                        <div className="text-xs text-gray-500">+{dayEvents.length - 3} mas</div>
+                        <div className="text-xs text-muted-foreground">+{dayEvents.length - 3} mas</div>
                       )}
                     </div>
                   </div>
@@ -953,7 +953,7 @@ export default function ReservasPage() {
           </div>
 
           {!loading && events.length === 0 && (
-            <p className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-gray-500">
+            <p className="rounded-lg border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
               No hay reservas con fecha de firma en este filtro
             </p>
           )}

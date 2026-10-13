@@ -554,7 +554,7 @@ export function ReservaEditor({
       <div className="min-w-0 space-y-6">
       <Card className="xl:hidden">
         <CardHeader>
-          <CardTitle className="text-base">Calculadora de financiación</CardTitle>
+          <CardTitle className="text-base font-medium">Calculadora de financiación</CardTitle>
         </CardHeader>
         <CardContent>
           <CalculatorContent
@@ -570,17 +570,17 @@ export function ReservaEditor({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Lead asociado</CardTitle>
+          <CardTitle className="text-base font-medium">Lead asociado</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {lote.reservaId && !selectedLeadId && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
               <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <span>Esta reserva es histórica y todavía no tiene un lead asociado.</span>
             </div>
           )}
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
-            <p className="mb-2 text-xs font-medium text-gray-500">Seleccionar lead existente</p>
+          <div className="rounded-lg border border-dashed border-border bg-muted p-3">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Seleccionar lead existente</p>
             <div className="flex gap-2">
               <Input
                 placeholder="Buscar por nombre, email o teléfono..."
@@ -600,16 +600,16 @@ export function ReservaEditor({
               </Button>
             </div>
             {leadResults.length > 0 && (
-              <div className="mt-2 max-h-40 overflow-y-auto rounded-md border bg-white divide-y">
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-md border bg-card divide-y">
                 {leadResults.map((lead) => (
                   <button
                     key={lead.id}
                     type="button"
-                    className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-gray-50"
+                    className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted/50"
                     onClick={() => applyLead(lead)}
                   >
                     <span className="font-medium">{lead.nombre}</span>
-                    <span className="text-xs text-gray-500">{lead.email} · {lead.telefono}</span>
+                    <span className="text-xs text-muted-foreground">{lead.email} · {lead.telefono}</span>
                   </button>
                 ))}
               </div>
@@ -618,8 +618,8 @@ export function ReservaEditor({
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             {leadDisplay.map(([label, value]) => (
               <div key={label}>
-                <span className="text-gray-500">{label}</span>
-                <p className="font-medium text-gray-900 mt-0.5">{value}</p>
+                <span className="text-muted-foreground">{label}</span>
+                <p className="font-medium text-foreground mt-0.5">{value}</p>
               </div>
             ))}
           </div>
@@ -630,7 +630,7 @@ export function ReservaEditor({
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base font-medium">
               {lote.reservaId ? `Datos de la reserva #${lote.reservaId}` : "Nueva reserva"}
             </CardTitle>
             <div>
@@ -657,14 +657,14 @@ export function ReservaEditor({
               </Button>
             </div>
           </div>
-          <div className="flex items-start gap-2 mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <div className="flex items-start gap-2 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>
               La extracción de datos por OCR puede contener errores. Revisá los campos antes de guardar.
             </span>
           </div>
           {lote?.formaPago == null && hasInstallments(lote) && (
-            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 Esta reserva tiene cuotas cargadas, pero el tipo de pago no fue confirmado. Elegí
@@ -675,8 +675,8 @@ export function ReservaEditor({
         </CardHeader>
         <CardContent>
           {false && (
-          <div className="mb-5 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50">
-            <p className="text-xs font-medium text-gray-500 mb-2">Cargar datos desde lead existente</p>
+          <div className="mb-5 p-3 rounded-lg border border-dashed border-border bg-muted">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Cargar datos desde lead existente</p>
             <div className="flex gap-2">
               <Input
                 placeholder="Buscar por nombre, email o teléfono..."
@@ -690,16 +690,16 @@ export function ReservaEditor({
               </Button>
             </div>
             {leadResults.length > 0 && (
-              <div className="mt-2 border rounded-md bg-white divide-y max-h-40 overflow-y-auto">
+              <div className="mt-2 border rounded-md bg-card divide-y max-h-40 overflow-y-auto">
                 {leadResults.map((lead) => (
                   <button
                     key={lead.id}
                     type="button"
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex flex-col"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex flex-col"
                     onClick={() => applyLead(lead)}
                   >
                     <span className="font-medium">{lead.nombre}</span>
-                    <span className="text-gray-500 text-xs">{lead.email} · {lead.telefono}</span>
+                    <span className="text-muted-foreground text-xs">{lead.email} · {lead.telefono}</span>
                   </button>
                 ))}
               </div>
@@ -804,7 +804,7 @@ export function ReservaEditor({
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Co-comprador</p>
+                <p className="text-sm font-semibold text-foreground mb-3">Co-comprador</p>
                 <div className="grid sm:grid-cols-2 gap-4">
                   {[
                     { name: "nombreCoComprador" as const, label: "Nombre co-comprador" },
@@ -846,7 +846,7 @@ export function ReservaEditor({
                     checked={entregaCuota}
                     onCheckedChange={(checked: boolean) => setEntregaCuota(checked)}
                   />
-                  <label htmlFor="entregaCuota" className="text-sm text-gray-700 cursor-pointer">
+                  <label htmlFor="entregaCuota" className="text-sm text-foreground cursor-pointer">
                     Entrega contra pago de cuota número específico
                   </label>
                 </div>
@@ -870,7 +870,7 @@ export function ReservaEditor({
               {/* Precio */}
               <div>
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-gray-700">Precio (USD)</p>
+                  <p className="text-sm font-semibold text-foreground">Precio (USD)</p>
                   <Button type="button" variant="outline" size="sm" onClick={fillAmountWords}>
                     Completar letras
                   </Button>
@@ -952,7 +952,7 @@ export function ReservaEditor({
               />
 
               {lote.modificadoPor && (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Último cambio por: {lote.modificadoPor}
                 </p>
               )}
@@ -960,7 +960,6 @@ export function ReservaEditor({
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting || isLocked}
-                className="bg-green-700 hover:bg-green-800 text-white"
               >
                 {form.formState.isSubmitting ? "Guardando..." : "Guardar cambios"}
               </Button>
@@ -974,7 +973,7 @@ export function ReservaEditor({
       <aside className="hidden xl:sticky xl:top-6 xl:block xl:self-start">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Calculadora de financiación</CardTitle>
+            <CardTitle className="text-base font-medium">Calculadora de financiación</CardTitle>
           </CardHeader>
           <CardContent>
             <CalculatorContent
@@ -1072,7 +1071,7 @@ function CalculatorContent({
           return (
           <label key={item.key} className="block space-y-2">
             <span className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-gray-700">{item.label}</span>
+              <span className="font-medium text-foreground">{item.label}</span>
               <span className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -1091,11 +1090,11 @@ function CalculatorContent({
                   aria-invalid={item.key === "anticipo" && anticipoInvalid}
                   className={`h-8 w-28 text-right ${
                     item.key === "anticipo" && anticipoInvalid
-                      ? "border-red-500 focus-visible:ring-red-500"
+                      ? "border-destructive focus-visible:ring-destructive"
                       : ""
                   }`}
                 />
-                <span className="w-10 text-left text-xs text-gray-500">
+                <span className="w-10 text-left text-xs text-muted-foreground">
                   {item.suffix}
                 </span>
               </span>
@@ -1108,10 +1107,10 @@ function CalculatorContent({
               value={Math.min(calculator[item.key], item.max)}
               onChange={(e) => onChange(item.key, Number(e.target.value))}
               disabled={fieldDisabled}
-              className="w-full accent-green-700"
+              className="w-full accent-primary"
             />
             {item.key === "anticipo" && anticipoInvalid && (
-              <p className="text-xs font-medium text-red-600" role="alert">
+              <p className="text-xs font-medium text-destructive" role="alert">
                 Mínimo: {formatUsd(minimumAnticipo)}
               </p>
             )}
@@ -1128,9 +1127,9 @@ function CalculatorContent({
           ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
           ["Entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-md border bg-gray-50 px-3 py-2">
-            <p className="text-xs text-gray-500">{label}</p>
-            <p className="text-base font-semibold text-gray-900">{value}</p>
+          <div key={label} className="rounded-md border bg-muted px-3 py-2">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-base font-semibold text-foreground">{value}</p>
           </div>
         ))}
       </div>
@@ -1139,7 +1138,7 @@ function CalculatorContent({
         type="button"
         onClick={onApply}
         disabled={disabled || anticipoInvalid}
-        className="w-full bg-green-700 hover:bg-green-800 text-white"
+        className="w-full"
       >
         Aplicar al formulario
       </Button>

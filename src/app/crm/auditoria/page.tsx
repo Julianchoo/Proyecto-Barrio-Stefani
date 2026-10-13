@@ -36,9 +36,9 @@ const entidadLabels: Record<AuditRow["entidad"], string> = {
 };
 
 const entidadColors: Record<AuditRow["entidad"], string> = {
-  lote: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  reserva: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
-  lead: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200",
+  lote: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  reserva: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  lead: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
 };
 
 const accionLabels: Record<AuditRow["accion"], string> = {
@@ -156,7 +156,7 @@ export default function AuditoriaPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Auditoría</h1>
+        <h1 className="font-serif text-3xl font-normal text-foreground">Auditoría</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Cambios en lotes, reservas y leads: quién los hizo y cuándo
         </p>
@@ -255,11 +255,11 @@ export default function AuditoriaPage() {
                           <span className="text-muted-foreground">{fieldLabel(key)}: </span>
                           {row.accion === "editar" ? (
                             <>
-                              <span className="text-red-700 line-through dark:text-red-400">
+                              <span className="text-destructive line-through">
                                 {formatValue(key, antes)}
                               </span>{" "}
                               →{" "}
-                              <span className="font-medium text-green-700 dark:text-green-400">
+                              <span className="font-medium text-emerald-700 dark:text-emerald-400">
                                 {formatValue(key, despues)}
                               </span>
                             </>

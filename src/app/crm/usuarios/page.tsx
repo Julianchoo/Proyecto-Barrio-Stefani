@@ -175,14 +175,14 @@ export default function UsuariosPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Usuarios</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="font-serif text-3xl font-normal text-foreground">Usuarios</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Gestión de usuarios del sistema
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-green-700 hover:bg-green-800 text-white gap-2">
+            <Button className="gap-2">
               <PlusCircle className="h-4 w-4" />
               Nuevo usuario
             </Button>
@@ -234,7 +234,7 @@ export default function UsuariosPage() {
                           />
                           <button
                             type="button"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                             onClick={() => setShowPassword((v) => !v)}
                           >
                             {showPassword ? (
@@ -272,7 +272,7 @@ export default function UsuariosPage() {
                 />
                 <Button
                   type="submit"
-                  className="w-full bg-green-700 hover:bg-green-800 text-white"
+                  className="w-full"
                   disabled={form.formState.isSubmitting}
                 >
                   {form.formState.isSubmitting ? "Creando..." : "Crear usuario"}
@@ -283,7 +283,7 @@ export default function UsuariosPage() {
         </Dialog>
       </div>
 
-      <div className="rounded-lg border bg-white overflow-x-auto">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -313,19 +313,19 @@ export default function UsuariosPage() {
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           u.role === "admin"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-gray-100 text-gray-700"
+                            ? "bg-sky-500/10 text-sky-700 dark:text-sky-400"
+                            : "bg-muted text-foreground"
                         }`}
                       >
                         {u.role}
                       </span>
                       {u.mustChangePassword && (
-                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-800 dark:text-amber-400">
                           debe cambiar contraseña
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
+                    <TableCell className="text-sm text-muted-foreground">
                       {new Date(u.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
                     <TableCell>
@@ -355,7 +355,7 @@ export default function UsuariosPage() {
           </TableBody>
         </Table>
         {!loading && users.length === 0 && (
-          <p className="text-center text-sm text-gray-500 py-8">
+          <p className="text-center text-sm text-muted-foreground py-8">
             No hay usuarios registrados
           </p>
         )}
@@ -418,7 +418,7 @@ export default function UsuariosPage() {
               />
               <Button
                 type="submit"
-                className="w-full bg-green-700 hover:bg-green-800 text-white"
+                className="w-full"
                 disabled={editForm.formState.isSubmitting}
               >
                 {editForm.formState.isSubmitting ? "Guardando..." : "Guardar cambios"}
@@ -434,7 +434,7 @@ export default function UsuariosPage() {
             <DialogTitle>Contraseña temporal</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Compartí esta contraseña con el usuario. Al ingresar, se le pedirá
               que cargue una nueva.
             </p>

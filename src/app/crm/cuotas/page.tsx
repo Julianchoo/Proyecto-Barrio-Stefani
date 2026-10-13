@@ -4,23 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
-  CalendarDays,
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
-  Clock3,
   Edit2,
   FileSpreadsheet,
   Filter,
   Save,
   Search,
   Trash2,
-  Users,
-  WalletCards,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { StatsCard } from "@/components/crm/stats-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -338,7 +335,7 @@ export default function CuotasPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Acceso restringido</CardTitle>
+          <CardTitle className="text-base font-medium">Acceso restringido</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           Solo un administrador puede ver cuentas corrientes y cuotas.
@@ -529,7 +526,7 @@ export default function CuotasPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Cuotas</h1>
+          <h1 className="font-serif text-3xl font-normal text-foreground">Cuotas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Cuenta corriente por lote vendido
           </p>
@@ -597,67 +594,26 @@ export default function CuotasPage() {
             ))}
           </div>
         ) : dashboard ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className="border-slate-200 bg-slate-50/70 shadow-none">
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm text-slate-600">Deudores totales</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{dashboard.cuentasTotales}</p>
-                  <p className="mt-1 text-xs text-slate-500">Cuentas creadas</p>
-                </div>
-                <Users className="h-5 w-5 text-slate-500" />
-              </CardContent>
-            </Card>
-            <Card className="border-emerald-200 bg-emerald-50/70 shadow-none">
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm text-emerald-700">Al día</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-950">{dashboard.cuentasAlDia}</p>
-                  <p className="mt-1 text-xs text-emerald-700/70">Sin cuotas vencidas</p>
-                </div>
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              </CardContent>
-            </Card>
-            <Card className="border-rose-200 bg-rose-50/70 shadow-none">
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm text-rose-700">Con deuda vencida</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-rose-950">{dashboard.cuentasConDeudaVencida}</p>
-                  <p className="mt-1 text-xs text-rose-700/70">Una o más cuotas vencidas</p>
-                </div>
-                <AlertTriangle className="h-5 w-5 text-rose-600" />
-              </CardContent>
-            </Card>
-            <Card className="border-amber-200 bg-amber-50/70 shadow-none">
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm text-amber-700">Pendientes de creación</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-amber-950">{dashboard.cuentasPendientesCreacion}</p>
-                  <p className="mt-1 text-xs text-amber-700/70">Reservas sin cuenta corriente</p>
-                </div>
-                <Clock3 className="h-5 w-5 text-amber-600" />
-              </CardContent>
-            </Card>
-            <Card className="border-sky-200 bg-gradient-to-br from-sky-50 to-white shadow-none sm:col-span-1 xl:col-span-2">
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm font-medium text-sky-800">A cobrar en {formatPeriod(dashboard.proximoMes)}</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-sky-950">{formatUsd(dashboard.montoProximoMesUsd)}</p>
-                  <p className="mt-1 text-sm text-sky-700">{dashboard.cuotasProximoMes} cuotas</p>
-                </div>
-                <CalendarDays className="h-6 w-6 text-sky-600" />
-              </CardContent>
-            </Card>
-            <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50 to-white shadow-none sm:col-span-1 xl:col-span-2">
-              <CardContent className="flex items-start justify-between p-5">
-                <div>
-                  <p className="text-sm font-medium text-indigo-800">Total pendiente a cobrar</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-indigo-950">{formatUsd(dashboard.montoTotalACobrarUsd)}</p>
-                  <p className="mt-1 text-sm text-indigo-700">{dashboard.cuotasTotalesACobrar} cuotas</p>
-                </div>
-                <WalletCards className="h-6 w-6 text-indigo-600" />
-              </CardContent>
-            </Card>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatsCard title="Deudores totales" value={dashboard.cuentasTotales} description="Cuentas creadas" />
+            <StatsCard title="Al día" value={dashboard.cuentasAlDia} description="Sin cuotas vencidas" />
+            <StatsCard
+              title="Con deuda vencida"
+              value={dashboard.cuentasConDeudaVencida}
+              description="Una o más cuotas vencidas"
+              tone={dashboard.cuentasConDeudaVencida > 0 ? "danger" : undefined}
+            />
+            <StatsCard title="Pendientes de creación" value={dashboard.cuentasPendientesCreacion} description="Reservas sin cuenta corriente" />
+            <StatsCard
+              title={`A cobrar en ${formatPeriod(dashboard.proximoMes)}`}
+              value={formatUsd(dashboard.montoProximoMesUsd)}
+              description={`${dashboard.cuotasProximoMes} cuotas`}
+            />
+            <StatsCard
+              title="Total pendiente a cobrar"
+              value={formatUsd(dashboard.montoTotalACobrarUsd)}
+              description={`${dashboard.cuotasTotalesACobrar} cuotas`}
+            />
           </div>
         ) : null}
       </section>
@@ -714,7 +670,7 @@ export default function CuotasPage() {
       {session?.user?.role === "admin" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Indice CAC mensual</CardTitle>
+            <CardTitle className="text-base font-medium">Indice CAC mensual</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-[150px_160px_1fr_auto] md:items-end">
@@ -747,7 +703,6 @@ export default function CuotasPage() {
                 type="button"
                 onClick={saveIndice}
                 disabled={savingIndice}
-                className="bg-green-700 hover:bg-green-800 text-white"
               >
                 {savingIndice ? "Guardando..." : "Guardar CAC"}
               </Button>
@@ -1004,16 +959,16 @@ export default function CuotasPage() {
                   {visibleSummaryCols.estado && (
                     <TableCell>
                       {row.cuentaEstado === "pendiente" ? (
-                        <Badge className="gap-1 bg-amber-100 text-amber-800">
+                        <Badge className="gap-1 bg-amber-500/10 text-amber-800 dark:text-amber-400">
                           <AlertTriangle className="h-3 w-3" />
                           {row.requiereRevision ? "Pendiente revisión" : "Pendiente creación"}
                         </Badge>
                       ) : row.cuotasVencidas > 0 ? (
-                        <Badge className="bg-red-100 text-red-700">
+                        <Badge className="bg-destructive/10 text-destructive">
                           {row.cuotasVencidas} Vencida(s)
                         </Badge>
                       ) : (
-                        <Badge className="gap-1 bg-emerald-100 text-emerald-800">
+                        <Badge className="gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                           <CheckCircle2 className="h-3 w-3" />
                           Al dia
                         </Badge>

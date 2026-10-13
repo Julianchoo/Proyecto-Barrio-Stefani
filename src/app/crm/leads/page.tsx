@@ -66,13 +66,13 @@ type UsuarioRow = {
 };
 
 const estadoColors: Record<EstadoLead, string> = {
-  nuevo: "bg-blue-100 text-blue-700",
-  asignado: "bg-purple-100 text-purple-700",
-  a_contactar: "bg-orange-100 text-orange-700",
-  contactado: "bg-yellow-100 text-yellow-700",
-  sin_respuesta: "bg-red-100 text-red-700",
-  closed_won: "bg-green-100 text-green-700",
-  closed_lost: "bg-gray-100 text-gray-700",
+  nuevo: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  asignado: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  a_contactar: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  contactado: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  sin_respuesta: "bg-destructive/10 text-destructive",
+  closed_won: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  closed_lost: "bg-muted text-foreground",
 };
 
 const estadoLabels: Record<EstadoLead, string> = {
@@ -423,8 +423,8 @@ export default function LeadsPage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Leads</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="font-serif text-3xl font-normal text-foreground">Leads</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Consultas recibidas desde el formulario de contacto
         </p>
       </div>
@@ -451,7 +451,7 @@ export default function LeadsPage({
         </Select>
       </div>
 
-      <div className="rounded-lg border bg-white overflow-x-auto">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -491,7 +491,7 @@ export default function LeadsPage({
                   <TableRow
                     key={lead.id}
                     data-state={selected.has(lead.id) ? "selected" : undefined}
-                    className={selected.has(lead.id) ? "bg-blue-50" : undefined}
+                    className={selected.has(lead.id) ? "bg-muted" : undefined}
                   >
                     <TableCell>
                       <input
@@ -505,7 +505,7 @@ export default function LeadsPage({
                     <TableCell className="font-medium">{lead.nombre}</TableCell>
                     <TableCell className="text-sm">{lead.telefono}</TableCell>
                     <TableCell className="text-sm">{lead.email}</TableCell>
-                    <TableCell className="text-sm text-gray-500 max-w-xs truncate">
+                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                       {lead.mensaje ?? "—"}
                     </TableCell>
                     <TableCell className="text-sm">
@@ -569,7 +569,7 @@ export default function LeadsPage({
                           </SelectTrigger>
                           <SelectContent position="popper">
                             <SelectItem value="__none__">
-                              <span className="text-gray-400">— Sin asignar —</span>
+                              <span className="text-muted-foreground">— Sin asignar —</span>
                             </SelectItem>
                             {usuarios.map((u) => (
                               <SelectItem key={u.id} value={u.id}>
@@ -579,12 +579,12 @@ export default function LeadsPage({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {lead.asignadoNombre ?? "—"}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(lead.createdAt).toLocaleDateString("es-AR")}
                     </TableCell>
                     <TableCell>
@@ -607,7 +607,7 @@ export default function LeadsPage({
                             disabled={deletingId === lead.id}
                             aria-label={`Borrar ${lead.nombre}`}
                           >
-                            <Trash2 className="h-4 w-4 text-red-600" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </div>
@@ -617,7 +617,7 @@ export default function LeadsPage({
           </TableBody>
         </Table>
         {!loading && leads.length === 0 && (
-          <p className="text-center text-sm text-gray-500 py-8">
+          <p className="text-center text-sm text-muted-foreground py-8">
             No hay leads aún
           </p>
         )}
@@ -743,8 +743,8 @@ export default function LeadsPage({
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-xl">
-          <span className="text-sm font-medium text-gray-700">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border bg-card px-5 py-3 shadow-xl">
+          <span className="text-sm font-medium text-foreground">
             {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
           </span>
           <Select value={bulkEstado} onValueChange={(v) => setBulkEstado(v as EstadoLead)}>
