@@ -7,17 +7,16 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
-  Edit2,
   FileSpreadsheet,
   Filter,
-  Save,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { IndicesCacCard } from "@/components/crm/indices-cac-card";
 import { StatsCard } from "@/components/crm/stats-card";
+import { TiposCambioCard } from "@/components/crm/tipos-cambio-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,8 +43,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/auth-client";
-import type { IndiceCac, ModalidadContrato, MonedaPago } from "@/lib/schema";
+import type { ModalidadContrato, MonedaPago } from "@/lib/schema";
 
 type CuentaRow = {
   contratoId: number | null;
@@ -251,6 +251,7 @@ export default function CuotasPage({
   const [rows, setRows] = useState<CuentaRow[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [showResumen, setShowResumen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [estado, setEstado] = useState(
@@ -262,15 +263,6 @@ export default function CuotasPage({
   const [compradorFiltro, setCompradorFiltro] = useState("");
   const [firmaDesde, setFirmaDesde] = useState("");
   const [firmaHasta, setFirmaHasta] = useState("");
-  const [periodo, setPeriodo] = useState("");
-  const [valor, setValor] = useState("");
-  const [fuente, setFuente] = useState("");
-  const [indices, setIndices] = useState<IndiceCac[]>([]);
-  const [showIndices, setShowIndices] = useState(false);
-  const [editingPeriodo, setEditingPeriodo] = useState<string | null>(null);
-  const [editingValor, setEditingValor] = useState("");
-  const [editingFuente, setEditingFuente] = useState("");
-  const [savingIndice, setSavingIndice] = useState(false);
   const [visibleSummaryCols, setVisibleSummaryCols] = useState<Record<SummaryColKey, boolean>>(
     DEFAULT_VISIBLE_SUMMARY_COLS
   );
@@ -319,15 +311,6 @@ export default function CuotasPage({
     }
   }
 
-  async function fetchIndices() {
-    const res = await fetch("/api/crm/indices-cac");
-    if (!res.ok) {
-      toast.error("No se pudieron cargar los CAC");
-      return;
-    }
-    setIndices(await res.json());
-  }
-
   async function fetchDashboard() {
     if (session?.user?.role !== "admin") {
       setDashboard(null);
@@ -359,7 +342,6 @@ export default function CuotasPage({
 
   useEffect(() => {
     if (session?.user?.role === "admin") {
-      void fetchIndices();
       void fetchDashboard();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -376,112 +358,6 @@ export default function CuotasPage({
         </CardContent>
       </Card>
     );
-  }
-
-  async function saveIndice() {
-    const numericValue = Number(valor);
-    if (!periodo || !Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("Carga periodo y valor CAC");
-      return;
-    }
-
-    setSavingIndice(true);
-    try {
-      const res = await fetch("/api/crm/indices-cac", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          periodo,
-          valor: numericValue,
-          fuente: fuente || null,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error ?? "No se pudo guardar el indice");
-        return;
-      }
-      toast.success("Indice CAC guardado");
-      setValor("");
-      setFuente("");
-      await fetchIndices();
-      await fetchRows();
-      await fetchDashboard();
-    } finally {
-      setSavingIndice(false);
-    }
-  }
-
-  function startEditIndice(indice: IndiceCac) {
-    setEditingPeriodo(indice.periodo);
-    setEditingValor(String(indice.valor));
-    setEditingFuente(indice.fuente ?? "");
-  }
-
-  function cancelEditIndice() {
-    setEditingPeriodo(null);
-    setEditingValor("");
-    setEditingFuente("");
-  }
-
-  async function saveEditedIndice(periodoToSave: string) {
-    const numericValue = Number(editingValor);
-    if (!Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("Carga un valor CAC valido");
-      return;
-    }
-
-    setSavingIndice(true);
-    try {
-      const res = await fetch("/api/crm/indices-cac", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          periodo: periodoToSave,
-          valor: numericValue,
-          fuente: editingFuente || null,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error ?? "No se pudo actualizar el CAC");
-        return;
-      }
-      toast.success("CAC actualizado");
-      cancelEditIndice();
-      await fetchIndices();
-      await fetchRows();
-      await fetchDashboard();
-    } finally {
-      setSavingIndice(false);
-    }
-  }
-
-  async function deleteIndice(indice: IndiceCac) {
-    if (!window.confirm(`Borrar CAC ${indice.periodo}?`)) return;
-
-    setSavingIndice(true);
-    try {
-      const res = await fetch("/api/crm/indices-cac", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodo: indice.periodo }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error ?? "No se pudo borrar el CAC");
-        return;
-      }
-      toast.success("CAC borrado");
-      if (editingPeriodo === indice.periodo) {
-        cancelEditIndice();
-      }
-      await fetchIndices();
-      await fetchRows();
-      await fetchDashboard();
-    } finally {
-      setSavingIndice(false);
-    }
   }
 
   function exportResumenXls() {
@@ -606,514 +482,367 @@ export default function CuotasPage({
         </div>
       </div>
 
-      <section aria-labelledby="dashboard-cuotas-title" className="space-y-3">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 id="dashboard-cuotas-title" className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Resumen global
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Estado general de cuentas y cuotas pendientes
-            </p>
-          </div>
-          {dashboard?.tipoCambioBna && dashboard.fechaTipoCambioBna && (
-            <p className="text-xs text-muted-foreground">
-              Conversión: BNA vendedor ${dashboard.tipoCambioBna.toLocaleString("es-AR")} · {formatDate(dashboard.fechaTipoCambioBna)}
-            </p>
-          )}
-        </div>
+      <Tabs defaultValue="cuentas" className="gap-5">
+        <TabsList>
+          <TabsTrigger value="cuentas">Cuentas corrientes</TabsTrigger>
+          <TabsTrigger value="indices">Índices y ajustes</TabsTrigger>
+        </TabsList>
 
-        {dashboardLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="h-28 animate-pulse rounded-xl border bg-muted/40" />
-            ))}
-          </div>
-        ) : dashboard ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatsCard title="Deudores totales" value={dashboard.cuentasTotales} description="Cuentas creadas" />
-            <StatsCard title="Al día" value={dashboard.cuentasAlDia} description="Sin cuotas vencidas" />
-            <StatsCard
-              title="Con deuda vencida"
-              value={dashboard.cuentasConDeudaVencida}
-              description="Una o más cuotas vencidas"
-              tone={dashboard.cuentasConDeudaVencida > 0 ? "danger" : undefined}
-            />
-            <StatsCard title="Pendientes de creación" value={dashboard.cuentasPendientesCreacion} description="Reservas sin cuenta corriente" />
-            <StatsCard
-              title={`A cobrar en ${formatPeriod(dashboard.proximoMes)}`}
-              value={formatUsd(dashboard.montoProximoMesUsd)}
-              description={`${dashboard.cuotasProximoMes} cuotas`}
-            />
-            <StatsCard
-              title="Total pendiente a cobrar"
-              value={formatUsd(dashboard.montoTotalACobrarUsd)}
-              description={`${dashboard.cuotasTotalesACobrar} cuotas`}
-            />
-          </div>
-        ) : null}
-      </section>
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto]">
-            <label className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar cliente, DNI, lote..."
-                className="pl-9"
-              />
-            </label>
-            <Select value={estado} onValueChange={setEstado}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="vencidas">Vencidas</SelectItem>
-                <SelectItem value="pendiente_cuenta">Pendiente creacion</SelectItem>
-                <SelectItem value="al_dia">Al dia</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={modalidad} onValueChange={setModalidad}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="usd_fijo">USD fijo</SelectItem>
-                <SelectItem value="pesos_cac">Pesos + CAC</SelectItem>
-                <SelectItem value="requiere_revision">Revisar</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void fetchRows();
-                void fetchDashboard();
-              }}
-            >
-              <Filter className="mr-1 h-4 w-4" />
-              Actualizar
-            </Button>
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-[120px_120px_1fr_160px_160px_auto] md:items-end">
-            <div className="grid gap-1">
-              <Label htmlFor="filtro-manzana" className="text-xs text-muted-foreground">
-                Manzana
-              </Label>
-              <Input
-                id="filtro-manzana"
-                value={manzanaFiltro}
-                onChange={(event) => setManzanaFiltro(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1">
-              <Label htmlFor="filtro-parcela" className="text-xs text-muted-foreground">
-                Parcela
-              </Label>
-              <Input
-                id="filtro-parcela"
-                value={parcelaFiltro}
-                onChange={(event) => setParcelaFiltro(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1">
-              <Label htmlFor="filtro-comprador" className="text-xs text-muted-foreground">
-                Comprador
-              </Label>
-              <Input
-                id="filtro-comprador"
-                value={compradorFiltro}
-                onChange={(event) => setCompradorFiltro(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1">
-              <Label htmlFor="filtro-firma-desde" className="text-xs text-muted-foreground">
-                Firma desde
-              </Label>
-              <Input
-                id="filtro-firma-desde"
-                type="date"
-                value={firmaDesde}
-                onChange={(event) => setFirmaDesde(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1">
-              <Label htmlFor="filtro-firma-hasta" className="text-xs text-muted-foreground">
-                Firma hasta
-              </Label>
-              <Input
-                id="filtro-firma-hasta"
-                type="date"
-                value={firmaHasta}
-                onChange={(event) => setFirmaHasta(event.target.value)}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setManzanaFiltro("");
-                setParcelaFiltro("");
-                setCompradorFiltro("");
-                setFirmaDesde("");
-                setFirmaHasta("");
-              }}
-            >
-              <X className="mr-1 h-4 w-4" />
-              Limpiar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {session?.user?.role === "admin" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">Indice CAC mensual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-[150px_160px_1fr_auto] md:items-end">
-              <div className="grid gap-2">
-                <Label>Periodo</Label>
-                <Input
-                  type="month"
-                  value={periodo}
-                  onChange={(event) => setPeriodo(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Valor</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={valor}
-                  onChange={(event) => setValor(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Fuente / nota</Label>
-                <Input
-                  value={fuente}
-                  onChange={(event) => setFuente(event.target.value)}
-                  placeholder="Carga manual"
-                />
-              </div>
-              <Button
+        <TabsContent value="cuentas" className="space-y-5">
+          <section aria-labelledby="dashboard-cuotas-title" className="space-y-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <button
                 type="button"
-                onClick={saveIndice}
-                disabled={savingIndice}
-              >
-                {savingIndice ? "Guardando..." : "Guardar CAC"}
-              </Button>
-            </div>
-            <div className="mt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowIndices((value) => !value)}
+                onClick={() => setShowResumen((value) => !value)}
+                aria-expanded={showResumen}
+                className="flex items-center gap-2 text-left"
               >
                 <ChevronDown
-                  className={`mr-1 h-4 w-4 transition-transform ${showIndices ? "rotate-180" : ""}`}
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${showResumen ? "" : "-rotate-90"}`}
                 />
-                {showIndices ? "Ocultar CAC cargados" : "Ver CAC cargados"}
-              </Button>
+                <h2 id="dashboard-cuotas-title" className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Resumen global
+                </h2>
+              </button>
+              {showResumen && dashboard?.tipoCambioBna && dashboard.fechaTipoCambioBna && (
+                <p className="text-xs text-muted-foreground">
+                  Conversión: BNA vendedor ${dashboard.tipoCambioBna.toLocaleString("es-AR")} · {formatDate(dashboard.fechaTipoCambioBna)}
+                </p>
+              )}
             </div>
-            {showIndices && (
-              <div className="mt-3 overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Periodo</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Fuente / nota</TableHead>
-                      <TableHead>Cargado por</TableHead>
-                      <TableHead className="w-40" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {indices.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
-                          No hay CAC cargados
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      indices.map((indice) => {
-                        const isEditing = editingPeriodo === indice.periodo;
-                        return (
-                          <TableRow key={indice.id}>
-                            <TableCell className="font-mono text-sm">
-                              {indice.periodo}
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  value={editingValor}
-                                  onChange={(event) => setEditingValor(event.target.value)}
-                                  className="h-8"
-                                />
-                              ) : (
-                                Number(indice.valor).toLocaleString("es-AR", {
-                                  maximumFractionDigits: 2,
-                                })
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <Input
-                                  value={editingFuente}
-                                  onChange={(event) => setEditingFuente(event.target.value)}
-                                  className="h-8"
-                                />
-                              ) : (
-                                indice.fuente ?? indice.nota ?? "-"
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {indice.creadoPor ?? "-"}
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <div className="flex gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => saveEditedIndice(indice.periodo)}
-                                    disabled={savingIndice}
-                                  >
-                                    <Save className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={cancelEditIndice}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => startEditIndice(indice)}
-                                    disabled={savingIndice}
-                                  >
-                                    <Edit2 className="mr-1 h-4 w-4" />
-                                    Editar
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteIndice(indice)}
-                                    disabled={savingIndice}
-                                    aria-label={`Borrar CAC ${indice.periodo}`}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-24" />
-              {visibleSummaryCols.estado && <TableHead>Estado</TableHead>}
-              {visibleSummaryCols.lote && <TableHead>Lote</TableHead>}
-              {visibleSummaryCols.cliente && <TableHead>Cliente</TableHead>}
-              {visibleSummaryCols.email && <TableHead>Email contacto</TableHead>}
-              {visibleSummaryCols.mensaje && <TableHead>Mensaje</TableHead>}
-              {visibleSummaryCols.valorLoteUsd && <TableHead>Valor lote USD</TableHead>}
-              {visibleSummaryCols.valorFinanciadoUsd && (
-                <TableHead>Valor financiado USD</TableHead>
-              )}
-              {visibleSummaryCols.cantidadCuotasContrato && <TableHead># Cuotas</TableHead>}
-              {visibleSummaryCols.modalidad && <TableHead>Modalidad</TableHead>}
-              {visibleSummaryCols.cuotaBaseUsd && <TableHead>Cuota base USD</TableHead>}
-              {visibleSummaryCols.cuotaBaseArs && <TableHead>Cuota base ARS</TableHead>}
-              {visibleSummaryCols.indiceBase && <TableHead>Índice base</TableHead>}
-              {visibleSummaryCols.valorIndiceBase && (
-                <TableHead>Valor índice base</TableHead>
-              )}
-              {visibleSummaryCols.indiceActual && <TableHead>Índice actual</TableHead>}
-              {visibleSummaryCols.valorIndiceActual && (
-                <TableHead>Valor índice actual</TableHead>
-              )}
-              {visibleSummaryCols.cuotaActualUsd && <TableHead>Cuota actual USD</TableHead>}
-              {visibleSummaryCols.cuotaActualArs && <TableHead>Cuota actual ARS</TableHead>}
-              {visibleSummaryCols.cobrado && <TableHead>Total cobrado USD</TableHead>}
-              {visibleSummaryCols.vencido && <TableHead>Vencido</TableHead>}
-              {visibleSummaryCols.saldo && <TableHead>Saldo</TableHead>}
-              {visibleSummaryCols.proximoVencimiento && (
-                <TableHead>Proximo vencimiento</TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={visibleTableColumnCount}
-                  className="py-8 text-center text-sm text-muted-foreground"
+            {!showResumen ? null : dashboardLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="h-28 animate-pulse rounded-xl border bg-muted/40" />
+                ))}
+              </div>
+            ) : dashboard ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <StatsCard title="Deudores totales" value={dashboard.cuentasTotales} description="Cuentas creadas" />
+                <StatsCard title="Al día" value={dashboard.cuentasAlDia} description="Sin cuotas vencidas" />
+                <StatsCard
+                  title="Con deuda vencida"
+                  value={dashboard.cuentasConDeudaVencida}
+                  description="Una o más cuotas vencidas"
+                  tone={dashboard.cuentasConDeudaVencida > 0 ? "danger" : undefined}
+                />
+                <StatsCard title="Pendientes de creación" value={dashboard.cuentasPendientesCreacion} description="Reservas sin cuenta corriente" />
+                <StatsCard
+                  title={`A cobrar en ${formatPeriod(dashboard.proximoMes)}`}
+                  value={formatUsd(dashboard.montoProximoMesUsd)}
+                  description={`${dashboard.cuotasProximoMes} cuotas`}
+                />
+                <StatsCard
+                  title="Total pendiente a cobrar"
+                  value={formatUsd(dashboard.montoTotalACobrarUsd)}
+                  description={`${dashboard.cuotasTotalesACobrar} cuotas`}
+                />
+              </div>
+            ) : null}
+          </section>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto]">
+                <label className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar cliente, DNI, lote..."
+                    className="pl-9"
+                  />
+                </label>
+                <Select value={estado} onValueChange={setEstado}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="vencidas">Vencidas</SelectItem>
+                    <SelectItem value="pendiente_cuenta">Pendiente creacion</SelectItem>
+                    <SelectItem value="al_dia">Al dia</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={modalidad} onValueChange={setModalidad}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas</SelectItem>
+                    <SelectItem value="usd_fijo">USD fijo</SelectItem>
+                    <SelectItem value="pesos_cac">Pesos + CAC</SelectItem>
+                    <SelectItem value="requiere_revision">Revisar</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void fetchRows();
+                    void fetchDashboard();
+                  }}
                 >
-                  Cargando...
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={visibleTableColumnCount}
-                  className="py-8 text-center text-sm text-muted-foreground"
+                  <Filter className="mr-1 h-4 w-4" />
+                  Actualizar
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-[120px_120px_1fr_160px_160px_auto] md:items-end">
+                <div className="grid gap-1">
+                  <Label htmlFor="filtro-manzana" className="text-xs text-muted-foreground">
+                    Manzana
+                  </Label>
+                  <Input
+                    id="filtro-manzana"
+                    value={manzanaFiltro}
+                    onChange={(event) => setManzanaFiltro(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="filtro-parcela" className="text-xs text-muted-foreground">
+                    Parcela
+                  </Label>
+                  <Input
+                    id="filtro-parcela"
+                    value={parcelaFiltro}
+                    onChange={(event) => setParcelaFiltro(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="filtro-comprador" className="text-xs text-muted-foreground">
+                    Comprador
+                  </Label>
+                  <Input
+                    id="filtro-comprador"
+                    value={compradorFiltro}
+                    onChange={(event) => setCompradorFiltro(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="filtro-firma-desde" className="text-xs text-muted-foreground">
+                    Firma desde
+                  </Label>
+                  <Input
+                    id="filtro-firma-desde"
+                    type="date"
+                    value={firmaDesde}
+                    onChange={(event) => setFirmaDesde(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="filtro-firma-hasta" className="text-xs text-muted-foreground">
+                    Firma hasta
+                  </Label>
+                  <Input
+                    id="filtro-firma-hasta"
+                    type="date"
+                    value={firmaHasta}
+                    onChange={(event) => setFirmaHasta(event.target.value)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setManzanaFiltro("");
+                    setParcelaFiltro("");
+                    setCompradorFiltro("");
+                    setFirmaDesde("");
+                    setFirmaHasta("");
+                  }}
                 >
-                  No hay cuentas corrientes para este filtro
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row) => (
-                <TableRow key={row.reservaId}>
-                  <TableCell>
-                    <Button asChild variant="ghost" size="sm">
-                      <Link href={`/crm/cuotas/${row.reservaId}`}>
-                        {row.cuentaEstado === "pendiente"
-                          ? row.requiereRevision
-                            ? "Revisar"
-                            : "Crear"
-                          : "Ver"}
-                      </Link>
-                    </Button>
-                  </TableCell>
-                  {visibleSummaryCols.estado && (
-                    <TableCell>
-                      {row.cuentaEstado === "pendiente" ? (
-                        <Badge className="gap-1 bg-amber-500/10 text-amber-800 dark:text-amber-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          {row.requiereRevision ? "Pendiente revisión" : "Pendiente creación"}
-                        </Badge>
-                      ) : row.cuotasVencidas > 0 ? (
-                        <Badge className="bg-destructive/10 text-destructive">
-                          {row.cuotasVencidas} Vencida(s)
-                        </Badge>
-                      ) : (
-                        <Badge className="gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Al dia
-                        </Badge>
-                      )}
-                    </TableCell>
-                  )}
-                  {visibleSummaryCols.lote && (
-                    <TableCell className="text-sm">
-                      <div className="whitespace-nowrap font-medium">
-                        Manzana {row.manzana ?? "-"} · Parcela {row.parcela ?? "-"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Lote #{row.loteNumero}</div>
-                    </TableCell>
-                  )}
-                  {visibleSummaryCols.cliente && (
-                    <TableCell>
-                      <div className="font-medium text-foreground">
-                        {row.comprador ?? "-"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.dniCuit ?? row.email ?? row.telefono ?? "-"}
-                      </div>
-                    </TableCell>
-                  )}
-                  {visibleSummaryCols.email && <TableCell>{row.email ?? ""}</TableCell>}
-                  {visibleSummaryCols.mensaje && (
-                    <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-muted-foreground">
-                      {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
-                    </TableCell>
-                  )}
-                  {visibleSummaryCols.valorLoteUsd && (
-                    <TableCell>{formatMoney(row.valorLoteUsd, "usd")}</TableCell>
-                  )}
+                  <X className="mr-1 h-4 w-4" />
+                  Limpiar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24" />
+                  {visibleSummaryCols.estado && <TableHead>Estado</TableHead>}
+                  {visibleSummaryCols.lote && <TableHead>Lote</TableHead>}
+                  {visibleSummaryCols.cliente && <TableHead>Cliente</TableHead>}
+                  {visibleSummaryCols.email && <TableHead>Email contacto</TableHead>}
+                  {visibleSummaryCols.mensaje && <TableHead>Mensaje</TableHead>}
+                  {visibleSummaryCols.valorLoteUsd && <TableHead>Valor lote USD</TableHead>}
                   {visibleSummaryCols.valorFinanciadoUsd && (
-                    <TableCell>{formatMoney(row.valorFinanciadoUsd, "usd")}</TableCell>
+                    <TableHead>Valor financiado USD</TableHead>
                   )}
-                  {visibleSummaryCols.cantidadCuotasContrato && (
-                    <TableCell>{row.cantidadCuotasContrato ?? "-"}</TableCell>
-                  )}
-                  {visibleSummaryCols.modalidad && (
-                    <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
-                  )}
-                  {visibleSummaryCols.cuotaBaseUsd && (
-                    <TableCell>{formatMoney(row.cuotaBaseUsd, "usd")}</TableCell>
-                  )}
-                  {visibleSummaryCols.cuotaBaseArs && (
-                    <TableCell>{formatMoney(row.cuotaBaseArs, "ars")}</TableCell>
-                  )}
-                  {visibleSummaryCols.indiceBase && (
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {row.indiceBase ?? "Pendiente"}
-                    </TableCell>
-                  )}
+                  {visibleSummaryCols.cantidadCuotasContrato && <TableHead># Cuotas</TableHead>}
+                  {visibleSummaryCols.modalidad && <TableHead>Modalidad</TableHead>}
+                  {visibleSummaryCols.cuotaBaseUsd && <TableHead>Cuota base USD</TableHead>}
+                  {visibleSummaryCols.cuotaBaseArs && <TableHead>Cuota base ARS</TableHead>}
+                  {visibleSummaryCols.indiceBase && <TableHead>Índice base</TableHead>}
                   {visibleSummaryCols.valorIndiceBase && (
-                    <TableCell>{formatIndexValue(row.valorIndiceBase)}</TableCell>
+                    <TableHead>Valor índice base</TableHead>
                   )}
-                  {visibleSummaryCols.indiceActual && (
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {row.indiceActual ?? "Pendiente"}
-                    </TableCell>
-                  )}
+                  {visibleSummaryCols.indiceActual && <TableHead>Índice actual</TableHead>}
                   {visibleSummaryCols.valorIndiceActual && (
-                    <TableCell>{formatIndexValue(row.valorIndiceActual)}</TableCell>
+                    <TableHead>Valor índice actual</TableHead>
                   )}
-                  {visibleSummaryCols.cuotaActualUsd && (
-                    <TableCell>{formatMoney(row.cuotaActualUsd, "usd")}</TableCell>
-                  )}
-                  {visibleSummaryCols.cuotaActualArs && (
-                    <TableCell>{formatMoney(row.cuotaActualArs, "ars")}</TableCell>
-                  )}
-                  {visibleSummaryCols.cobrado && (
-                    <TableCell>{formatMoney(row.totalCobradoUsd, "usd")}</TableCell>
-                  )}
-                  {visibleSummaryCols.vencido && (
-                    <TableCell>{formatMoney(row.totalVencido, row.moneda)}</TableCell>
-                  )}
-                  {visibleSummaryCols.saldo && (
-                    <TableCell>{formatMoney(row.saldoPendiente, row.moneda)}</TableCell>
-                  )}
+                  {visibleSummaryCols.cuotaActualUsd && <TableHead>Cuota actual USD</TableHead>}
+                  {visibleSummaryCols.cuotaActualArs && <TableHead>Cuota actual ARS</TableHead>}
+                  {visibleSummaryCols.cobrado && <TableHead>Total cobrado USD</TableHead>}
+                  {visibleSummaryCols.vencido && <TableHead>Vencido</TableHead>}
+                  {visibleSummaryCols.saldo && <TableHead>Saldo</TableHead>}
                   {visibleSummaryCols.proximoVencimiento && (
-                    <TableCell>
-                      <div>{formatDate(row.proximoVencimiento)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatMoney(row.proximaCuotaMonto, row.moneda)}
-                      </div>
-                    </TableCell>
+                    <TableHead>Proximo vencimiento</TableHead>
                   )}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={visibleTableColumnCount}
+                      className="py-8 text-center text-sm text-muted-foreground"
+                    >
+                      Cargando...
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={visibleTableColumnCount}
+                      className="py-8 text-center text-sm text-muted-foreground"
+                    >
+                      No hay cuentas corrientes para este filtro
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row) => (
+                    <TableRow key={row.reservaId}>
+                      <TableCell>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/crm/cuotas/${row.reservaId}`}>
+                            {row.cuentaEstado === "pendiente"
+                              ? row.requiereRevision
+                                ? "Revisar"
+                                : "Crear"
+                              : "Ver"}
+                          </Link>
+                        </Button>
+                      </TableCell>
+                      {visibleSummaryCols.estado && (
+                        <TableCell>
+                          {row.cuentaEstado === "pendiente" ? (
+                            <Badge className="gap-1 bg-amber-500/10 text-amber-800 dark:text-amber-400">
+                              <AlertTriangle className="h-3 w-3" />
+                              {row.requiereRevision ? "Pendiente revisión" : "Pendiente creación"}
+                            </Badge>
+                          ) : row.cuotasVencidas > 0 ? (
+                            <Badge className="bg-destructive/10 text-destructive">
+                              {row.cuotasVencidas} Vencida(s)
+                            </Badge>
+                          ) : (
+                            <Badge className="gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Al dia
+                            </Badge>
+                          )}
+                        </TableCell>
+                      )}
+                      {visibleSummaryCols.lote && (
+                        <TableCell className="text-sm">
+                          <div className="whitespace-nowrap font-medium">
+                            Manzana {row.manzana ?? "-"} · Parcela {row.parcela ?? "-"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Lote #{row.loteNumero}</div>
+                        </TableCell>
+                      )}
+                      {visibleSummaryCols.cliente && (
+                        <TableCell>
+                          <div className="font-medium text-foreground">
+                            {row.comprador ?? "-"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {row.dniCuit ?? row.email ?? row.telefono ?? "-"}
+                          </div>
+                        </TableCell>
+                      )}
+                      {visibleSummaryCols.email && <TableCell>{row.email ?? ""}</TableCell>}
+                      {visibleSummaryCols.mensaje && (
+                        <TableCell className="max-w-[420px] whitespace-pre-wrap text-xs text-muted-foreground">
+                          {row.cuentaEstado === "pendiente" ? "" : row.mensajeCuotas}
+                        </TableCell>
+                      )}
+                      {visibleSummaryCols.valorLoteUsd && (
+                        <TableCell>{formatMoney(row.valorLoteUsd, "usd")}</TableCell>
+                      )}
+                      {visibleSummaryCols.valorFinanciadoUsd && (
+                        <TableCell>{formatMoney(row.valorFinanciadoUsd, "usd")}</TableCell>
+                      )}
+                      {visibleSummaryCols.cantidadCuotasContrato && (
+                        <TableCell>{row.cantidadCuotasContrato ?? "-"}</TableCell>
+                      )}
+                      {visibleSummaryCols.modalidad && (
+                        <TableCell>{modalidadLabels[row.modalidad]}</TableCell>
+                      )}
+                      {visibleSummaryCols.cuotaBaseUsd && (
+                        <TableCell>{formatMoney(row.cuotaBaseUsd, "usd")}</TableCell>
+                      )}
+                      {visibleSummaryCols.cuotaBaseArs && (
+                        <TableCell>{formatMoney(row.cuotaBaseArs, "ars")}</TableCell>
+                      )}
+                      {visibleSummaryCols.indiceBase && (
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {row.indiceBase ?? "Pendiente"}
+                        </TableCell>
+                      )}
+                      {visibleSummaryCols.valorIndiceBase && (
+                        <TableCell>{formatIndexValue(row.valorIndiceBase)}</TableCell>
+                      )}
+                      {visibleSummaryCols.indiceActual && (
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {row.indiceActual ?? "Pendiente"}
+                        </TableCell>
+                      )}
+                      {visibleSummaryCols.valorIndiceActual && (
+                        <TableCell>{formatIndexValue(row.valorIndiceActual)}</TableCell>
+                      )}
+                      {visibleSummaryCols.cuotaActualUsd && (
+                        <TableCell>{formatMoney(row.cuotaActualUsd, "usd")}</TableCell>
+                      )}
+                      {visibleSummaryCols.cuotaActualArs && (
+                        <TableCell>{formatMoney(row.cuotaActualArs, "ars")}</TableCell>
+                      )}
+                      {visibleSummaryCols.cobrado && (
+                        <TableCell>{formatMoney(row.totalCobradoUsd, "usd")}</TableCell>
+                      )}
+                      {visibleSummaryCols.vencido && (
+                        <TableCell>{formatMoney(row.totalVencido, row.moneda)}</TableCell>
+                      )}
+                      {visibleSummaryCols.saldo && (
+                        <TableCell>{formatMoney(row.saldoPendiente, row.moneda)}</TableCell>
+                      )}
+                      {visibleSummaryCols.proximoVencimiento && (
+                        <TableCell>
+                          <div>{formatDate(row.proximoVencimiento)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatMoney(row.proximaCuotaMonto, row.moneda)}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="indices">
+          <div className="grid items-start gap-5 lg:grid-cols-2">
+            <IndicesCacCard onSaved={() => Promise.all([fetchRows(), fetchDashboard()])} />
+            <TiposCambioCard onSaved={() => Promise.all([fetchRows(), fetchDashboard()])} />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

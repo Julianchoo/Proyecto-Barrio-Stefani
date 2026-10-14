@@ -10,17 +10,16 @@ import {
   ChevronRight,
   Clipboard,
   CreditCard,
-  Edit2,
   ExternalLink,
   Loader2,
   Paperclip,
   Plus,
   RefreshCw,
-  Save,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { parsePaymentDate } from "@/app/crm/cuotas/[reservaId]/payment-date";
+import { TiposCambioCard } from "@/components/crm/tipos-cambio-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,7 +56,6 @@ import type {
   Pago,
   Reserva,
   IndiceCac,
-  TipoCambio,
 } from "@/lib/schema";
 
 type CuentaDetail = {
@@ -224,10 +222,6 @@ export default function CuentaDetallePage() {
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [periodPickerYear, setPeriodPickerYear] = useState(currentYear());
   const [tipoCambioBna, setTipoCambioBna] = useState("");
-  const [rateDate, setRateDate] = useState(todayKey());
-  const [rateValue, setRateValue] = useState("");
-  const [savingRate, setSavingRate] = useState(false);
-  const [savedRates, setSavedRates] = useState<TipoCambio[]>([]);
 
   const sortedPayments = useMemo(
     () => [...(detail?.pagos ?? [])].sort((a, b) => b.fechaPago.localeCompare(a.fechaPago)),
@@ -257,59 +251,6 @@ export default function CuentaDetallePage() {
     const rows = data as IndiceCac[];
     setIndicesCac(rows);
     return rows;
-  }
-
-  async function fetchSavedRates() {
-    const res = await fetch("/api/crm/tipos-cambio");
-    if (!res.ok) return;
-    setSavedRates(await res.json());
-  }
-
-  async function saveRate() {
-    const numericValue = Number(rateValue);
-    if (!rateDate || !Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("Ingresá fecha y BNA vendedor");
-      return;
-    }
-    setSavingRate(true);
-    try {
-      const payload = {
-        fecha: rateDate,
-        valor: numericValue,
-        fuente: "Carga manual",
-        confirmarImpacto: undefined as string | undefined,
-      };
-      let res = await fetch("/api/crm/tipos-cambio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      let data = await res.json().catch(() => null);
-      if (res.status === 409 && data?.confirmarImpacto) {
-        if (
-          !window.confirm(
-            `Este TC cambiará importes de ${data.impact.pagos} pagos y ${data.impact.contratos} contratos sin pagos. ¿Confirmás el cambio?`
-          )
-        )
-          return;
-        payload.confirmarImpacto = data.confirmarImpacto;
-        res = await fetch("/api/crm/tipos-cambio", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        data = await res.json().catch(() => null);
-      }
-      if (!res.ok) {
-        toast.error(data?.error ?? "No se pudo guardar el tipo de cambio");
-        return;
-      }
-      toast.success("BNA vendedor guardado");
-      setRateValue("");
-      await Promise.all([fetchSavedRates(), fetchDetail()]);
-    } finally {
-      setSavingRate(false);
-    }
   }
 
   async function fetchReservaForCuenta() {
@@ -369,7 +310,6 @@ export default function CuentaDetallePage() {
   useEffect(() => {
     if (!session || session.user.role !== "admin") return;
     fetchDetail();
-    void fetchSavedRates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservaId, session]);
 
@@ -826,82 +766,7 @@ export default function CuentaDetallePage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Cargar BNA vendedor histórico</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <Input
-                    type="date"
-                    value={rateDate}
-                    onChange={(event) => setRateDate(event.target.value)}
-                    aria-label="Fecha del tipo de cambio"
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={rateValue}
-                    onChange={(event) => setRateValue(event.target.value)}
-                    placeholder="Cotización"
-                    aria-label="BNA vendedor"
-                  />
-                  <Button type="button" size="icon" onClick={saveRate} disabled={savingRate}>
-                    {savingRate ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    <span className="sr-only">Guardar cotización</span>
-                  </Button>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  Para pagos sin cotización exacta se usa la última fecha anterior cargada.
-                </p>
-                {savedRates.length === 0 ? (
-                  <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-                    Todavía no hay cotizaciones guardadas.
-                  </p>
-                ) : (
-                  <div className="max-h-44 overflow-y-auto rounded-md border">
-                    {savedRates.map((rate) => (
-                      <div
-                        key={rate.id}
-                        className="flex items-center justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0"
-                      >
-                        <div>
-                          <p className="font-medium">{formatDate(rate.fecha)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {rate.fuente ?? "Sin fuente"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold tabular-nums">
-                            $ {Number(rate.valor).toLocaleString("es-AR")}
-                          </span>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => {
-                              setRateDate(rate.fecha);
-                              setRateValue(String(rate.valor));
-                            }}
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                            <span className="sr-only">
-                              Editar cotización del {formatDate(rate.fecha)}
-                            </span>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <TiposCambioCard onSaved={fetchDetail} />
           </div>
 
           <div className="bg-card overflow-x-auto rounded-lg border">
