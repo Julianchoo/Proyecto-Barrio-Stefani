@@ -194,6 +194,22 @@ function statusForCuota(
   return amountKind === "projected" ? "proyectada" : "calculada";
 }
 
+// El estado guardado solo se recalcula cuando cambia la cuenta (pago, índice CAC, TC):
+// que pase la fecha de vencimiento no lo actualiza. Para mostrarlo, se recalcula con la fecha de hoy.
+function estadoAHoy(cuota: Cuota, pagoRows: Pago[]): EstadoCuota {
+  if (FINAL_CUOTA_STATES.includes(cuota.estado)) return cuota.estado;
+  // Una cuota proyectada que ya venció sin índice CAC pasa a no tener monto, como en computeCuotaAmount.
+  const amountKind =
+    cuota.estado === "pendiente_indice" ||
+    (cuota.estado === "proyectada" && cuota.fechaVencimiento < todayKey())
+      ? "missing"
+      : cuota.estado === "proyectada"
+        ? "projected"
+        : "real";
+  const paid = sumActivePayments(pagoRows.filter((pago) => pago.cuotaId === cuota.id));
+  return statusForCuota(cuota.fechaVencimiento, toNumber(cuota.saldo) ?? 0, paid, amountKind, cuota.estado);
+}
+
 function latestKnownCacIndex(indexRows: IndiceCac[]) {
   const sorted = [...indexRows].sort((a, b) => b.periodo.localeCompare(a.periodo));
   const latest = sorted.find((item) => {
@@ -458,7 +474,7 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
   if (!row) return null;
 
   const currentRate = await ensureCurrentBnaRate();
-  const [cuotaRows, pagoRows, indexRows] = await Promise.all([
+  const [cuotasGuardadas, pagoRows, indexRows] = await Promise.all([
     db
       .select()
       .from(cuotas)
@@ -471,6 +487,7 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
       .orderBy(asc(pagos.fechaPago), asc(pagos.id)),
     db.select().from(indicesCac).orderBy(asc(indicesCac.periodo)),
   ]);
+  const cuotaRows = cuotasGuardadas.map((cuota) => ({ ...cuota, estado: estadoAHoy(cuota, pagoRows) }));
 
   const summary = buildSummary(row, cuotaRows, currentRate);
   const activePayments = pagoRows.filter((pago) => pago.estado === "activo");
