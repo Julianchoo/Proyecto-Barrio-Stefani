@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { isErrorResponse, requireApiAdmin } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { pagos } from "@/lib/schema";
 import { deleteFile, upload } from "@/lib/storage";
@@ -62,6 +63,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!updated) {
         return { error: "El pago ya tiene un comprobante adjunto", status: 409 as const };
       }
+      await logAudit(tx, {
+        entidad: "pago",
+        entidadId: pagoId,
+        usuario: authResult.email,
+        antes: current,
+        despues: updated,
+      });
       return { pago: updated };
     })
     .catch(async (error) => {

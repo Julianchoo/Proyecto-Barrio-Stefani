@@ -1,13 +1,20 @@
 import type { db } from "@/lib/db";
 import { auditLog } from "@/lib/schema";
-import type { AuditCambios } from "@/lib/schema";
+import type { AuditCambios, AuditEntidad } from "@/lib/schema";
 
 // db o una transaccion: el registro se guarda junto con el cambio (si el cambio falla, no queda log).
 type Executor = Pick<typeof db, "insert">;
 type Row = Record<string, unknown> | null | undefined;
 
 // Campos que cambian solos en cada guardado y no aportan al historial.
-const IGNORED_FIELDS = new Set(["createdAt", "updatedAt", "modificadoPor"]);
+// La URL y ruta del comprobante se omiten: alcanza con su nombre.
+const IGNORED_FIELDS = new Set([
+  "createdAt",
+  "updatedAt",
+  "modificadoPor",
+  "comprobanteUrl",
+  "comprobantePathname",
+]);
 
 function normalize(value: unknown) {
   if (value instanceof Date) return value.toISOString();
@@ -33,7 +40,7 @@ export function diffRows(antes: Row, despues: Row): AuditCambios {
 export async function logAudit(
   executor: Executor,
   entry: {
-    entidad: "lote" | "reserva" | "lead";
+    entidad: AuditEntidad;
     entidadId: number;
     usuario: string;
     antes: Row;

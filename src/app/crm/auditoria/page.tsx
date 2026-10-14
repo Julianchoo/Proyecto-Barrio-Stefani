@@ -23,7 +23,11 @@ import {
 } from "@/components/ui/table";
 import type { AuditLog } from "@/lib/schema";
 
-type AuditRow = Omit<AuditLog, "createdAt"> & { createdAt: string; label: string };
+type AuditRow = Omit<AuditLog, "createdAt"> & {
+  createdAt: string;
+  label: string;
+  reservaId: number | null;
+};
 type AuditResponse = { rows: AuditRow[]; hasMore: boolean; usuarios: string[] };
 type UsuarioRow = { id: string; name: string; email: string };
 
@@ -33,12 +37,18 @@ const entidadLabels: Record<AuditRow["entidad"], string> = {
   lote: "Lote",
   reserva: "Reserva",
   lead: "Lead",
+  contrato: "Cuenta corriente",
+  cuota: "Cuota",
+  pago: "Pago",
 };
 
 const entidadColors: Record<AuditRow["entidad"], string> = {
   lote: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   reserva: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
   lead: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  contrato: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  cuota: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  pago: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
 };
 
 const accionLabels: Record<AuditRow["accion"], string> = {
@@ -64,6 +74,17 @@ const fieldLabels: Record<string, string> = {
   fechaFirma: "Firma",
   superficieM2: "Superficie m²",
   valorM2: "Valor m²",
+  fechaPago: "Fecha de pago",
+  monto: "Monto",
+  montoUsd: "Monto USD",
+  tipoCambioAplicado: "TC aplicado",
+  medio: "Medio",
+  observacion: "Observación",
+  comprobanteNombre: "Comprobante",
+  importeBase: "Importe base",
+  importeAjustado: "Importe ajustado",
+  cuotaId: "Cuota",
+  contratoId: "Cuenta corriente",
 };
 
 function fieldLabel(key: string) {
@@ -85,6 +106,7 @@ function formatDateTime(value: string) {
 function entidadHref(row: AuditRow) {
   if (row.entidad === "lote") return `/crm/lotes/${row.entidadId}`;
   if (row.entidad === "reserva") return `/crm/reservas/${row.entidadId}`;
+  if (row.reservaId) return `/crm/cuotas/${row.reservaId}`;
   return null;
 }
 
@@ -158,7 +180,7 @@ export default function AuditoriaPage() {
       <div>
         <h1 className="font-serif text-3xl font-normal text-foreground">Auditoría</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cambios en lotes, reservas y leads: quién los hizo y cuándo
+          Cambios en lotes, reservas, leads, cuentas corrientes y pagos: quién los hizo y cuándo
         </p>
       </div>
 
@@ -174,6 +196,9 @@ export default function AuditoriaPage() {
               <SelectItem value="lote">Lotes</SelectItem>
               <SelectItem value="reserva">Reservas</SelectItem>
               <SelectItem value="lead">Leads</SelectItem>
+              <SelectItem value="contrato">Cuentas corrientes</SelectItem>
+              <SelectItem value="cuota">Cuotas</SelectItem>
+              <SelectItem value="pago">Pagos</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -182,7 +207,7 @@ export default function AuditoriaPage() {
           <Input
             id="audit-id"
             inputMode="numeric"
-            placeholder="ID de lote, reserva o lead"
+            placeholder="ID del registro"
             value={entidadId}
             onChange={(e) => setEntidadId(e.target.value.replace(/\D/g, ""))}
           />

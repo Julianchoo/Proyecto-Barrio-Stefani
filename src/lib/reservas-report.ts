@@ -38,6 +38,9 @@ export async function getFilteredReservas(searchParams: URLSearchParams): Promis
   const fechaVencimientoHasta = searchParams.get("fechaVencimientoHasta");
   const fechaFirmaDesde = searchParams.get("fechaFirmaDesde");
   const fechaFirmaHasta = searchParams.get("fechaFirmaHasta");
+  const manzana = searchParams.get("manzana")?.trim();
+  const parcela = searchParams.get("parcela")?.trim();
+  const comprador = searchParams.get("comprador")?.trim();
 
   const conditions = [];
   if (estados.length > 0) conditions.push(inArray(reservas.estado, estados));
@@ -61,6 +64,10 @@ export async function getFilteredReservas(searchParams: URLSearchParams): Promis
   if (isDateKey(fechaFirmaHasta)) {
     conditions.push(lte(reservas.fechaFirma, fechaFirmaHasta!));
   }
+  // ilike sin comodines = igualdad sin distinguir mayúsculas.
+  if (manzana) conditions.push(ilike(parcelas.manzana, manzana));
+  if (parcela) conditions.push(ilike(parcelas.parcela, parcela));
+  if (comprador) conditions.push(ilike(reservas.nombreComprador, `%${comprador}%`));
   if (search) {
     conditions.push(
       or(

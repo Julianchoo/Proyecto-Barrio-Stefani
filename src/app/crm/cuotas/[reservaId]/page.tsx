@@ -11,11 +11,13 @@ import {
   Clipboard,
   CreditCard,
   Edit2,
+  ExternalLink,
   Loader2,
   Paperclip,
   Plus,
   RefreshCw,
   Save,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { parsePaymentDate } from "@/app/crm/cuotas/[reservaId]/payment-date";
@@ -215,6 +217,7 @@ export default function CuentaDetallePage() {
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null);
   const [createModalidad, setCreateModalidad] = useState<ModalidadContrato>("requiere_revision");
   const [periodoBaseCac, setPeriodoBaseCac] = useState("");
   const [indicesCac, setIndicesCac] = useState<IndiceCac[]>([]);
@@ -482,6 +485,28 @@ export default function CuentaDetallePage() {
     }
   }
 
+  async function deletePayment(pago: Pago) {
+    if (
+      !window.confirm(
+        `¿Borrar el pago de ${formatMoney(pago.monto, pago.moneda)} del ${formatDate(pago.fechaPago)}? No se puede deshacer.`
+      )
+    )
+      return;
+    setDeletingPaymentId(pago.id);
+    try {
+      const res = await fetch(`/api/crm/pagos/${pago.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error ?? "No se pudo borrar el pago");
+        return;
+      }
+      toast.success("Pago borrado");
+      await fetchDetail();
+    } finally {
+      setDeletingPaymentId(null);
+    }
+  }
+
   async function copyMessage() {
     const res = await fetch(`/api/crm/reservas/${reservaId}/mensaje-cuotas`, {
       method: "POST",
@@ -520,10 +545,18 @@ export default function CuentaDetallePage() {
           </Button>
           <h1 className="mt-2 font-serif text-3xl font-normal text-foreground">Cuenta corriente</h1>
         </div>
-        <Button type="button" variant="outline" onClick={fetchDetail}>
-          <RefreshCw className="mr-1 h-4 w-4" />
-          Actualizar
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/crm/reservas/${reservaId}`}>
+              <ExternalLink className="mr-1 h-4 w-4" />
+              Ver reserva
+            </Link>
+          </Button>
+          <Button type="button" variant="outline" onClick={fetchDetail}>
+            <RefreshCw className="mr-1 h-4 w-4" />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -1006,26 +1039,43 @@ export default function CuentaDetallePage() {
                           </Label>
                         </div>
                       )}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={
-                          pago.estado !== "activo" || !pago.cuotaId || uploadingReceiptId !== null
-                        }
-                        onClick={() => {
-                          setPayingCuota(null);
-                          setEditingPayment(pago);
-                          setPaymentDate(formatDate(pago.fechaPago));
-                          setPaymentAmount(String(pago.monto));
-                          setPaymentMethod(pago.medio ?? "");
-                          setPaymentObservation(pago.observacion ?? "");
-                          setPaymentReceipt(null);
-                          setRemoveReceipt(false);
-                        }}
-                      >
-                        Editar
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            pago.estado !== "activo" || !pago.cuotaId || uploadingReceiptId !== null
+                          }
+                          onClick={() => {
+                            setPayingCuota(null);
+                            setEditingPayment(pago);
+                            setPaymentDate(formatDate(pago.fechaPago));
+                            setPaymentAmount(String(pago.monto));
+                            setPaymentMethod(pago.medio ?? "");
+                            setPaymentObservation(pago.observacion ?? "");
+                            setPaymentReceipt(null);
+                            setRemoveReceipt(false);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletingPaymentId !== null || uploadingReceiptId !== null}
+                          onClick={() => deletePayment(pago)}
+                          aria-label={`Borrar pago del ${formatDate(pago.fechaPago)}`}
+                        >
+                          {deletingPaymentId === pago.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
