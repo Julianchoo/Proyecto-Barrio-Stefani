@@ -135,9 +135,15 @@ export async function PATCH(
       const cambiaEstado = Boolean(data.estado && data.estado !== reserva.estado);
       const nextEstado = data.estado ?? reserva.estado;
 
-      // Cambiar el estado o el comercial de una reserva es solo de administradores.
+      // Cambiar el estado o el comercial de una reserva es solo de administradores, salvo
+      // que el comercial cancele su propia reserva activa.
       // El comercial edita los datos de su reserva activa desde el lote (PUT parcelas).
-      if (authResult.role !== "admin") {
+      const comercialCancelaPropia =
+        data.estado === "cancelada" &&
+        !data.reservadoPor &&
+        reserva.estado === "activa" &&
+        reserva.reservadoPor === authResult.email;
+      if (authResult.role !== "admin" && !comercialCancelaPropia) {
         return { kind: "forbidden" as const };
       }
 

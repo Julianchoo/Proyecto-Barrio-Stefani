@@ -139,7 +139,7 @@ export default function ReservaDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {reserva.estado === "activa" && isAdmin && (
+          {reserva.estado === "activa" && (isAdmin || reserva.reservadoPor === session?.user?.email) && (
             <CambiarEstadoReserva
               reserva={reserva}
               onChanged={fetchReservas}

@@ -292,6 +292,34 @@ async function main() {
     (await db.select().from(parcelas).where(eq(parcelas.id, failureLot!.id)))[0]!.estado,
     "reservado"
   );
+  const [ownLot, othersLot] = await db
+    .insert(parcelas)
+    .values([
+      { numero: 6, estado: "reservado" },
+      { numero: 7, estado: "reservado" },
+    ])
+    .returning();
+  const [ownReserva, othersReserva] = await db
+    .insert(reservas)
+    .values([
+      { parcelaId: ownLot!.id, estado: "activa", reservadoPor: "test@example.test" },
+      { parcelaId: othersLot!.id, estado: "activa", reservadoPor: "other@example.test" },
+    ])
+    .returning();
+  role = "comercial";
+  const cancel = () => json({ estado: "cancelada", confirmarCambioEstado: true });
+  assert.equal((await patchReserva(cancel(), params(othersReserva!.id))).status, 403);
+  assert.equal(
+    (await patchReserva(json({ estado: "realizada", confirmarCambioEstado: true }), params(ownReserva!.id)))
+      .status,
+    403
+  );
+  assert.equal((await patchReserva(cancel(), params(ownReserva!.id))).status, 200);
+  assert.equal(
+    (await db.select().from(parcelas).where(eq(parcelas.id, ownLot!.id)))[0]!.estado,
+    "disponible"
+  );
+  role = "admin";
   await db.insert(rates).values({ fecha: "2026-09-01", valor: "10" });
   const [contract] = await db.select().from(contratos).where(eq(contratos.reservaId, reserva!.id));
   await db

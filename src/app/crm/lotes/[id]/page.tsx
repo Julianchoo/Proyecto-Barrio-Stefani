@@ -374,7 +374,9 @@ export default function LoteDetailPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {lote.reservaId && lote.reservaEstado === "activa" && session?.user?.role === "admin" && (
+          {lote.reservaId &&
+            lote.reservaEstado === "activa" &&
+            (session?.user?.role === "admin" || lote.reservadoPor === session?.user?.email) && (
             <CambiarEstadoReserva
               reserva={{
                 id: lote.reservaId,

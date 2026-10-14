@@ -48,7 +48,7 @@ function consecuencias(from: EstadoReserva, to: EstadoReserva, loteNumero: numbe
   return items.map((item) => item.charAt(0).toUpperCase() + item.slice(1));
 }
 
-// Cambio de estado de una reserva, solo para admins. Muestra un Select con todos los estados,
+// Cambio de estado de una reserva, solo para admins (el comercial solo cancela su reserva activa). Muestra un Select con todos los estados,
 // o un boton fijo (p. ej. "Cancelar reserva") si se pasa fixedTarget + label.
 export function CambiarEstadoReserva({
   reserva,
