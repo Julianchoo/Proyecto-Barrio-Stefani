@@ -34,7 +34,8 @@ async function edit(fields = {}, options = {}) {
     recomputed = false,
     inTransaction = false,
     deleted = false,
-    lookedUp = false;
+    lookedUp = false,
+    audited = null;
   const tx = {
     execute: async () => {},
     select: () => ({ from: () => ({ where: async () => reads.shift() }) }),
@@ -82,6 +83,13 @@ async function edit(fields = {}, options = {}) {
         return options.missingRate ? null : { valor: "20" };
       },
     },
+    "@/lib/audit": {
+      logAudit: async (executor, entry) => {
+        assert.equal(inTransaction, true);
+        assert.equal(executor, tx);
+        audited = entry;
+      },
+    },
     "@/lib/storage": {
       upload: async () => ({ url: "new.pdf", pathname: "new.pdf" }),
       deleteFile: async () => {
@@ -114,10 +122,13 @@ async function edit(fields = {}, options = {}) {
     if (!options.failWrite) throw error;
     assert.equal(error.message, "write failed");
   }
-  return { response, update, recomputed, deleted, lookedUp };
+  return { response, update, recomputed, deleted, lookedUp, audited };
 }
 let result = await edit({ medio: "Efectivo", observacion: "Corregido" });
 assert.equal(result.response.status, 200);
+assert.equal(result.audited.entidad, "pago");
+assert.equal(result.audited.antes.monto, "100");
+assert.equal(result.audited.despues.observacion, "Corregido");
 assert.equal(result.update.observacion, "Corregido");
 assert.equal("comprobanteUrl" in result.update, false);
 assert.equal("montoUsd" in result.update, false);
