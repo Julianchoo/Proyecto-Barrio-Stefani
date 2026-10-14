@@ -83,6 +83,7 @@ type CuentaRow = {
   valorIndiceActual: number | null;
   cuotaActualUsd: number | null;
   cuotaActualArs: number | null;
+  totalCobradoUsd: number | null;
 };
 
 type DashboardData = {
@@ -123,6 +124,7 @@ type SummaryColKey =
   | "cuotaActualUsd"
   | "cuotaActualArs"
   | "estado"
+  | "cobrado"
   | "vencido"
   | "saldo"
   | "proximoVencimiento";
@@ -145,6 +147,7 @@ const SUMMARY_COLUMNS: { key: SummaryColKey; label: string }[] = [
   { key: "cuotaActualUsd", label: "Cuota actual USD" },
   { key: "cuotaActualArs", label: "Cuota actual ARS" },
   { key: "estado", label: "Estado" },
+  { key: "cobrado", label: "Total cobrado USD" },
   { key: "vencido", label: "Vencido" },
   { key: "saldo", label: "Saldo" },
   { key: "proximoVencimiento", label: "Proximo vencimiento" },
@@ -153,27 +156,29 @@ const SUMMARY_COLUMNS: { key: SummaryColKey; label: string }[] = [
 const DEFAULT_VISIBLE_SUMMARY_COLS: Record<SummaryColKey, boolean> = {
   lote: true,
   cliente: true,
-  email: true,
+  email: false,
   mensaje: false,
-  valorLoteUsd: true,
-  valorFinanciadoUsd: true,
+  valorLoteUsd: false,
+  valorFinanciadoUsd: false,
   cantidadCuotasContrato: true,
   modalidad: true,
-  cuotaBaseUsd: true,
-  cuotaBaseArs: true,
-  indiceBase: true,
-  valorIndiceBase: true,
-  indiceActual: true,
-  valorIndiceActual: true,
+  cuotaBaseUsd: false,
+  cuotaBaseArs: false,
+  indiceBase: false,
+  valorIndiceBase: false,
+  indiceActual: false,
+  valorIndiceActual: false,
   cuotaActualUsd: true,
   cuotaActualArs: true,
   estado: true,
-  vencido: true,
-  saldo: true,
-  proximoVencimiento: true,
+  cobrado: false,
+  vencido: false,
+  saldo: false,
+  proximoVencimiento: false,
 };
 
-const SUMMARY_COLS_STORAGE_KEY = "cuotas-summary-visible-cols";
+// v2: nuevos defaults; la selección guardada con la clave anterior se descarta.
+const SUMMARY_COLS_STORAGE_KEY = "cuotas-summary-visible-cols-v2";
 
 function loadVisibleSummaryCols(): Record<SummaryColKey, boolean> {
   try {
@@ -252,6 +257,11 @@ export default function CuotasPage({
     estadoInicial && ESTADOS_CUENTA.includes(estadoInicial) ? estadoInicial : "todos"
   );
   const [modalidad, setModalidad] = useState("todas");
+  const [manzanaFiltro, setManzanaFiltro] = useState("");
+  const [parcelaFiltro, setParcelaFiltro] = useState("");
+  const [compradorFiltro, setCompradorFiltro] = useState("");
+  const [firmaDesde, setFirmaDesde] = useState("");
+  const [firmaHasta, setFirmaHasta] = useState("");
   const [periodo, setPeriodo] = useState("");
   const [valor, setValor] = useState("");
   const [fuente, setFuente] = useState("");
@@ -273,8 +283,22 @@ export default function CuotasPage({
     if (search.trim()) next.set("search", search.trim());
     if (estado !== "todos") next.set("estado", estado);
     if (modalidad !== "todas") next.set("modalidad", modalidad);
+    if (manzanaFiltro.trim()) next.set("manzana", manzanaFiltro.trim());
+    if (parcelaFiltro.trim()) next.set("parcela", parcelaFiltro.trim());
+    if (compradorFiltro.trim()) next.set("comprador", compradorFiltro.trim());
+    if (firmaDesde) next.set("fechaFirmaDesde", firmaDesde);
+    if (firmaHasta) next.set("fechaFirmaHasta", firmaHasta);
     return next;
-  }, [estado, modalidad, search]);
+  }, [
+    estado,
+    modalidad,
+    search,
+    manzanaFiltro,
+    parcelaFiltro,
+    compradorFiltro,
+    firmaDesde,
+    firmaHasta,
+  ]);
 
   async function fetchRows() {
     if (session?.user?.role !== "admin") {
@@ -482,6 +506,7 @@ export default function CuotasPage({
       "Cuota actual USD": row.cuotaActualUsd,
       "Cuota actual ARS": row.cuotaActualArs,
       Estado: estadoResumen(row),
+      "Total cobrado USD": row.totalCobradoUsd,
       Vencido: row.totalVencido,
       Saldo: row.saldoPendiente,
       "Proximo vencimiento": row.proximoVencimiento ?? "",
@@ -506,6 +531,7 @@ export default function CuotasPage({
       { wch: 24 },
       { wch: 18 },
       { wch: 24 },
+      { wch: 18 },
       { wch: 18 },
       { wch: 18 },
       { wch: 18 },
@@ -672,6 +698,74 @@ export default function CuotasPage({
             >
               <Filter className="mr-1 h-4 w-4" />
               Actualizar
+            </Button>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-[120px_120px_1fr_160px_160px_auto] md:items-end">
+            <div className="grid gap-1">
+              <Label htmlFor="filtro-manzana" className="text-xs text-muted-foreground">
+                Manzana
+              </Label>
+              <Input
+                id="filtro-manzana"
+                value={manzanaFiltro}
+                onChange={(event) => setManzanaFiltro(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="filtro-parcela" className="text-xs text-muted-foreground">
+                Parcela
+              </Label>
+              <Input
+                id="filtro-parcela"
+                value={parcelaFiltro}
+                onChange={(event) => setParcelaFiltro(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="filtro-comprador" className="text-xs text-muted-foreground">
+                Comprador
+              </Label>
+              <Input
+                id="filtro-comprador"
+                value={compradorFiltro}
+                onChange={(event) => setCompradorFiltro(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="filtro-firma-desde" className="text-xs text-muted-foreground">
+                Firma desde
+              </Label>
+              <Input
+                id="filtro-firma-desde"
+                type="date"
+                value={firmaDesde}
+                onChange={(event) => setFirmaDesde(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="filtro-firma-hasta" className="text-xs text-muted-foreground">
+                Firma hasta
+              </Label>
+              <Input
+                id="filtro-firma-hasta"
+                type="date"
+                value={firmaHasta}
+                onChange={(event) => setFirmaHasta(event.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setManzanaFiltro("");
+                setParcelaFiltro("");
+                setCompradorFiltro("");
+                setFirmaDesde("");
+                setFirmaHasta("");
+              }}
+            >
+              <X className="mr-1 h-4 w-4" />
+              Limpiar
             </Button>
           </div>
         </CardContent>
@@ -849,6 +943,8 @@ export default function CuotasPage({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-24" />
+              {visibleSummaryCols.estado && <TableHead>Estado</TableHead>}
               {visibleSummaryCols.lote && <TableHead>Lote</TableHead>}
               {visibleSummaryCols.cliente && <TableHead>Cliente</TableHead>}
               {visibleSummaryCols.email && <TableHead>Email contacto</TableHead>}
@@ -871,13 +967,12 @@ export default function CuotasPage({
               )}
               {visibleSummaryCols.cuotaActualUsd && <TableHead>Cuota actual USD</TableHead>}
               {visibleSummaryCols.cuotaActualArs && <TableHead>Cuota actual ARS</TableHead>}
-              {visibleSummaryCols.estado && <TableHead>Estado</TableHead>}
+              {visibleSummaryCols.cobrado && <TableHead>Total cobrado USD</TableHead>}
               {visibleSummaryCols.vencido && <TableHead>Vencido</TableHead>}
               {visibleSummaryCols.saldo && <TableHead>Saldo</TableHead>}
               {visibleSummaryCols.proximoVencimiento && (
                 <TableHead>Proximo vencimiento</TableHead>
               )}
-              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -902,6 +997,36 @@ export default function CuotasPage({
             ) : (
               rows.map((row) => (
                 <TableRow key={row.reservaId}>
+                  <TableCell>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link href={`/crm/cuotas/${row.reservaId}`}>
+                        {row.cuentaEstado === "pendiente"
+                          ? row.requiereRevision
+                            ? "Revisar"
+                            : "Crear"
+                          : "Ver"}
+                      </Link>
+                    </Button>
+                  </TableCell>
+                  {visibleSummaryCols.estado && (
+                    <TableCell>
+                      {row.cuentaEstado === "pendiente" ? (
+                        <Badge className="gap-1 bg-amber-500/10 text-amber-800 dark:text-amber-400">
+                          <AlertTriangle className="h-3 w-3" />
+                          {row.requiereRevision ? "Pendiente revisión" : "Pendiente creación"}
+                        </Badge>
+                      ) : row.cuotasVencidas > 0 ? (
+                        <Badge className="bg-destructive/10 text-destructive">
+                          {row.cuotasVencidas} Vencida(s)
+                        </Badge>
+                      ) : (
+                        <Badge className="gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Al dia
+                        </Badge>
+                      )}
+                    </TableCell>
+                  )}
                   {visibleSummaryCols.lote && (
                     <TableCell className="font-mono text-sm">
                       {row.loteNumero}
@@ -966,24 +1091,8 @@ export default function CuotasPage({
                   {visibleSummaryCols.cuotaActualArs && (
                     <TableCell>{formatMoney(row.cuotaActualArs, "ars")}</TableCell>
                   )}
-                  {visibleSummaryCols.estado && (
-                    <TableCell>
-                      {row.cuentaEstado === "pendiente" ? (
-                        <Badge className="gap-1 bg-amber-500/10 text-amber-800 dark:text-amber-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          {row.requiereRevision ? "Pendiente revisión" : "Pendiente creación"}
-                        </Badge>
-                      ) : row.cuotasVencidas > 0 ? (
-                        <Badge className="bg-destructive/10 text-destructive">
-                          {row.cuotasVencidas} Vencida(s)
-                        </Badge>
-                      ) : (
-                        <Badge className="gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Al dia
-                        </Badge>
-                      )}
-                    </TableCell>
+                  {visibleSummaryCols.cobrado && (
+                    <TableCell>{formatMoney(row.totalCobradoUsd, "usd")}</TableCell>
                   )}
                   {visibleSummaryCols.vencido && (
                     <TableCell>{formatMoney(row.totalVencido, row.moneda)}</TableCell>
@@ -999,17 +1108,6 @@ export default function CuotasPage({
                       </div>
                     </TableCell>
                   )}
-                  <TableCell>
-                    <Button asChild variant="ghost" size="sm">
-                      <Link href={`/crm/cuotas/${row.reservaId}`}>
-                        {row.cuentaEstado === "pendiente"
-                          ? row.requiereRevision
-                            ? "Revisar"
-                            : "Crear"
-                          : "Ver"}
-                      </Link>
-                    </Button>
-                  </TableCell>
                 </TableRow>
               ))
             )}

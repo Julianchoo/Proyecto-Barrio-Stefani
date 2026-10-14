@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos } from "@/lib/schema";
@@ -95,8 +96,15 @@ export async function PATCH(
       .where(eq(cuotas.id, cuotaId));
 
     await recomputeContratoCuotas(row.contrato.id, tx);
+    const [updated] = await tx.select().from(cuotas).where(eq(cuotas.id, cuotaId));
+    await logAudit(tx, {
+      entidad: "cuota",
+      entidadId: cuotaId,
+      usuario: authResult.email,
+      antes: row.cuota,
+      despues: updated,
+    });
     if (parsed.data.importeBase !== undefined) {
-      const [updated] = await tx.select().from(cuotas).where(eq(cuotas.id, cuotaId));
       const paymentRows = await tx
         .select({ monto: pagos.monto })
         .from(pagos)

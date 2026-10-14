@@ -12,8 +12,25 @@ export async function GET(request: Request) {
   const estado = searchParams.get("estado") ?? "";
   const modalidad = searchParams.get("modalidad") as ModalidadContrato | null;
   const reservadoPor = searchParams.get("reservadoPor") ?? "";
+  const manzana = searchParams.get("manzana")?.trim().toLowerCase() ?? "";
+  const parcela = searchParams.get("parcela")?.trim().toLowerCase() ?? "";
+  const comprador = searchParams.get("comprador")?.trim().toLowerCase() ?? "";
+  const fechaFirmaDesde = searchParams.get("fechaFirmaDesde") ?? "";
+  const fechaFirmaHasta = searchParams.get("fechaFirmaHasta") ?? "";
 
   let rows = await getCuentasCorrientesSummaries();
+
+  if (manzana) rows = rows.filter((row) => row.manzana?.toLowerCase() === manzana);
+  if (parcela) rows = rows.filter((row) => row.parcela?.toLowerCase() === parcela);
+  if (comprador) {
+    rows = rows.filter((row) => row.comprador?.toLowerCase().includes(comprador));
+  }
+  if (fechaFirmaDesde) {
+    rows = rows.filter((row) => row.fechaFirma !== null && row.fechaFirma >= fechaFirmaDesde);
+  }
+  if (fechaFirmaHasta) {
+    rows = rows.filter((row) => row.fechaFirma !== null && row.fechaFirma <= fechaFirmaHasta);
+  }
 
   if (reservadoPor) {
     rows = rows.filter((row) => row.reservadoPor === reservadoPor);

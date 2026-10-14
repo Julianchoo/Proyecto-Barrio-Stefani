@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { db } from "@/lib/db";
-import { auditLog, leads, parcelas, reservas } from "@/lib/schema";
+import { auditLog, contratos, cuotas, leads, pagos, parcelas, reservas } from "@/lib/schema";
 
 const PAGE_SIZE = 100;
-const ENTIDADES = ["lote", "reserva", "lead"] as const;
+const ENTIDADES = ["lote", "reserva", "lead", "contrato", "cuota", "pago"] as const;
 
 function isDateKey(value: string | null): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
@@ -76,8 +76,67 @@ export async function GET(request: Request) {
   );
   const leadsMap = new Map(leadRows.map((row) => [row.id, row.nombre]));
 
+  // Pagos, cuotas y cuentas corrientes se muestran con el lote y enlazan a la cuenta corriente.
+  // Un pago borrado ya no está en la tabla: su contrato sale de lo guardado en el log.
+  const pagoIds = idsOf("pago");
+  const cuotaIds = idsOf("cuota");
+  const [pagoRows, cuotaRows] = await Promise.all([
+    pagoIds.length
+      ? db.select({ id: pagos.id, contratoId: pagos.contratoId }).from(pagos).where(inArray(pagos.id, pagoIds))
+      : [],
+    cuotaIds.length
+      ? db
+          .select({ id: cuotas.id, contratoId: cuotas.contratoId, numero: cuotas.numero })
+          .from(cuotas)
+          .where(inArray(cuotas.id, cuotaIds))
+      : [],
+  ]);
+  const pagoContrato = new Map(pagoRows.map((row) => [row.id, row.contratoId]));
+  const cuotasMap = new Map(cuotaRows.map((row) => [row.id, row]));
+  function contratoIdOf(row: (typeof page)[number]) {
+    if (row.entidad === "contrato") return row.entidadId;
+    if (row.entidad === "cuota") return cuotasMap.get(row.entidadId)?.contratoId;
+    if (row.entidad !== "pago") return undefined;
+    const logged = row.cambios.contratoId?.despues ?? row.cambios.contratoId?.antes;
+    return pagoContrato.get(row.entidadId) ?? (typeof logged === "number" ? logged : undefined);
+  }
+  const contratoIds = [
+    ...new Set(page.map(contratoIdOf).filter((id): id is number => id !== undefined)),
+  ];
+  const contratoRows = contratoIds.length
+    ? await db
+        .select({
+          id: contratos.id,
+          reservaId: contratos.reservaId,
+          loteNumero: parcelas.numero,
+          comprador: reservas.nombreComprador,
+        })
+        .from(contratos)
+        .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
+        .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+        .where(inArray(contratos.id, contratoIds))
+    : [];
+  const contratosMap = new Map(contratoRows.map((row) => [row.id, row]));
+  const entidadNombre = { contrato: "Cuenta corriente", cuota: "Cuota", pago: "Pago" } as const;
+
   return NextResponse.json({
     rows: page.map((row) => {
+      if (row.entidad === "contrato" || row.entidad === "cuota" || row.entidad === "pago") {
+        const contratoId = contratoIdOf(row);
+        const contrato = contratoId !== undefined ? contratosMap.get(contratoId) : undefined;
+        const numeroCuota = row.entidad === "cuota" ? cuotasMap.get(row.entidadId)?.numero : undefined;
+        const nombre =
+          numeroCuota !== undefined
+            ? `Cuota ${numeroCuota}`
+            : `${entidadNombre[row.entidad]} #${row.entidadId}`;
+        return {
+          ...row,
+          label: contrato
+            ? `${nombre} · Lote ${contrato.loteNumero}${contrato.comprador ? ` · ${contrato.comprador}` : ""}`
+            : nombre,
+          reservaId: contrato?.reservaId ?? null,
+        };
+      }
       const nombreBorrado = row.cambios.nombre?.antes;
       const label =
         row.entidad === "lote"
@@ -85,7 +144,7 @@ export async function GET(request: Request) {
           : row.entidad === "reserva"
             ? reservasMap.get(row.entidadId)
             : leadsMap.get(row.entidadId) ?? (typeof nombreBorrado === "string" ? nombreBorrado : undefined);
-      return { ...row, label: label ?? `${row.entidad} #${row.entidadId}` };
+      return { ...row, label: label ?? `${row.entidad} #${row.entidadId}`, reservaId: null };
     }),
     hasMore: rows.length > PAGE_SIZE,
     usuarios: usuarioRows.map((row) => row.usuario),

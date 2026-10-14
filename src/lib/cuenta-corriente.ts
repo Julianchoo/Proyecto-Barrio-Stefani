@@ -34,6 +34,7 @@ export type CuentaCorrienteSummary = {
   telefono: string | null;
   email: string | null;
   reservadoPor: string | null;
+  fechaFirma: string | null;
   modalidad: ModalidadContrato;
   requiereRevision: boolean;
   totalVencido: number;
@@ -58,6 +59,8 @@ export type CuentaCorrienteSummary = {
   valorIndiceActual: number | null;
   cuotaActualUsd: number | null;
   cuotaActualArs: number | null;
+  // Anticipo + pagos activos dolarizados a su fecha; null si a algún pago en ARS le falta TC.
+  totalCobradoUsd: number | null;
 };
 
 type MensajeCuentaCorrienteInput = Pick<
@@ -76,7 +79,6 @@ export type CuentaCorrienteDetail = CuentaCorrienteSummary & {
   cuotas: Cuota[];
   pagos: Pago[];
   indices: IndiceCac[];
-  totalCobradoUsd: number | null;
   totalFuturoUsd: number | null;
   anticipoCobradoUsd: number;
   tipoCambioActual: number | null;
@@ -279,6 +281,11 @@ export async function recomputeContratoCuotas(
     if (cuota.estado === "cancelada") continue;
     const cuotaPagos = pagoRows.filter((pago) => pago.cuotaId === cuota.id);
     const paid = sumActivePayments(cuotaPagos);
+    // Una cuota pagada (p. ej. adelantada con el monto proyectado) queda congelada: un CAC nuevo
+    // no la reabre. Solo se recalcula si los pagos dejan de cubrir lo que se cobró (pago editado/anulado).
+    if (cuota.estado === "pagada" && paid + 0.005 >= (toNumber(cuota.importeAjustado) ?? Infinity)) {
+      continue;
+    }
     const computed = computeCuotaAmount(contrato, cuota, indicesByPeriodo, latestIndex);
     const saldo =
       computed.amount === null
@@ -416,6 +423,13 @@ export async function createContratoForReserva(
     })
     .returning();
   if (!contrato) throw new Error("No se pudo crear el contrato");
+  await logAudit(tx, {
+    entidad: "contrato",
+    entidadId: contrato.id,
+    usuario: userEmail,
+    antes: null,
+    despues: contrato,
+  });
 
   const [reservaActualizada] = await tx
     .update(reservas)
@@ -489,7 +503,7 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
   ]);
   const cuotaRows = cuotasGuardadas.map((cuota) => ({ ...cuota, estado: estadoAHoy(cuota, pagoRows) }));
 
-  const summary = buildSummary(row, cuotaRows, currentRate);
+  const summary = buildSummary(row, cuotaRows, pagoRows, currentRate);
   const activePayments = pagoRows.filter((pago) => pago.estado === "activo");
   const fechasPagoSinTipoCambio = Array.from(
     new Set(
@@ -499,10 +513,6 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
     )
   ).sort();
   const anticipoCobradoUsd = toNumber(row.reserva.anticipoNum) ?? 0;
-  const pagosCobradosUsd = activePayments.reduce((total, pago) => {
-    if (pago.moneda === "usd") return total + (toNumber(pago.monto) ?? 0);
-    return total + (toNumber(pago.montoUsd) ?? 0);
-  }, 0);
   const tipoCambioActual = toNumber(currentRate?.valor);
   const hasPendingArs = cuotaRows.some(
     (cuota) => !FINAL_CUOTA_STATES.includes(cuota.estado) && cuota.moneda === "ars"
@@ -523,8 +533,6 @@ export async function getCuentaCorrienteDetailByReserva(reservaId: number) {
     cuotas: cuotaRows,
     pagos: pagoRows,
     indices: indexRows,
-    totalCobradoUsd:
-      fechasPagoSinTipoCambio.length > 0 ? null : anticipoCobradoUsd + pagosCobradosUsd,
     totalFuturoUsd,
     anticipoCobradoUsd,
     tipoCambioActual,
@@ -652,16 +660,25 @@ export async function getCuentasCorrientesSummaries() {
   const currentCac = latestKnownCacIndex(indexRows);
 
   const contratoIds = rows.map((row) => row.contrato.id);
-  const cuotaRows = await db
-    .select()
-    .from(cuotas)
-    .where(inArray(cuotas.contratoId, contratoIds))
-    .orderBy(asc(cuotas.numero));
+  const [cuotaRows, pagoRows] = await Promise.all([
+    db
+      .select()
+      .from(cuotas)
+      .where(inArray(cuotas.contratoId, contratoIds))
+      .orderBy(asc(cuotas.numero)),
+    db.select().from(pagos).where(inArray(pagos.contratoId, contratoIds)),
+  ]);
   const cuotasByContrato = new Map<number, Cuota[]>();
   for (const cuota of cuotaRows) {
     const list = cuotasByContrato.get(cuota.contratoId) ?? [];
     list.push(cuota);
     cuotasByContrato.set(cuota.contratoId, list);
+  }
+  const pagosByContrato = new Map<number, Pago[]>();
+  for (const pago of pagoRows) {
+    const list = pagosByContrato.get(pago.contratoId) ?? [];
+    list.push(pago);
+    pagosByContrato.set(pago.contratoId, list);
   }
 
   return [
@@ -669,6 +686,7 @@ export async function getCuentasCorrientesSummaries() {
       buildSummary(
         row,
         cuotasByContrato.get(row.contrato.id) ?? [],
+        pagosByContrato.get(row.contrato.id) ?? [],
         currentRate,
         rateRows,
         currentCac
@@ -697,6 +715,7 @@ function buildPendingSummary(row: {
     telefono: comprador.telefono ?? null,
     email: comprador.emailComprador ?? null,
     reservadoPor: row.reserva.reservadoPor,
+    fechaFirma: row.reserva.fechaFirma,
     modalidad,
     requiereRevision: modalidad === "requiere_revision",
     totalVencido: 0,
@@ -721,6 +740,7 @@ function buildPendingSummary(row: {
     valorIndiceActual: null,
     cuotaActualUsd: null,
     cuotaActualArs: null,
+    totalCobradoUsd: toNumber(row.reserva.anticipoNum),
   };
 }
 
@@ -871,6 +891,7 @@ function buildSummary(
     lead: typeof leads.$inferSelect | null;
   },
   cuotaRows: Cuota[],
+  pagoRows: Pago[],
   currentRate: { valor: unknown; fecha: string } | null = null,
   rateRows: TipoCambio[] = [],
   currentCac: { periodo: string; valor: number } | null = null
@@ -909,6 +930,16 @@ function buildSummary(
         : null
       : cuotaBaseUsd;
   const usesCac = row.contrato.modalidad === "pesos_cac";
+  const activePagos = pagoRows.filter((pago) => pago.estado === "activo");
+  const totalCobradoUsd = activePagos.some(
+    (pago) => pago.moneda === "ars" && toNumber(pago.montoUsd) === null
+  )
+    ? null
+    : activePagos.reduce(
+        (total, pago) =>
+          total + (toNumber(pago.moneda === "usd" ? pago.monto : pago.montoUsd) ?? 0),
+        toNumber(row.reserva.anticipoNum) ?? 0
+      );
 
   const summary: CuentaCorrienteSummary = {
     contratoId: row.contrato.id,
@@ -922,6 +953,7 @@ function buildSummary(
     telefono: comprador.telefono ?? null,
     email: comprador.emailComprador ?? null,
     reservadoPor: row.reserva.reservadoPor,
+    fechaFirma: row.reserva.fechaFirma,
     modalidad: row.contrato.modalidad,
     requiereRevision: row.contrato.requiereRevision,
     totalVencido: overdueCuotas.reduce((total, cuota) => total + (toNumber(cuota.saldo) ?? 0), 0),
@@ -960,6 +992,7 @@ function buildSummary(
     valorIndiceActual: usesCac ? (currentCac?.valor ?? null) : currentBnaValue,
     cuotaActualUsd,
     cuotaActualArs,
+    totalCobradoUsd,
   };
 
   return {

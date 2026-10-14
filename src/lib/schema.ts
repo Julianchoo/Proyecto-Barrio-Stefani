@@ -482,12 +482,14 @@ export const indicesCac = pgTable(
 
 // Historial de cambios de lotes, reservas y leads: quien cambio que y cuando.
 export type AuditCambios = Record<string, { antes: unknown; despues: unknown }>;
+// "contrato" es la cuenta corriente.
+export type AuditEntidad = "lote" | "reserva" | "lead" | "contrato" | "cuota" | "pago";
 
 export const auditLog = pgTable(
   "audit_log",
   {
     id: serial("id").primaryKey(),
-    entidad: text("entidad").$type<"lote" | "reserva" | "lead">().notNull(),
+    entidad: text("entidad").$type<AuditEntidad>().notNull(),
     entidadId: integer("entidad_id").notNull(),
     accion: text("accion").$type<"crear" | "editar" | "eliminar">().notNull(),
     // Email del usuario; "web" para los leads del formulario publico.

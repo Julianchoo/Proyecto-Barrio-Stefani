@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { cuotas, pagos } from "@/lib/schema";
@@ -159,6 +160,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       })
       .where(eq(pagos.id, pagoId))
       .returning();
+    await logAudit(tx, {
+      entidad: "pago",
+      entidadId: pagoId,
+      usuario: authResult.email,
+      antes: current,
+      despues: pago,
+    });
     if (amountChanged) await recomputeContratoCuotas(current.contratoId, tx);
     return { pago, contratoId: current.contratoId, amountChanged };
   }).catch(async (error) => {
@@ -170,4 +178,33 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: result.error }, { status: result.status ?? 409 });
   }
   return NextResponse.json(result.pago);
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authResult = await requireApiAdmin();
+  if (isErrorResponse(authResult)) return authResult;
+
+  const { id } = await params;
+  const pagoId = Number(id);
+  if (!Number.isInteger(pagoId) || pagoId <= 0) {
+    return NextResponse.json({ error: "ID invalido" }, { status: 400 });
+  }
+
+  const deleted = await crmTransaction(async (tx) => {
+    const [pago] = await tx.delete(pagos).where(eq(pagos.id, pagoId)).returning();
+    if (pago) {
+      await logAudit(tx, {
+        entidad: "pago",
+        entidadId: pagoId,
+        usuario: authResult.email,
+        antes: pago,
+        despues: null,
+      });
+      await recomputeContratoCuotas(pago.contratoId, tx);
+    }
+    return pago;
+  });
+  if (!deleted) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
+  if (deleted.comprobanteUrl) await deleteFile(deleted.comprobanteUrl).catch(() => undefined);
+  return NextResponse.json({ ok: true });
 }

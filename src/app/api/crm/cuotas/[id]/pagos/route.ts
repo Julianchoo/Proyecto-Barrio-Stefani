@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos, reservas } from "@/lib/schema";
@@ -137,6 +138,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         creadoPor: authResult.email,
       })
       .returning();
+    await logAudit(tx, {
+      entidad: "pago",
+      entidadId: pago!.id,
+      usuario: authResult.email,
+      antes: null,
+      despues: pago,
+    });
     await recomputeContratoCuotas(row.contrato.id, tx);
     return { pago, contratoId: row.contrato.id };
   }).catch(async (error) => {

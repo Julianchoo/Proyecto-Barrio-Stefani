@@ -78,6 +78,9 @@ type ReservaFilters = {
   fechaVencimientoHasta: string;
   fechaFirmaDesde: string;
   fechaFirmaHasta: string;
+  manzana: string;
+  parcela: string;
+  comprador: string;
 };
 
 type SortKey =
@@ -103,6 +106,9 @@ const defaultFilters: ReservaFilters = {
   fechaVencimientoHasta: "",
   fechaFirmaDesde: "",
   fechaFirmaHasta: "",
+  manzana: "",
+  parcela: "",
+  comprador: "",
 };
 
 const monthNames = [
@@ -217,6 +223,9 @@ export default function ReservasPage({
     }
     if (filters.fechaFirmaDesde) params.set("fechaFirmaDesde", filters.fechaFirmaDesde);
     if (filters.fechaFirmaHasta) params.set("fechaFirmaHasta", filters.fechaFirmaHasta);
+    if (filters.manzana.trim()) params.set("manzana", filters.manzana.trim());
+    if (filters.parcela.trim()) params.set("parcela", filters.parcela.trim());
+    if (filters.comprador.trim()) params.set("comprador", filters.comprador.trim());
     if (search.trim()) params.set("search", search.trim());
     return params;
   }, [filters, search]);
@@ -336,6 +345,15 @@ export default function ReservasPage({
     }
     if (filters.fechaFirmaHasta) {
       items.push({ key: "fechaFirmaHasta", label: `Firma hasta ${formatDate(filters.fechaFirmaHasta)}` });
+    }
+    if (filters.manzana.trim()) {
+      items.push({ key: "manzana", label: `Manzana: ${filters.manzana.trim()}` });
+    }
+    if (filters.parcela.trim()) {
+      items.push({ key: "parcela", label: `Parcela: ${filters.parcela.trim()}` });
+    }
+    if (filters.comprador.trim()) {
+      items.push({ key: "comprador", label: `Comprador: ${filters.comprador.trim()}` });
     }
     return items;
   }, [filters, usuarios]);
@@ -651,6 +669,40 @@ export default function ReservasPage({
                       setDraftFilters((current) => ({ ...current, formaPago: e.target.value }))
                     }
                     placeholder="Contado, cuotas..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="manzana-filter">Manzana</Label>
+                    <Input
+                      id="manzana-filter"
+                      value={draftFilters.manzana}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({ ...current, manzana: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="parcela-filter">Parcela</Label>
+                    <Input
+                      id="parcela-filter"
+                      value={draftFilters.parcela}
+                      onChange={(e) =>
+                        setDraftFilters((current) => ({ ...current, parcela: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="comprador-filter">Comprador</Label>
+                  <Input
+                    id="comprador-filter"
+                    value={draftFilters.comprador}
+                    onChange={(e) =>
+                      setDraftFilters((current) => ({ ...current, comprador: e.target.value }))
+                    }
                   />
                 </div>
 
