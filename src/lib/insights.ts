@@ -37,6 +37,12 @@ const pagosConCuota = sql`
     GROUP BY c.id, c.fecha_vencimiento
   )`;
 
+// ponytail: tasa fija para el valor presente de las cuotas; pasarla a configuración si la quieren cambiar seguido.
+export const TASA_DESCUENTO_ANUAL = 0.08;
+
+const cuotasDe = (col: string) =>
+  sql.raw(`coalesce(k.cantidad_cuotas, nullif(regexp_replace(${col}, '[^0-9]', '', 'g'), '')::int)`);
+
 type Raw = Record<string, string | number | null>;
 
 const num = (v: string | number | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
@@ -56,6 +62,9 @@ export async function getInsights() {
     ventasDetalle,
     cobranzaKpis,
     proyeccion,
+    ventasPlazo,
+    rentabilidadRaw,
+    valorPresenteRaw,
     cuotasEstado,
     porCobrarMes,
     puntualidad,
@@ -145,6 +154,46 @@ export async function getInsights() {
       FROM q
       WHERE est <> 'pagada'
         AND date_trunc('month', fecha_vencimiento) = date_trunc('month', (SELECT d FROM hoy) + interval '1 month')`),
+    rows(sql`
+      WITH v AS (
+        SELECT r.precio_total_num::numeric AS usd,
+          CASE WHEN lower(r.forma_pago) = 'contado' THEN 0 ELSE ${cuotasDe("r.cantidad_cuotas")} END AS cuotas
+        FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+        WHERE r.estado = 'realizada'
+      )
+      SELECT x.tramo, x.orden, count(v.usd) AS ventas, round(coalesce(sum(v.usd), 0)) AS usd,
+        (SELECT round(sum(usd * cuotas) / nullif(sum(usd), 0), 1) FROM v WHERE cuotas IS NOT NULL) AS plazo_promedio
+      FROM (VALUES
+        ('Contado', 1, 0, 0), ('Hasta 12 cuotas', 2, 1, 12), ('13 a 24 cuotas', 3, 13, 24), ('25 a 36 cuotas', 4, 25, 36),
+        ('37 a 48 cuotas', 5, 37, 48), ('49 a 60 cuotas', 6, 49, 60), ('Más de 60 cuotas', 7, 61, 100000)
+      ) AS x(tramo, orden, desde, hasta)
+      LEFT JOIN v ON v.cuotas BETWEEN x.desde AND x.hasta
+      GROUP BY 1, 2
+      UNION ALL
+      SELECT 'Sin dato', 8, count(*), round(coalesce(sum(usd), 0)), NULL FROM v WHERE cuotas IS NULL HAVING count(*) > 0
+      ORDER BY 2`),
+    // Precio de venta contra precio de lista del lote (lista = contado): interés de financiación y descuentos.
+    rows(sql`
+      WITH v AS (
+        SELECT r.precio_total_num::numeric AS precio, coalesce(p.precio_base, p.precio_etapa1)::numeric AS lista,
+          lower(r.forma_pago) = 'contado' AS contado, p.superficie_m2::numeric AS m2
+        FROM reservas r JOIN parcelas p ON p.id = r.parcela_id
+        WHERE r.estado = 'realizada'
+      )
+      SELECT
+        round(sum(lista) FILTER (WHERE NOT contado)) AS lista_financiadas,
+        round(sum(precio) FILTER (WHERE NOT contado AND lista IS NOT NULL)) AS precio_financiadas,
+        round(sum(lista) FILTER (WHERE contado)) AS lista_contado,
+        round(sum(precio) FILTER (WHERE contado AND lista IS NOT NULL)) AS precio_contado,
+        count(*) FILTER (WHERE lista IS NULL) AS ventas_sin_lista,
+        round(sum(precio) FILTER (WHERE lista IS NULL)) AS precio_sin_lista,
+        round(sum(precio) / nullif(sum(m2), 0)) AS precio_m2
+      FROM v`),
+    rows(sql`
+      WITH ${cuotasBase}
+      SELECT round(coalesce(sum(saldo_usd / power(1 + ${TASA_DESCUENTO_ANUAL}::numeric,
+        greatest(fecha_vencimiento - (SELECT d FROM hoy), 0) / 365.0)), 0)) AS valor_presente
+      FROM q WHERE est <> 'pagada'`),
     rows(sql`
       WITH ${cuotasBase}
       SELECT x.estado, x.orden, count(q.id) AS cuotas, round(coalesce(sum(q.saldo_usd), 0)) AS saldo_usd
@@ -244,7 +293,29 @@ export async function getInsights() {
       lotesSinPrecio: num(vk.lotes_sin_precio),
       total: totalVendido + valuacionRestantes,
     },
+    rentabilidad: (() => {
+      const r = rentabilidadRaw[0] ?? {};
+      const listaFin = num(r.lista_financiadas);
+      const precioFin = num(r.precio_financiadas);
+      const listaCont = num(r.lista_contado);
+      const precioCont = num(r.precio_contado);
+      const valorPresente = num(valorPresenteRaw[0]?.valor_presente);
+      return {
+        listaVendida: listaFin + listaCont,
+        interesFinanciacion: precioFin - listaFin,
+        diferenciaContado: precioCont - listaCont,
+        ventasSinLista: num(r.ventas_sin_lista),
+        precioSinLista: num(r.precio_sin_lista),
+        precioM2: num(r.precio_m2),
+        ajusteCacDolar: totalVendido - num(vk.facturacion_usd),
+        cuotasACobrar: num(ck.por_cobrar_usd),
+        valorPresente,
+        tasaDescuento: TASA_DESCUENTO_ANUAL,
+      };
+    })(),
     ventas: {
+      porPlazo: ventasPlazo.map((r) => ({ tramo: String(r.tramo), ventas: num(r.ventas), usd: num(r.usd) })),
+      plazoPromedio: ventasPlazo[0]?.plazo_promedio == null ? null : num(ventasPlazo[0].plazo_promedio),
       lotesVendidos: num(vk.lotes_vendidos),
       facturacionUsd: num(vk.facturacion_usd),
       ticketPromedioUsd: num(vk.ticket_promedio_usd),
