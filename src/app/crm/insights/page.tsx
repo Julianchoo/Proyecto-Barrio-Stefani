@@ -380,6 +380,17 @@ export default async function InsightsPage() {
       note={`${int(activas.enUsd)} en USD (${usdCorto(activas.enUsdUsd)}) · ${int(activas.enPesos)} en pesos + CAC (${usdCorto(activas.enPesosUsd)})`}
     />
   );
+  const aVencerUsd = cobranza.estadoCuotas.find((e) => e.orden === 3) ?? { cuotas: 0, saldoUsd: 0 };
+  const aVencerPesos = cobranza.estadoCuotas.find((e) => e.orden === 4) ?? { cuotas: 0, saldoUsd: 0 };
+  const tarjetaAVencer = (
+    <StatsCard
+      href="/crm/cuotas"
+      title="Cuotas a vencer"
+      value={usdCorto(aVencerUsd.saldoUsd + aVencerPesos.saldoUsd)}
+      description={`${n(aVencerUsd.cuotas + aVencerPesos.cuotas, "cuota", "cuotas")}${cobranza.ultimaCuota ? `, la última en ${mesLargo(cobranza.ultimaCuota)}` : ""}`}
+      note={`${int(aVencerUsd.cuotas)} en USD (${usdCorto(aVencerUsd.saldoUsd)}) · ${int(aVencerPesos.cuotas)} en pesos + CAC (${usdCorto(aVencerPesos.saldoUsd)})`}
+    />
+  );
   const tarjetaVencidas =
     cobranza.cuotasVencidas > 0 ? (
       <StatsCard
@@ -656,22 +667,19 @@ ${int(proyectada.cuotas)} cuotas restantes`,
             <StatsCard href="/crm/cuotas" title="Próximos 30 días" value={usdCorto(cobranza.proximos30dUsd)} description="Vencen en los próximos 30 días" />
           </div>
 
-          <Panel titulo="Estado de las cuotas" nota="Cantidad de cuotas de todos los planes y saldo en USD de cada grupo.">
-              <BarrasHorizontales
-                filas={cobranza.estadoCuotas.map((r) => ({
-                  nombre: r.estado,
-                  valor: r.cuotas,
-                  etiqueta: `${int(r.cuotas)} cuotas`,
-                  nota: r.saldoUsd > 0 ? `${usdCorto(r.saldoUsd)} de saldo` : "sin saldo",
-                  color: r.estado === "Vencidas" ? "bg-destructive" : r.estado === "Pagadas" ? "bg-muted-foreground/30" : "bg-primary",
-                }))}
-              />
-          </Panel>
-
           <div className="border-b pb-2 pt-2">
             <h2 className="font-serif text-2xl font-normal text-foreground">Futuro</h2>
             <p className="text-sm text-muted-foreground">Lo que falta cobrar, mes a mes, hasta la última cuota.</p>
           </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {tarjetaAVencer}
+            <StatsCard
+              title="Dólar usado"
+              value={cobranza.tipoCambio === null ? "—" : `$ ${int(cobranza.tipoCambio)}`}
+              description={`BNA vendedor del ${fecha(cobranza.fechaTipoCambio)}, para pasar cuotas en pesos a USD`}
+            />
+          </div>
+
           <Panel
             titulo="Cronograma de cobros"
             nota="USD a cobrar por mes de vencimiento, cuotas todavía no vencidas. Las cuotas en pesos ajustan por CAC: su monto futuro es una proyección, pasada a USD con el último dólar cargado."
@@ -689,14 +697,6 @@ ${int(proyectada.cuotas)} cuotas restantes`,
               }))}
             />
           </Panel>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatsCard href="/crm/cuotas" title="Saldo por cobrar" value={usdCorto(cobranza.porCobrarUsd)} description={`Cuotas restantes de ${int(cobranza.contratos)} contratos`} />
-            <StatsCard
-              title="Dólar usado"
-              value={cobranza.tipoCambio === null ? "—" : `$ ${int(cobranza.tipoCambio)}`}
-              description={`BNA vendedor del ${fecha(cobranza.fechaTipoCambio)}, para pasar cuotas en pesos a USD`}
-            />
-          </div>
 
           <div className="border-b pb-2 pt-2">
             <h2 className="font-serif text-2xl font-normal text-foreground">Detalle</h2>

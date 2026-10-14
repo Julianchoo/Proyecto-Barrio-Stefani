@@ -373,7 +373,7 @@ export async function getInsights() {
       diasAnticipoProm: ck.dias_anticipo_prom === null || ck.dias_anticipo_prom === undefined ? null : num(ck.dias_anticipo_prom),
       tipoCambio: ck.tipo_cambio === null || ck.tipo_cambio === undefined ? null : num(ck.tipo_cambio),
       fechaTipoCambio: str(ck.fecha_tc),
-      estadoCuotas: cuotasEstado.map((r) => ({ estado: String(r.estado), cuotas: num(r.cuotas), saldoUsd: num(r.saldo_usd) })),
+      estadoCuotas: cuotasEstado.map((r) => ({ orden: num(r.orden), estado: String(r.estado), cuotas: num(r.cuotas), saldoUsd: num(r.saldo_usd) })),
       cuotasActivas: (() => {
         const r = cuotasActivasRaw[0] ?? {};
         return {
