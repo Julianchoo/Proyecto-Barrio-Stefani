@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CargarTipoCambio } from "@/components/crm/cargar-tipo-cambio";
 import { StatsCard } from "@/components/crm/stats-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -718,6 +719,7 @@ ${int(proyectada.cuotas)} cuotas restantes`,
                       <TableHead className="text-right">Días de atraso</TableHead>
                       <TableHead className="text-right">Saldo</TableHead>
                       <TableHead className="text-right">Saldo USD</TableHead>
+                      <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -733,6 +735,11 @@ ${int(proyectada.cuotas)} cuotas restantes`,
                           {r.moneda} {new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(r.saldo)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{int(r.saldoUsd)}</TableCell>
+                        <TableCell className="text-right">
+                          <Link href={`/crm/cuotas/${r.reserva}`} className="text-sm font-medium text-primary hover:underline">
+                            Gestionar
+                          </Link>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

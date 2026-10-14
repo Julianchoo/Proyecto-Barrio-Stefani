@@ -233,7 +233,7 @@ export async function getInsights() {
       GROUP BY 1, 2 ORDER BY 2`),
     rows(sql`
       WITH ${cuotasBase}
-      SELECT q.id AS cuota, q.contrato_id AS contrato, pa.manzana, pa.parcela, q.numero,
+      SELECT q.id AS cuota, q.contrato_id AS contrato, r.id AS reserva, pa.manzana, pa.parcela, q.numero,
         to_char(q.fecha_vencimiento, 'YYYY-MM-DD') AS vencimiento,
         (SELECT d FROM hoy) - q.fecha_vencimiento AS dias_atraso,
         upper(q.moneda::text) AS moneda, q.saldo, round(q.saldo_usd) AS saldo_usd
@@ -387,6 +387,7 @@ export async function getInsights() {
       puntualidad: puntualidad.map((r) => ({ tramo: String(r.tramo), tarde: num(r.orden) >= 4, cuotas: num(r.cuotas) })),
       vencidas: cuotasVencidas.map((r) => ({
         cuota: num(r.cuota),
+        reserva: num(r.reserva),
         contrato: num(r.contrato),
         manzana: str(r.manzana),
         parcela: str(r.parcela),
