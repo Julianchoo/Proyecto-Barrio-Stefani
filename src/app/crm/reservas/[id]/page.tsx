@@ -133,8 +133,9 @@ export default function ReservaDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {reserva.nombreComprador ?? "Sin comprador"} · Lote {reserva.loteNumero} · Mz{" "}
-            {reserva.manzana ?? "-"} / Parc. {reserva.parcela ?? "-"}
+            {reserva.nombreComprador ?? "Sin comprador"} · Manzana {reserva.manzana ?? "-"} ·
+            Parcela {reserva.parcela ?? "-"}
+            <span className="ml-2 text-xs">Lote #{reserva.loteNumero}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

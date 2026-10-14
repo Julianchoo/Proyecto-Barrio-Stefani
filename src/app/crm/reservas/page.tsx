@@ -832,14 +832,15 @@ export default function ReservasPage({
           <Table className="min-w-[1180px]">
             <TableHeader className="bg-muted [&_th]:h-11 [&_th]:px-3 [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-normal [&_th]:text-muted-foreground">
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-36" />
+                <TableHead>
+                  <SortHeader sortKey="estado">Estado</SortHeader>
+                </TableHead>
                 <TableHead>
                   <SortHeader sortKey="loteNumero">Lote</SortHeader>
                 </TableHead>
                 <TableHead>
                   <SortHeader sortKey="nombreComprador">Comprador</SortHeader>
-                </TableHead>
-                <TableHead>
-                  <SortHeader sortKey="estado">Estado</SortHeader>
                 </TableHead>
                 <TableHead>
                   <SortHeader sortKey="fechaReserva">Fecha reserva</SortHeader>
@@ -859,7 +860,6 @@ export default function ReservasPage({
                 <TableHead>
                   <SortHeader sortKey="reservadoPor">Reservado por</SortHeader>
                 </TableHead>
-                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody className="[&_tr]:bg-card [&_tr:hover]:bg-muted [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-foreground">
@@ -878,25 +878,19 @@ export default function ReservasPage({
                       key={reserva.id}
                       className={isVigente(reserva.estado) ? undefined : "opacity-60"}
                     >
-                      <TableCell className="font-mono text-sm">
-                        <Link
-                          href={`/crm/lotes/${reserva.parcelaId}`}
-                          className="hover:underline"
-                          title="Ver lote"
-                        >
-                          {reserva.loteNumero}
-                          <span className="ml-2 font-sans text-xs text-muted-foreground">
-                            Mz {reserva.manzana ?? "-"} / Parc. {reserva.parcela ?? "-"}
-                          </span>
-                        </Link>
-                        <div className="font-sans text-xs text-muted-foreground">Reserva #{reserva.id}</div>
-                      </TableCell>
                       <TableCell>
-                        <div className="font-medium text-foreground">
-                          {reserva.nombreComprador ?? "-"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {reserva.dniCuit ?? reserva.emailComprador ?? reserva.telefono ?? "-"}
+                        <div className="flex items-center gap-1">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/crm/reservas/${reserva.id}`}>Ver</Link>
+                          </Button>
+                          {session?.user?.role === "admin" && (
+                            <Button asChild variant="ghost" size="sm">
+                              <Link href={`/crm/cuotas/${reserva.id}`}>
+                                <CreditCard className="mr-1 h-4 w-4" />
+                                Cuenta
+                              </Link>
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -909,6 +903,26 @@ export default function ReservasPage({
                             {estadoLabels[reserva.estado]}
                           </span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <Link
+                          href={`/crm/lotes/${reserva.parcelaId}`}
+                          className="whitespace-nowrap font-medium hover:underline"
+                          title="Ver lote"
+                        >
+                          Manzana {reserva.manzana ?? "-"} · Parcela {reserva.parcela ?? "-"}
+                        </Link>
+                        <div className="text-xs text-muted-foreground">
+                          Lote #{reserva.loteNumero} · Reserva #{reserva.id}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-foreground">
+                          {reserva.nombreComprador ?? "-"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {reserva.dniCuit ?? reserva.emailComprador ?? reserva.telefono ?? "-"}
+                        </div>
                       </TableCell>
                       <TableCell>{formatDate(reserva.fechaReserva)}</TableCell>
                       <TableCell>{formatDate(reserva.fechaVencimiento)}</TableCell>
@@ -938,21 +952,6 @@ export default function ReservasPage({
                         ) : (
                           reserva.reservadoPor ?? "-"
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button asChild variant="ghost" size="sm">
-                            <Link href={`/crm/reservas/${reserva.id}`}>Ver</Link>
-                          </Button>
-                          {session?.user?.role === "admin" && (
-                            <Button asChild variant="ghost" size="sm">
-                              <Link href={`/crm/cuotas/${reserva.id}`}>
-                                <CreditCard className="mr-1 h-4 w-4" />
-                                Cuenta
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

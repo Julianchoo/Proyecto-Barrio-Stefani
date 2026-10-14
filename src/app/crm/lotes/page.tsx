@@ -719,6 +719,8 @@ export default function LotesPage({
                   className="size-4 cursor-pointer accent-primary"
                 />
               </TableHead>
+              <TableHead className="w-16" />
+              <TableHead>Estado</TableHead>
               <TableHead className="w-12">N°</TableHead>
               <TableHead>Circ.</TableHead>
               <TableHead>Secc.</TableHead>
@@ -729,11 +731,9 @@ export default function LotesPage({
               <TableHead>Frente</TableHead>
               <TableHead>Fondo</TableHead>
               <TableHead>Precio base</TableHead>
-              <TableHead>Estado</TableHead>
               {activeOptionalCols.map((col) => (
                 <TableHead key={col.key}>{col.label}</TableHead>
               ))}
-              <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -766,25 +766,21 @@ export default function LotesPage({
                         className="size-4 cursor-pointer accent-primary"
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {lote.numero}
-                    </TableCell>
-                    <TableCell>{lote.circunscripcion ?? "—"}</TableCell>
-                    <TableCell>{lote.seccion ?? "—"}</TableCell>
-                    <TableCell>{lote.manzana ?? "—"}</TableCell>
-                    <TableCell>{lote.parcela ?? "—"}</TableCell>
-                    <TableCell>{lote.partidaArba ?? "—"}</TableCell>
                     <TableCell>
-                      {lote.superficieM2 ? `${lote.superficieM2} m²` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {lote.metrosFrente ? `${lote.metrosFrente} m` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {lote.metrosFondo ? `${lote.metrosFondo} m` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {formatMoneyString(lote.precioBase)}
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size={session?.user?.role === "admin" ? "icon" : "sm"}
+                        title={session?.user?.role === "admin" ? "Editar lote" : "Ver lote"}
+                      >
+                        <Link href={`/crm/lotes/${lote.id}`}>
+                          {session?.user?.role === "admin" ? (
+                            <Pencil className="h-4 w-4" />
+                          ) : (
+                            "Ver"
+                          )}
+                        </Link>
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <Select
@@ -815,27 +811,31 @@ export default function LotesPage({
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {lote.numero}
+                    </TableCell>
+                    <TableCell>{lote.circunscripcion ?? "—"}</TableCell>
+                    <TableCell>{lote.seccion ?? "—"}</TableCell>
+                    <TableCell>{lote.manzana ?? "—"}</TableCell>
+                    <TableCell>{lote.parcela ?? "—"}</TableCell>
+                    <TableCell>{lote.partidaArba ?? "—"}</TableCell>
+                    <TableCell>
+                      {lote.superficieM2 ? `${lote.superficieM2} m²` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {lote.metrosFrente ? `${lote.metrosFrente} m` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {lote.metrosFondo ? `${lote.metrosFondo} m` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {formatMoneyString(lote.precioBase)}
+                    </TableCell>
                     {activeOptionalCols.map((col) => (
                       <TableCell key={col.key} className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {getCellValue(lote, col.key)}
                       </TableCell>
                     ))}
-                    <TableCell>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size={session?.user?.role === "admin" ? "icon" : "sm"}
-                        title={session?.user?.role === "admin" ? "Editar lote" : "Ver lote"}
-                      >
-                        <Link href={`/crm/lotes/${lote.id}`}>
-                          {session?.user?.role === "admin" ? (
-                            <Pencil className="h-4 w-4" />
-                          ) : (
-                            "Ver"
-                          )}
-                        </Link>
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 )})}
           </TableBody>

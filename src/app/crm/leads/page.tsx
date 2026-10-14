@@ -465,15 +465,15 @@ export default function LeadsPage({
                   className="size-4 cursor-pointer accent-primary"
                 />
               </TableHead>
+              <TableHead className="w-24">Acciones</TableHead>
+              <TableHead>Estado</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Mensaje</TableHead>
               <TableHead>Lote de interés</TableHead>
-              <TableHead>Estado</TableHead>
               <TableHead>Asignado a</TableHead>
               <TableHead>Fecha</TableHead>
-              <TableHead className="w-24">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -502,28 +502,30 @@ export default function LeadsPage({
                         className="size-4 cursor-pointer accent-primary"
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{lead.nombre}</TableCell>
-                    <TableCell className="text-sm">{lead.telefono}</TableCell>
-                    <TableCell className="text-sm">{lead.email}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                      {lead.mensaje ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {lead.parcelaId ? (
-                        <>
-                          <Link href={`/crm/lotes/${lead.parcelaId}`} className="font-medium text-primary hover:underline">
-                            Mz {lead.loteManzana} · Lote {lead.loteParcela}
-                          </Link>
-                          {lead.simulacion && (
-                            <p className="whitespace-nowrap text-xs text-muted-foreground">
-                              {formatUsd(lead.simulacion.anticipo)} + {lead.simulacion.plazo} ×{" "}
-                              {formatUsd(lead.simulacion.cuotaMensual)}
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        "—"
-                      )}
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {canEditLead(lead) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(lead)}
+                            aria-label={`Editar ${lead.nombre}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteLead(lead)}
+                            disabled={deletingId === lead.id}
+                            aria-label={`Borrar ${lead.nombre}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {canEditLead(lead) ? (
@@ -556,6 +558,29 @@ export default function LeadsPage({
                         </span>
                       )}
                     </TableCell>
+                    <TableCell className="font-medium">{lead.nombre}</TableCell>
+                    <TableCell className="text-sm">{lead.telefono}</TableCell>
+                    <TableCell className="text-sm">{lead.email}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                      {lead.mensaje ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {lead.parcelaId ? (
+                        <>
+                          <Link href={`/crm/lotes/${lead.parcelaId}`} className="font-medium text-primary hover:underline">
+                            Manzana {lead.loteManzana} · Parcela {lead.loteParcela}
+                          </Link>
+                          {lead.simulacion && (
+                            <p className="whitespace-nowrap text-xs text-muted-foreground">
+                              {formatUsd(lead.simulacion.anticipo)} + {lead.simulacion.plazo} ×{" "}
+                              {formatUsd(lead.simulacion.cuotaMensual)}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>
                       {isAdmin ? (
                         <Select
@@ -586,31 +611,6 @@ export default function LeadsPage({
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(lead.createdAt).toLocaleDateString("es-AR")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {canEditLead(lead) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(lead)}
-                            aria-label={`Editar ${lead.nombre}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteLead(lead)}
-                            disabled={deletingId === lead.id}
-                            aria-label={`Borrar ${lead.nombre}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

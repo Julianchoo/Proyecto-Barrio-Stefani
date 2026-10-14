@@ -578,9 +578,9 @@ export default function CuentaDetallePage() {
             </p>
             <div className="bg-muted/40 rounded-md border px-3 py-2">
               <p className="text-foreground font-medium">
-                Lote {reservaForCuenta.loteNumero}
-                <span className="text-muted-foreground ml-2 font-normal">
-                  Mz {reservaForCuenta.manzana ?? "-"} / Parc. {reservaForCuenta.parcela ?? "-"}
+                Manzana {reservaForCuenta.manzana ?? "-"} · Parcela {reservaForCuenta.parcela ?? "-"}
+                <span className="text-muted-foreground ml-2 text-xs font-normal">
+                  Lote #{reservaForCuenta.loteNumero}
                 </span>
               </p>
               <p className="mt-1">{reservaForCuenta.nombreComprador ?? "Comprador sin nombre"}</p>
@@ -730,9 +730,9 @@ export default function CuentaDetallePage() {
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle className="text-base font-medium">
-                  Lote {detail.loteNumero}
-                  <span className="text-muted-foreground ml-2 text-sm font-normal">
-                    Mz {detail.manzana ?? "-"} / Parc. {detail.parcela ?? "-"}
+                  Manzana {detail.manzana ?? "-"} · Parcela {detail.parcela ?? "-"}
+                  <span className="text-muted-foreground ml-2 text-xs font-normal">
+                    Lote #{detail.loteNumero}
                   </span>
                 </CardTitle>
               </CardHeader>

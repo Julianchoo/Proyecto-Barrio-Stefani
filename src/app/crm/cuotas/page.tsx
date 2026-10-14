@@ -1028,11 +1028,11 @@ export default function CuotasPage({
                     </TableCell>
                   )}
                   {visibleSummaryCols.lote && (
-                    <TableCell className="font-mono text-sm">
-                      {row.loteNumero}
-                      <span className="ml-2 font-sans text-xs text-muted-foreground">
-                        Mz {row.manzana ?? "-"} / Parc. {row.parcela ?? "-"}
-                      </span>
+                    <TableCell className="text-sm">
+                      <div className="whitespace-nowrap font-medium">
+                        Manzana {row.manzana ?? "-"} · Parcela {row.parcela ?? "-"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Lote #{row.loteNumero}</div>
                     </TableCell>
                   )}
                   {visibleSummaryCols.cliente && (
