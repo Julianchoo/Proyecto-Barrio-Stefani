@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBnaBilleteVendedor } from "@/lib/bna-exchange-rate";
-import { getInsights } from "@/lib/insights";
+import { getInsights, type Insights } from "@/lib/insights";
 import { requireAdmin } from "@/lib/session";
 import { argentinaTodayKey } from "@/lib/tipos-cambio";
 import { cn } from "@/lib/utils";
@@ -172,9 +172,93 @@ function Panel({ titulo, nota, children, className }: { titulo: string; nota: st
   );
 }
 
+type FacturacionTotal = Insights["facturacionTotal"];
+
+function Linea({ nombre, nota, valor, fuerte = false }: { nombre: string; nota?: string; valor: number; fuerte?: boolean }) {
+  return (
+    <div className={cn("flex items-baseline justify-between gap-4 py-1.5", fuerte ? "text-sm font-medium text-foreground" : "pl-4 text-sm text-muted-foreground")}>
+      <span>
+        {nombre}
+        {nota && <span className="ml-1.5 text-xs text-muted-foreground/70">{nota}</span>}
+      </span>
+      <span className="shrink-0 tabular-nums">{usd(valor)}</span>
+    </div>
+  );
+}
+
+function ResumenFacturacion({ t }: { t: FacturacionTotal }) {
+  const tramos = [
+    { nombre: "Ya cobrado", valor: t.totalCobrado, color: "bg-primary" },
+    { nombre: "Falta cobrar de ventas firmadas", valor: t.totalACobrar, color: "bg-primary/40" },
+    { nombre: "Lotes por vender (precio de lista)", valor: t.valuacionRestantes, color: "bg-muted-foreground/25" },
+  ];
+  const total = t.total || 1;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-medium">Facturación total del barrio</CardTitle>
+        <CardDescription>Todo lo que ya entró, lo que falta cobrar de las ventas firmadas y lo que valen los lotes que quedan.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <p className="text-3xl font-semibold tracking-tight tabular-nums">{usd(t.total)}</p>
+          <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-muted">
+            {tramos.map((x) => (
+              <div key={x.nombre} className={x.color} style={{ width: `${(x.valor / total) * 100}%` }} />
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            {tramos.map((x) => (
+              <span key={x.nombre} className="flex items-center gap-1.5">
+                <span className={cn("inline-block h-2.5 w-2.5 rounded-sm", x.color)} />
+                {x.nombre} <span className="tabular-nums text-foreground">{usdCorto(x.valor)}</span> · {pct(x.valor / total)}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="divide-y">
+          <div className="pb-2">
+            <Linea nombre="Ya cobrado" valor={t.totalCobrado} fuerte />
+            <Linea nombre="Ventas de contado" nota={`${int(t.ventasContado)} ventas, cobradas al firmar`} valor={t.cobrado.contado} />
+            <Linea nombre="Anticipos" nota="cobrados al firmar" valor={t.cobrado.anticipos} />
+            <Linea nombre="Cuotas cobradas" valor={t.cobrado.cuotas} />
+          </div>
+          <div className="py-2">
+            <Linea nombre="Falta cobrar de ventas firmadas" valor={t.totalACobrar} fuerte />
+            <Linea nombre="Cuotas pendientes" nota="vencidas y a vencer" valor={t.aCobrar.cuotas} />
+            {t.aCobrar.sinCuenta > 0 && (
+              <Linea nombre="Saldo de ventas sin cuenta corriente" nota={`${int(t.ventasSinCuenta)} ventas`} valor={t.aCobrar.sinCuenta} />
+            )}
+          </div>
+          <div className="py-2">
+            <Linea nombre="Total de ventas firmadas" valor={t.totalVendido} fuerte />
+            <Linea nombre="Facturación vendida" nota="precio de los boletos" valor={t.facturacionVendida} />
+            <Linea nombre="Ajuste CAC y dólar" nota="cuotas en pesos ajustadas por CAC, al dólar de hoy" valor={t.ajusteCacDolar} />
+          </div>
+          <div className="py-2">
+            <Linea
+              nombre="Lotes por vender"
+              nota={`precio de lista de ${int(t.lotesRestantes - t.lotesSinPrecio)} lotes${t.lotesSinPrecio > 0 ? ` · ${int(t.lotesSinPrecio)} sin precio, no incluidos` : ""}`}
+              valor={t.valuacionRestantes}
+              fuerte
+            />
+          </div>
+          <div className="pt-2">
+            <div className="flex items-baseline justify-between gap-4 py-1.5 text-base font-semibold text-foreground">
+              <span>Total a facturar</span>
+              <span className="tabular-nums">{usd(t.total)}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function InsightsPage() {
   await requireAdmin();
-  const { ventas, cobranza } = await getInsights();
+  const { ventas, cobranza, facturacionTotal } = await getInsights();
 
   const ultimo = ventas.porMes[ventas.porMes.length - 1];
   const anterior = ventas.porMes[ventas.porMes.length - 2];
@@ -212,6 +296,7 @@ export default async function InsightsPage() {
         </TabsList>
 
         <TabsContent value="ventas" className="space-y-6">
+          <ResumenFacturacion t={facturacionTotal} />
           {ultimo && (
             <p className="text-sm text-muted-foreground">
               El último mes con firmas fue {mesLargo(ultimo.mes)}: se firmaron{" "}

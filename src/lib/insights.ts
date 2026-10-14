@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 // Métricas de ventas y cobranza para /crm/insights (solo admins).
 // Venta = reserva "realizada", fechada por fecha de firma, en USD (precio_total_num).
 // Cuotas en pesos se pasan a USD con el último dólar BNA vendedor cargado.
-// Se excluyen contratos de reservas canceladas.
+// Solo cuentan contratos de ventas firmadas (reserva realizada), como la cuenta corriente.
 
 // El estado de cada cuota se recalcula con la fecha de hoy, con la misma regla que
 // statusForCuota en cuenta-corriente.ts: si cambia allá, hay que cambiarlo acá.
@@ -22,7 +22,7 @@ const cuotasBase = sql`
     FROM cuotas c
     JOIN contratos k ON k.id = c.contrato_id
     JOIN reservas r ON r.id = k.reserva_id
-    WHERE r.estado <> 'cancelada' AND c.estado <> 'cancelada'
+    WHERE r.estado = 'realizada' AND c.estado <> 'cancelada'
   )`;
 
 // Una fila por cuota pagada: días entre el vencimiento y el último pago que la canceló.
@@ -33,7 +33,7 @@ const pagosConCuota = sql`
     JOIN contratos k ON k.id = c.contrato_id
     JOIN reservas r ON r.id = k.reserva_id
     JOIN pagos pg ON pg.cuota_id = c.id AND pg.estado = 'activo'
-    WHERE r.estado <> 'cancelada' AND c.estado <> 'cancelada' AND c.saldo::numeric <= 0
+    WHERE r.estado = 'realizada' AND c.estado <> 'cancelada' AND c.saldo::numeric <= 0
     GROUP BY c.id, c.fecha_vencimiento
   )`;
 
@@ -76,7 +76,19 @@ export async function getInsights() {
         -- Precio de lista: precio_base y, si falta, precio_etapa1 (igual que la API de parcelas).
         (SELECT round(sum(coalesce(precio_base, precio_etapa1)::numeric)) FROM parcelas WHERE estado <> 'vendido') AS valuacion_restantes_usd,
         (SELECT count(*) FROM parcelas WHERE estado <> 'vendido') AS lotes_restantes,
-        (SELECT count(*) FROM parcelas WHERE estado <> 'vendido' AND coalesce(precio_base, precio_etapa1) IS NULL) AS lotes_sin_precio`),
+        (SELECT count(*) FROM parcelas WHERE estado <> 'vendido' AND coalesce(precio_base, precio_etapa1) IS NULL) AS lotes_sin_precio,
+        -- Desglose de la facturación vendida. Precio del boleto = anticipo + cuotas (con interés).
+        -- Contado y anticipos se cobran al firmar.
+        (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS contado_usd,
+        (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS ventas_contado,
+        (SELECT round(sum(CASE WHEN trim(anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(anticipo_num)::numeric ELSE 0 END))
+          FROM reservas WHERE estado = 'realizada' AND forma_pago IS DISTINCT FROM 'contado') AS anticipos_usd,
+        -- Ventas financiadas que todavía no tienen cuenta corriente: su saldo aún no está en cuotas.
+        (SELECT round(sum(r.precio_total_num::numeric - CASE WHEN trim(r.anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(r.anticipo_num)::numeric ELSE 0 END))
+          FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+          WHERE r.estado = 'realizada' AND r.forma_pago IS DISTINCT FROM 'contado' AND k.id IS NULL) AS saldo_sin_cuenta_usd,
+        (SELECT count(*) FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+          WHERE r.estado = 'realizada' AND r.forma_pago IS DISTINCT FROM 'contado' AND k.id IS NULL) AS ventas_sin_cuenta`),
     rows(sql`
       SELECT to_char(date_trunc('month', fecha_firma), 'YYYY-MM') AS mes, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
       FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NOT NULL
@@ -200,7 +212,38 @@ export async function getInsights() {
   const ck = cobranzaKpis[0] ?? {};
   const enVenta = num(vk.lotes_en_venta);
 
+  // Todo lo que entra por el barrio: lo cobrado, lo comprometido en ventas firmadas y los lotes por vender.
+  const cobrado = {
+    contado: num(vk.contado_usd),
+    anticipos: num(vk.anticipos_usd),
+    cuotas: num(vk.cobrado_usd),
+  };
+  const aCobrar = {
+    cuotas: num(ck.por_cobrar_usd),
+    sinCuenta: num(vk.saldo_sin_cuenta_usd),
+  };
+  const totalCobrado = cobrado.contado + cobrado.anticipos + cobrado.cuotas;
+  const totalACobrar = aCobrar.cuotas + aCobrar.sinCuenta;
+  const totalVendido = totalCobrado + totalACobrar;
+  const valuacionRestantes = num(vk.valuacion_restantes_usd);
+
   return {
+    facturacionTotal: {
+      cobrado,
+      totalCobrado,
+      ventasContado: num(vk.ventas_contado),
+      aCobrar,
+      totalACobrar,
+      ventasSinCuenta: num(vk.ventas_sin_cuenta),
+      totalVendido,
+      facturacionVendida: num(vk.facturacion_usd),
+      // Las cuotas en pesos ajustan por CAC y se pasan a USD al dólar: lo que se cobra difiere del precio del boleto.
+      ajusteCacDolar: totalVendido - num(vk.facturacion_usd),
+      valuacionRestantes,
+      lotesRestantes: num(vk.lotes_restantes),
+      lotesSinPrecio: num(vk.lotes_sin_precio),
+      total: totalVendido + valuacionRestantes,
+    },
     ventas: {
       lotesVendidos: num(vk.lotes_vendidos),
       facturacionUsd: num(vk.facturacion_usd),
