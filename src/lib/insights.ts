@@ -37,9 +37,6 @@ const pagosConCuota = sql`
     GROUP BY c.id, c.fecha_vencimiento
   )`;
 
-// ponytail: tasa fija para el valor presente de las cuotas; pasarla a configuración si la quieren cambiar seguido.
-export const TASA_DESCUENTO_ANUAL = 0.08;
-
 const cuotasDe = (col: string) =>
   sql.raw(`coalesce(k.cantidad_cuotas, nullif(regexp_replace(${col}, '[^0-9]', '', 'g'), '')::int)`);
 
@@ -64,7 +61,7 @@ export async function getInsights() {
     proyeccion,
     ventasPlazo,
     rentabilidadRaw,
-    valorPresenteRaw,
+    cuotasActivasRaw,
     cuotasEstado,
     porCobrarMes,
     puntualidad,
@@ -90,6 +87,9 @@ export async function getInsights() {
         -- Contado y anticipos se cobran al firmar.
         (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS contado_usd,
         (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS ventas_contado,
+        (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND forma_pago IS DISTINCT FROM 'contado') AS ventas_financiadas,
+        (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NULL) AS firmas_sin_fecha,
+        (SELECT round(coalesce(sum(precio_total_num::numeric), 0)) FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NULL) AS firmas_sin_fecha_usd,
         (SELECT round(sum(CASE WHEN trim(anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(anticipo_num)::numeric ELSE 0 END))
           FROM reservas WHERE estado = 'realizada' AND forma_pago IS DISTINCT FROM 'contado') AS anticipos_usd,
         -- Ventas financiadas que todavía no tienen cuenta corriente: su saldo aún no está en cuotas.
@@ -140,6 +140,7 @@ export async function getInsights() {
         count(DISTINCT contrato_id) AS contratos,
         round(coalesce(sum(saldo_usd) FILTER (WHERE est = 'a_vencer' AND fecha_vencimiento < (SELECT d FROM hoy) + 30), 0)) AS proximos_30d_usd,
         count(*) FILTER (WHERE est = 'pagada') AS cuotas_pagadas,
+        count(*) FILTER (WHERE est <> 'pagada') AS cuotas_pendientes,
         count(*) AS cuotas_totales,
         to_char(max(fecha_vencimiento), 'YYYY-MM') AS ultima_cuota,
         (SELECT avg((dias <= 0)::int) FROM p) AS pct_a_tiempo,
@@ -189,11 +190,18 @@ export async function getInsights() {
         round(sum(precio) FILTER (WHERE lista IS NULL)) AS precio_sin_lista,
         round(sum(precio) / nullif(sum(m2), 0)) AS precio_m2
       FROM v`),
+    // Cuotas activas: la próxima cuota a vencer de cada contrato, o sea lo que entra por mes hoy.
     rows(sql`
-      WITH ${cuotasBase}
-      SELECT round(coalesce(sum(saldo_usd / power(1 + ${TASA_DESCUENTO_ANUAL}::numeric,
-        greatest(fecha_vencimiento - (SELECT d FROM hoy), 0) / 365.0)), 0)) AS valor_presente
-      FROM q WHERE est <> 'pagada'`),
+      WITH ${cuotasBase},
+      prox AS (
+        SELECT DISTINCT ON (contrato_id) contrato_id, moneda, saldo_usd
+        FROM q WHERE est = 'a_vencer'
+        ORDER BY contrato_id, fecha_vencimiento
+      )
+      SELECT
+        count(*) FILTER (WHERE moneda = 'usd') AS en_usd, round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'usd'), 0)) AS en_usd_usd,
+        count(*) FILTER (WHERE moneda = 'ars') AS en_pesos, round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'ars'), 0)) AS en_pesos_usd
+      FROM prox`),
     rows(sql`
       WITH ${cuotasBase}
       SELECT x.estado, x.orden, count(q.id) AS cuotas, round(coalesce(sum(q.saldo_usd), 0)) AS saldo_usd
@@ -281,6 +289,10 @@ export async function getInsights() {
       cobrado,
       totalCobrado,
       ventasContado: num(vk.ventas_contado),
+      ventasFinanciadas: num(vk.ventas_financiadas),
+      cuotasCobradas: num(ck.cuotas_pagadas),
+      cuotasPendientes: num(ck.cuotas_pendientes),
+      lotesVendidos: num(vk.lotes_vendidos),
       aCobrar,
       totalACobrar,
       ventasSinCuenta: num(vk.ventas_sin_cuenta),
@@ -299,7 +311,6 @@ export async function getInsights() {
       const precioFin = num(r.precio_financiadas);
       const listaCont = num(r.lista_contado);
       const precioCont = num(r.precio_contado);
-      const valorPresente = num(valorPresenteRaw[0]?.valor_presente);
       return {
         listaVendida: listaFin + listaCont,
         interesFinanciacion: precioFin - listaFin,
@@ -308,12 +319,10 @@ export async function getInsights() {
         precioSinLista: num(r.precio_sin_lista),
         precioM2: num(r.precio_m2),
         ajusteCacDolar: totalVendido - num(vk.facturacion_usd),
-        cuotasACobrar: num(ck.por_cobrar_usd),
-        valorPresente,
-        tasaDescuento: TASA_DESCUENTO_ANUAL,
       };
     })(),
     ventas: {
+      firmasSinFecha: { ventas: num(vk.firmas_sin_fecha), usd: num(vk.firmas_sin_fecha_usd) },
       porPlazo: ventasPlazo.map((r) => ({ tramo: String(r.tramo), ventas: num(r.ventas), usd: num(r.usd) })),
       plazoPromedio: ventasPlazo[0]?.plazo_promedio == null ? null : num(ventasPlazo[0].plazo_promedio),
       lotesVendidos: num(vk.lotes_vendidos),
@@ -365,6 +374,15 @@ export async function getInsights() {
       tipoCambio: ck.tipo_cambio === null || ck.tipo_cambio === undefined ? null : num(ck.tipo_cambio),
       fechaTipoCambio: str(ck.fecha_tc),
       estadoCuotas: cuotasEstado.map((r) => ({ estado: String(r.estado), cuotas: num(r.cuotas), saldoUsd: num(r.saldo_usd) })),
+      cuotasActivas: (() => {
+        const r = cuotasActivasRaw[0] ?? {};
+        return {
+          enUsd: num(r.en_usd),
+          enUsdUsd: num(r.en_usd_usd),
+          enPesos: num(r.en_pesos),
+          enPesosUsd: num(r.en_pesos_usd),
+        };
+      })(),
       porMes: porCobrarMes.map((r) => ({ mes: String(r.mes), enUsd: num(r.en_usd), enPesos: num(r.en_pesos), cuotas: num(r.cuotas) })),
       puntualidad: puntualidad.map((r) => ({ tramo: String(r.tramo), tarde: num(r.orden) >= 4, cuotas: num(r.cuotas) })),
       vencidas: cuotasVencidas.map((r) => ({
