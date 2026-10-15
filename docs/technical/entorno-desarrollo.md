@@ -1,7 +1,7 @@
 # Entorno de desarrollo y base de datos
 
 Regla principal: **en local se trabaja contra la base de desarrollo, nunca contra producción.**
-Producción solo la toca Vercel (deploys) o una persona que lo hace a propósito.
+A producción solo se conecta la app deployada en Vercel, o una persona que lo hace a propósito (por ejemplo, para migrarla).
 
 ## Bases de datos
 
@@ -45,8 +45,17 @@ trae las variables de Vercel, que apuntan a producción: después de correrlo, r
    (por ejemplo marcar registros existentes), agregar el SQL al final del archivo.
 3. `pnpm run db:migrate` → aplica la migración **en dev** (usa el `POSTGRES_URL` del `.env`).
 4. Probar en local.
-5. Commit + push. **Producción se migra sola en el deploy**: el build de Vercel corre
-   `pnpm run db:migrate && next build` contra la base de producción.
+5. Commit + push a `master`. **El deploy de producción migra solo**: el `buildCommand` de
+   `vercel.json` corre `pnpm run db:migrate` antes de `next build` cuando `VERCEL_ENV=production`.
+   Si la migración falla, el build falla y queda online el deploy anterior.
+   Los deploys de preview **no** migran (pueden compartir la base de producción).
+
+Si hace falta migrar producción sin deployar (por ejemplo, un deploy que salió sin migrar):
+una persona, a propósito, con la URL de producción (`main`) solo para este comando:
+
+```bash
+POSTGRES_URL="<url de producción>" pnpm run db:migrate
+```
 
 Consecuencias:
 

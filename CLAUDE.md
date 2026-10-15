@@ -105,7 +105,7 @@ BLOB_READ_WRITE_TOKEN=  # Leave empty for local dev, set for Vercel Blob in prod
 
 ```bash
 npm run dev          # Start dev server (DON'T run this yourself - ask user)
-npm run build        # Build for production (runs db:migrate first)
+npm run build        # Build with db:migrate first (Vercel production uses vercel.json buildCommand)
 npm run build:ci     # Build without database (for CI/CD pipelines)
 npm run start        # Start production server
 npm run lint         # Run ESLint (ALWAYS run after changes)
@@ -170,7 +170,7 @@ The project includes technical documentation in `docs/`:
    - Always run migrations after schema changes
    - PostgreSQL is the database (not SQLite, MySQL, etc.)
    - Local `.env` points to the Neon `dev` branch (`ep-fragrant-dust`). Never run migrations,
-     `db:push` or writes against production (`ep-wandering-lake`); production migrates on deploy.
+     `db:push` or writes against production (`ep-wandering-lake`). Production deploys run db:migrate before next build (vercel.json, only when VERCEL_ENV=production); previews do not migrate.
      See `docs/technical/entorno-desarrollo.md`
 
 7. **File Storage**

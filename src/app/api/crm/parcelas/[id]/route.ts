@@ -563,6 +563,7 @@ export async function PUT(
         { status: 400 }
       );
     }
+    console.error("PUT /api/crm/parcelas/[id]", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }
