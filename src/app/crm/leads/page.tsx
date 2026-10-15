@@ -33,7 +33,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { formatUsd } from "@/lib/financiacion";
-import type { EstadoLead, SimulacionLead } from "@/lib/schema";
+import type { EstadoLead, OrigenLead, SimulacionLead } from "@/lib/schema";
 
 type LeadRow = {
   id: number;
@@ -55,8 +55,18 @@ type LeadRow = {
   loteManzana: string | null;
   loteParcela: string | null;
   simulacion: SimulacionLead | null;
+  origen: OrigenLead;
+  referidoPor: string | null;
+  referidoNombre: string | null;
   createdAt: string;
 };
+
+function origenLabel(lead: LeadRow) {
+  if (lead.origen === "web") return "Formulario web";
+  // Sin referente: leads cargados antes de que se registrara quién los cargó.
+  if (lead.origen === "crm") return lead.referidoNombre ? `Cargado por ${lead.referidoNombre}` : "Carga manual";
+  return `Link de ${lead.referidoNombre ?? "usuario borrado"}`;
+}
 
 type UsuarioRow = {
   id: string;
@@ -414,7 +424,7 @@ export default function LeadsPage({
 
   const allSelected = leads.length > 0 && selected.size === leads.length;
   const someSelected = selected.size > 0 && selected.size < leads.length;
-  const colCount = isAdmin ? 10 : 9;
+  const colCount = isAdmin ? 11 : 10;
 
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
@@ -472,6 +482,7 @@ export default function LeadsPage({
               <TableHead>Email</TableHead>
               <TableHead>Mensaje</TableHead>
               <TableHead>Lote de interés</TableHead>
+              <TableHead>Origen</TableHead>
               <TableHead>Asignado a</TableHead>
               <TableHead>Fecha</TableHead>
             </TableRow>
@@ -581,6 +592,7 @@ export default function LeadsPage({
                         "—"
                       )}
                     </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{origenLabel(lead)}</TableCell>
                     <TableCell>
                       {isAdmin ? (
                         <Select
@@ -607,6 +619,15 @@ export default function LeadsPage({
                         <span className="text-sm text-muted-foreground">
                           {lead.asignadoNombre ?? "—"}
                         </span>
+                      )}
+                      {lead.asignadoA && (
+                        <p className="mt-0.5 whitespace-nowrap text-xs text-muted-foreground">
+                          {lead.asignadoA !== lead.referidoPor
+                            ? "Asignación manual"
+                            : lead.origen === "link_comercial"
+                              ? "Automática por link"
+                              : "Automática: lo cargó"}
+                        </p>
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">

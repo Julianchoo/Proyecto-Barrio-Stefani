@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarDays,
   CreditCard,
+  Globe,
   History,
   LayoutDashboard,
   LogOut,
@@ -16,8 +17,7 @@ import {
   Users,
   UserCog,
 } from "lucide-react";
-import { BnaExchangeRateIndicator } from "@/components/bna-exchange-rate-indicator";
-import { Button } from "@/components/ui/button";
+import { BnaExchangeRateIndicator } from "@/components/bna-exchange-rate-indicator";import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { signOut, useSession } from "@/lib/auth-client";
@@ -91,6 +91,17 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       </div>
 
       <div className="border-t p-4 space-y-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground"
+        >
+          <Link href="/" {...(onClose ? { onClick: onClose } : {})}>
+            <Globe className="h-4 w-4 mr-2" />
+            Ver sitio público
+          </Link>
+        </Button>
         <BnaExchangeRateIndicator
           enabled={canViewRate}
           className="flex flex-col rounded-lg border bg-muted/40 px-3 py-2"

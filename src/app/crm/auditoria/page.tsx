@@ -62,6 +62,7 @@ const fieldLabels: Record<string, string> = {
   estado: "Estado",
   leadId: "Lead",
   asignadoA: "Asignado a",
+  referidoPor: "Originado por",
   reservadoPor: "Reservado por",
   nombreComprador: "Comprador",
   dniCuit: "DNI / CUIT",
@@ -166,7 +167,8 @@ export default function AuditoriaPage() {
 
   function formatValue(key: string, value: unknown) {
     if (value === null || value === undefined || value === "") return "—";
-    if (key === "asignadoA" && typeof value === "string") return userNames.get(value) ?? value;
+    if ((key === "asignadoA" || key === "referidoPor") && typeof value === "string")
+      return userNames.get(value) ?? value;
     if (typeof value === "object") return JSON.stringify(value);
     return String(value);
   }

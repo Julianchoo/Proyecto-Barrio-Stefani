@@ -35,6 +35,10 @@ export const estadoLeadEnum = pgEnum("estado_lead", [
   "closed_lost",
 ]);
 
+// Cómo entró el lead: formulario web, link compartido por un comercial o carga manual en el CRM.
+export const origenLeadEnum = pgEnum("origen_lead", ["web", "link_comercial", "crm"]);
+export type OrigenLead = (typeof origenLeadEnum.enumValues)[number];
+
 export const estadoReservaEnum = pgEnum("estado_reserva", [
   "activa",
   "cancelada",
@@ -264,6 +268,11 @@ export const leads = pgTable(
       onDelete: "set null",
     }),
     simulacion: jsonb("simulacion").$type<SimulacionLead>(),
+    origen: origenLeadEnum("origen").default("web").notNull(),
+    // Quién originó el lead: el dueño del link del mapa o quien lo cargó en el CRM.
+    referidoPor: text("referido_por").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

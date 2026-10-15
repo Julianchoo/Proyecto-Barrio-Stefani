@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { leads, parcelas, user } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoLead } from "@/lib/schema";
 import { z } from "zod";
@@ -20,6 +21,8 @@ const createLeadSchema = z.object({
   cuitComprador: z.string().optional().nullable(),
   notas: z.string().optional().nullable(),
 });
+
+const referente = alias(user, "referente");
 
 export async function GET(request: Request) {
   const authResult = await requireApiAuth();
@@ -48,6 +51,9 @@ export async function GET(request: Request) {
     loteManzana: parcelas.manzana,
     loteParcela: parcelas.parcela,
     simulacion: leads.simulacion,
+    origen: leads.origen,
+    referidoPor: leads.referidoPor,
+    referidoNombre: referente.name,
     createdAt: leads.createdAt,
     updatedAt: leads.updatedAt,
   };
@@ -61,6 +67,7 @@ export async function GET(request: Request) {
     .from(leads)
     .leftJoin(user, eq(leads.asignadoA, user.id))
     .leftJoin(parcelas, eq(leads.parcelaId, parcelas.id))
+    .leftJoin(referente, eq(leads.referidoPor, referente.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(leads.createdAt);
 
@@ -107,6 +114,8 @@ export async function POST(request: Request) {
       notas: notas ?? null,
       asignadoA: authResult.id,
       estado: "asignado",
+      origen: "crm",
+      referidoPor: authResult.id,
     })
     .returning();
   if (created) {

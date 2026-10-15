@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -34,8 +34,27 @@ export type ConsultaLote = {
   plazo?: number | undefined;
 };
 
+// Link compartido por un comercial (?ref=<userId>). Se guarda en el navegador para que
+// valga aunque el visitante navegue a otra página antes de consultar; gana el último link.
+function guardarRef() {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("ref");
+    if (fromUrl) localStorage.setItem("ref", fromUrl);
+  } catch {}
+}
+
+function leerRef(): string | undefined {
+  try {
+    return localStorage.getItem("ref") ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function ContactForm({ consulta }: { consulta?: ConsultaLote }) {
   const [success, setSuccess] = useState(false);
+
+  useEffect(guardarRef, []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -49,6 +68,7 @@ export function ContactForm({ consulta }: { consulta?: ConsultaLote }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
+          ref: leerRef(),
           ...(consulta && {
             parcelaId: consulta.parcelaId,
             anticipo: consulta.anticipo,

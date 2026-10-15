@@ -9,7 +9,7 @@ import {
   PLAZO_MAX_PUBLICO,
   TASA_PUBLICA,
 } from "@/lib/financiacion";
-import { leads, parcelas, type SimulacionLead } from "@/lib/schema";
+import { leads, parcelas, user, type SimulacionLead } from "@/lib/schema";
 
 const createLeadSchema = z.object({
   nombre: z.string().min(2).max(100),
@@ -20,6 +20,8 @@ const createLeadSchema = z.object({
   parcelaId: z.number().int().positive().optional(),
   anticipo: z.number().positive().optional(),
   plazo: z.number().int().min(1).max(PLAZO_MAX_PUBLICO).optional(),
+  // Id del comercial que compartió el link del mapa (?ref=...).
+  ref: z.string().max(100).optional(),
 });
 
 export async function POST(request: Request) {
@@ -56,6 +58,11 @@ export async function POST(request: Request) {
       }
     }
 
+    // Un ref que no corresponde a un usuario se ignora: el lead entra como web, sin asignar.
+    const [referente] = data.ref
+      ? await db.select({ id: user.id }).from(user).where(eq(user.id, data.ref))
+      : [];
+
     const inserted = await db
       .insert(leads)
       .values({
@@ -63,9 +70,12 @@ export async function POST(request: Request) {
         telefono: data.telefono,
         email: data.email,
         mensaje: data.mensaje ?? null,
-        estado: "nuevo",
+        estado: referente ? "asignado" : "nuevo",
         parcelaId: data.parcelaId ?? null,
         simulacion,
+        origen: referente ? "link_comercial" : "web",
+        referidoPor: referente?.id ?? null,
+        asignadoA: referente?.id ?? null,
       })
       .returning();
     if (inserted[0]) {

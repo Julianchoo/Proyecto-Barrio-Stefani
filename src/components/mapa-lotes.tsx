@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { Loader2 } from "lucide-react";
 import { CalculadoraCuota, type Simulacion } from "@/components/calculadora-cuota";
 import { ContactForm } from "@/components/landing/contact-form";
 import {
@@ -32,6 +33,15 @@ const ESTADO_STYLE: Record<EstadoParcela, { color: string; label: string; dot: s
 };
 
 const ESTADOS = Object.keys(ESTADO_STYLE) as EstadoParcela[];
+
+// Rotan mientras se espera el plano (el catastro de ARBA puede tardar unos segundos).
+const MENSAJES_CARGA = [
+  "Consultando el catastro de ARBA…",
+  "Clavando las estacas…",
+  "Midiendo frentes y fondos…",
+  "Revisando qué lotes siguen disponibles…",
+  "Ubicando cada lote sobre la foto satelital…",
+];
 // El público solo ve si el lote está a la venta o no.
 const ESTADOS_PUBLICOS: EstadoParcela[] = ["disponible", "no_disponible"];
 
@@ -150,9 +160,10 @@ export function MapaLotes({ publico = false }: { publico?: boolean }) {
 
   const sinGeometria = lotes && geometria ? lotes.length - lotePorCca.size : 0;
 
-  // Crea el mapa una sola vez (Leaflet solo corre en el navegador).
+  // Crea el mapa apenas se monta, sin esperar los datos: la foto satelital aparece
+  // primero y los lotes se dibujan encima cuando llegan (Leaflet solo corre en el navegador).
   useEffect(() => {
-    if (!geometria || !containerRef.current || mapRef.current) return;
+    if (!containerRef.current || mapRef.current) return;
     let cancelled = false;
 
     import("leaflet").then((L) => {
@@ -168,18 +179,32 @@ export function MapaLotes({ publico = false }: { publico?: boolean }) {
         attribution: "© OpenStreetMap",
       });
       L.control.layers({ "Foto satelital": satelite, Calles: calles }).addTo(map);
+      map.setView([-34.5504, -58.8176], 17);
       mapRef.current = map;
       setMapaListo(true);
-
-      const bounds = L.geoJSON(geometria).getBounds();
-      if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
-      else map.setView([-34.5504, -58.8176], 17);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [geometria]);
+  }, []);
+
+  // Cuando llega el plano, encuadra los lotes.
+  useEffect(() => {
+    if (!mapaListo || !geometria) return;
+    import("leaflet").then((L) => {
+      const bounds = L.geoJSON(geometria).getBounds();
+      if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [20, 20] });
+    });
+  }, [mapaListo, geometria]);
+
+  const cargando = !lotes && !error;
+  const [mensaje, setMensaje] = useState(0);
+  useEffect(() => {
+    if (!cargando) return;
+    const id = window.setInterval(() => setMensaje((i) => (i + 1) % MENSAJES_CARGA.length), 1800);
+    return () => window.clearInterval(id);
+  }, [cargando]);
 
   useEffect(
     () => () => {
@@ -355,8 +380,17 @@ export function MapaLotes({ publico = false }: { publico?: boolean }) {
               publico ? "h-[65vh] min-h-[380px]" : "h-[calc(100vh-14rem)] min-h-[420px]"
             )}
           >
-            {!geometria && <Skeleton className="absolute inset-0" />}
+            {!mapaListo && <Skeleton className="absolute inset-0" />}
             <div ref={containerRef} className="h-full w-full [&_.leaflet-interactive:focus]:outline-none" />
+            {cargando && (
+              <div
+                role="status"
+                className="pointer-events-none absolute left-1/2 top-3 z-[1000] flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border bg-background/90 px-4 py-2 text-sm text-foreground shadow-md backdrop-blur"
+              >
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                {MENSAJES_CARGA[mensaje]}
+              </div>
+            )}
           </div>
           {publico &&
             (seleccionado ? (

@@ -2,22 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { useSession } from "@/lib/auth-client";
 
 export function Navbar() {
-
-  const scrollToContact = (e: React.MouseEvent) => {
-    e.preventDefault();
-    document.getElementById("contacto")?.scrollIntoView({ behavior: "smooth" });
-  };
+  const { data: session } = useSession();
+  const ingresar = session
+    ? { href: "/crm", label: "Ir al CRM" }
+    : { href: "/login", label: "Ingresar" };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -41,59 +33,20 @@ export function Navbar() {
           </div>
         </Link>
         <nav className="flex flex-none items-center justify-end gap-2 sm:gap-3">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-primary lg:hidden"
-              >
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Abrir menú</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <SheetHeader>
-                <SheetTitle>Navegación</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-4 p-4">
-                <Link
-                  href="/mapa"
-                  className="block rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-muted"
-                >
-                  Mapa de lotes
-                </Link>
-                <Link
-                  href="/login"
-                  className="block rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary hover:bg-muted"
-                >
-                  Ingresar
-                </Link>
-              </div>
-            </SheetContent>
-          </Sheet>
           <Button
             variant="ghost"
             size="sm"
             asChild
-            className="hidden text-muted-foreground hover:text-primary hover:bg-primary/5 font-body lg:inline-flex"
+            className="text-muted-foreground hover:text-primary hover:bg-primary/5 font-body"
           >
-            <Link href="/mapa">Mapa de lotes</Link>
+            <Link href={ingresar.href}>{ingresar.label}</Link>
           </Button>
           <Button
-            variant="ghost"
             size="sm"
             asChild
-            className="hidden text-muted-foreground hover:text-primary hover:bg-primary/5 font-body lg:inline-flex"
-          >
-            <Link href="/login">Ingresar</Link>
-          </Button>
-          <Button
-            size="sm"
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-body tracking-wide"
-            onClick={scrollToContact}
           >
-            Quiero mi lote
+            <Link href="/mapa">Quiero mi lote</Link>
           </Button>
         </nav>
       </div>

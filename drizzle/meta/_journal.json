@@ -169,6 +169,13 @@
       "when": 1791833691330,
       "tag": "0023_brief_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792068202342,
+      "tag": "0024_jazzy_old_lace",
+      "breakpoints": true
     }
   ]
 }
