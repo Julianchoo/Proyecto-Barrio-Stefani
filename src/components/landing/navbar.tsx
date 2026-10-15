@@ -16,11 +16,11 @@ export function Navbar() {
       <div className="container mx-auto flex h-16 items-center justify-between gap-3 px-4 sm:gap-6">
         <Link href="/" className="flex min-w-0 flex-1 items-center gap-3">
           <Image
-            src="/logo_full.jpeg"
-            alt="Barrio Stefani"
+            src="/torre-agua.svg"
+            alt=""
             width={40}
             height={40}
-            className="rounded-sm object-cover"
+            className="shrink-0"
           />
           <div className="leading-tight text-primary">
             <div className="font-display text-base font-semibold tracking-wide sm:hidden">

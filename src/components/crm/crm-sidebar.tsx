@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
@@ -13,7 +14,6 @@ import {
   LogOut,
   MapPin,
   Menu,
-  TreePine,
   Users,
   UserCog,
 } from "lucide-react";
@@ -78,7 +78,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-4">
-        <TreePine className="h-5 w-5 text-primary" />
+        <Image src="/torre-agua.svg" alt="" width={24} height={24} className="shrink-0" />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">Barrio Stefani</span>
         <ModeToggle />
       </div>
@@ -149,7 +149,8 @@ export function CrmSidebar() {
             <SidebarContent />
           </SheetContent>
         </Sheet>
-        <span className="ml-3 flex-1 text-sm font-semibold">Barrio Stefani</span>
+        <Image src="/torre-agua.svg" alt="" width={24} height={24} className="ml-3 shrink-0" />
+        <span className="ml-2 flex-1 text-sm font-semibold">Barrio Stefani</span>
         <ModeToggle />
       </div>
     </>
