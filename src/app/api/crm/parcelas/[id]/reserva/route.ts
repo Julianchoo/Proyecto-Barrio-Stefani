@@ -9,6 +9,7 @@ import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { amountToSpanishWords } from "@/lib/number-words";
 import { formatMoneyAr } from "@/lib/money";
+import { validationMessage } from "@/lib/validation-message";
 
 const PizZip = require("pizzip"); // eslint-disable-line @typescript-eslint/no-require-imports
 const Docxtemplater = require("docxtemplater"); // eslint-disable-line @typescript-eslint/no-require-imports
@@ -68,7 +69,7 @@ export async function POST(
   const parsed = reservaSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -85,7 +86,7 @@ export async function POST(
   }
   if (!row.reserva) {
     return NextResponse.json(
-      { error: "El lote no tiene una reserva activa o realizada" },
+      { error: "El lote no tiene una reserva vigente: cargá y guardá la reserva antes de generar el documento" },
       { status: 400 }
     );
   }
@@ -102,7 +103,9 @@ export async function POST(
     row.reserva.reservadoPor !== authResult.email;
   if (isReservedByOther) {
     return NextResponse.json(
-      { error: "Este lote fue reservado por otro comercial" },
+      {
+        error: `Este lote lo reservó ${row.reserva.reservadoPor ?? "otro comercial"}: solo esa persona o un administrador pueden generar la reserva`,
+      },
       { status: 403 }
     );
   }

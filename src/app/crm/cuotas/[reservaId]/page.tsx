@@ -250,7 +250,7 @@ export default function CuentaDetallePage() {
     const res = await fetch("/api/crm/indices-cac");
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      toast.error(data?.error ?? "No se pudieron cargar los CAC");
+      toast.error(data?.error ?? "No se pudieron cargar los CAC. Recargá la página; si sigue, avisale a un administrador");
       return [];
     }
     const rows = data as IndiceCac[];
@@ -262,7 +262,7 @@ export default function CuentaDetallePage() {
     const res = await fetch(`/api/crm/reservas/${reservaId}`);
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      toast.error(data?.error ?? "No se pudo cargar la reserva");
+      toast.error(data?.error ?? "No se pudo cargar la reserva. Recargá la página; si sigue, avisale a un administrador");
       return null;
     }
     return data as ReservaForCuenta;
@@ -302,7 +302,7 @@ export default function CuentaDetallePage() {
       }
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        toast.error(data?.error ?? "No se pudo cargar la cuenta corriente");
+        toast.error(data?.error ?? "No se pudo cargar la cuenta corriente. Recargá la página; si sigue, avisale a un administrador");
         return;
       }
       const data: CuentaDetail = await res.json();
@@ -325,7 +325,7 @@ export default function CuentaDetallePage() {
   async function createContrato() {
     if (reservaForCuenta?.formaPago === "contado") return;
     if (createModalidad === "requiere_revision") {
-      toast.error("Elegí USD fijo o Pesos + CAC");
+      toast.error("Elegí la modalidad (USD fijo o Pesos + CAC) antes de crear la cuenta corriente");
       return;
     }
     const parsedTipoCambioBna = Number(tipoCambioBna);
@@ -333,7 +333,7 @@ export default function CuentaDetallePage() {
       createModalidad === "pesos_cac" &&
       (!Number.isFinite(parsedTipoCambioBna) || parsedTipoCambioBna <= 0)
     ) {
-      toast.error("IngresÃ¡ el tipo de cambio vendedor BNA");
+      toast.error("Ingresá el tipo de cambio BNA vendedor (mayor a 0) para generar cuotas en Pesos + CAC");
       return;
     }
 
@@ -369,7 +369,7 @@ export default function CuentaDetallePage() {
     }
     const amount = Number(paymentAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Ingresá un monto válido");
+      toast.error("Ingresá un monto mayor a 0");
       return;
     }
 

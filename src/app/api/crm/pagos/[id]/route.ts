@@ -3,6 +3,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
+import { validationMessage } from "@/lib/validation-message";
 import {
   CUENTA_CANCELADA_ERROR,
   isContratoCancelado,
@@ -51,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   });
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -82,12 +83,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return { error: CUENTA_CANCELADA_ERROR, status: 409 as const };
     }
     if (parsed.data.moneda !== current.moneda) {
-      return { error: "No se puede cambiar la moneda del pago", status: 409 as const };
+      return {
+        error: "La moneda de un pago no se puede editar: borrá este pago y cargalo de nuevo en la otra moneda",
+        status: 409 as const,
+      };
     }
     const amountChanged = parsed.data.monto !== Number(current.monto);
     if (amountChanged && ["cancelada", "pendiente_indice"].includes(cuota.estado)) {
       return {
-        error: "No se puede cambiar el monto de una cuota cancelada o sin CAC",
+        error:
+          cuota.estado === "cancelada"
+            ? `La cuota ${cuota.numero} está cancelada: no se puede cambiar el monto del pago`
+            : `Falta el índice CAC para calcular la cuota ${cuota.numero}. Cargalo en Cuotas › Índices y ajustes antes de cambiar el monto`,
         status: 409 as const,
       };
     }

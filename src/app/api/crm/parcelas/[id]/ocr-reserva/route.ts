@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const file = formData.get("image");
 
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ error: "No image provided" }, { status: 400 });
+    return NextResponse.json({ error: "Elegí una imagen para escanear" }, { status: 400 });
   }
 
   const bytes = await file.arrayBuffer();
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "MISTRAL_API_KEY not configured" },
+      { error: "El escaneo de documentos no está configurado. Avisale a un administrador" },
       { status: 500 }
     );
   }
@@ -95,7 +95,7 @@ Ejemplo de respuesta esperada:
     const errorText = await mistralResponse.text();
     console.error("Mistral API error:", errorText);
     return NextResponse.json(
-      { error: "Error calling Mistral API" },
+      { error: "El servicio de escaneo no respondió. Probá de nuevo en unos minutos o cargá los datos a mano" },
       { status: 500 }
     );
   }
@@ -110,7 +110,7 @@ Ejemplo de respuesta esperada:
   } catch {
     console.error("Failed to parse Mistral response:", content);
     return NextResponse.json(
-      { error: "Could not parse OCR response", raw: content },
+      { error: "No se pudo leer la imagen. Probá con una foto más nítida y derecha, o cargá los datos a mano", raw: content },
       { status: 422 }
     );
   }

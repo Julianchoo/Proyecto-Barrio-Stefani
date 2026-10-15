@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getMinimumAnticipoUsd } from "@/lib/financiacion";
+import { getMinimumAnticipoUsd, MIN_ANTICIPO_PCT } from "@/lib/financiacion";
 import { contratos, leads, parcelas, reservas } from "@/lib/schema";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
 import { contratoVigente, cuentaCorrienteUrl } from "@/lib/cuenta-corriente";
+import { validationMessage } from "@/lib/validation-message";
 import {
   currentReservaJoin,
   flattenParcelaReserva,
@@ -271,7 +272,9 @@ export async function PUT(
         authResult.role !== "admin" &&
         activeReserva.reservadoPor !== authResult.email;
 
-      if (isReservedByOther) return { kind: "forbidden" as const };
+      if (isReservedByOther) {
+        return { kind: "forbidden" as const, reservadoPor: activeReserva.reservadoPor };
+      }
 
       const touchesCommercialParcelaFields = hasAnyField(allowedData, PARCELA_COMERCIAL_FIELDS);
       const canComercialEditParcelaFields =
@@ -284,7 +287,7 @@ export async function PUT(
         touchesCommercialParcelaFields &&
         !canComercialEditParcelaFields
       ) {
-        return { kind: "forbidden" as const };
+        return { kind: "forbidden" as const, reservadoPor: null };
       }
 
       const parcelaData: Record<string, unknown> = {};
@@ -450,7 +453,10 @@ export async function PUT(
     }
     if (result.kind === "protected-lead") {
       return NextResponse.json(
-        { error: "No se puede desvincular ni reemplazar el comprador de una reserva" },
+        {
+          error:
+            "El comprador de esta reserva no se puede quitar ni cambiar. Si es otro comprador, cancelá la reserva y creá una nueva",
+        },
         { status: 409 }
       );
     }
@@ -466,19 +472,29 @@ export async function PUT(
     }
     if (result.kind === "forbidden") {
       return NextResponse.json(
-        { error: "Este lote fue reservado por otro comercial" },
+        {
+          error: result.reservadoPor
+            ? `Este lote lo reservó ${result.reservadoPor}. Pedile a un administrador que lo modifique o lo reasigne`
+            : "Solo podés modificar lotes disponibles o reservados por vos. Pedile el cambio a un administrador",
+        },
         { status: 403 }
       );
     }
     if (result.kind === "sold-confirmation-required") {
       return NextResponse.json(
-        { error: "OJO! Estás por cambiar datos de un lote o reserva ya vendido" },
+        {
+          error:
+            "Este lote o reserva ya está vendido. Para modificarlo, tocá \"Editar vendido\" en la ficha, confirmá y volvé a guardar",
+        },
         { status: 403 }
       );
     }
     if (result.kind === "admin-only-realizada") {
       return NextResponse.json(
-        { error: "Solo un administrador puede editar una reserva realizada o su lote" },
+        {
+          error:
+            "La reserva ya está realizada: solo un administrador puede editarla a ella o a su lote. Pedile el cambio a un admin",
+        },
         { status: 403 }
       );
     }
@@ -492,7 +508,10 @@ export async function PUT(
     }
     if (result.kind === "estado-y-reserva") {
       return NextResponse.json(
-        { error: "No se puede cambiar el estado del lote y cargar una reserva a la vez" },
+        {
+          error:
+            "No se puede cambiar el estado del lote y cargar una reserva en el mismo guardado: guardá primero el estado y después la reserva",
+        },
         { status: 400 }
       );
     }
@@ -504,27 +523,33 @@ export async function PUT(
     }
     if (result.kind === "missing-lead") {
       return NextResponse.json(
-        { error: "SeleccionÃ¡ un lead antes de reservar el lote" },
+        { error: "Seleccioná el lead comprador antes de reservar el lote" },
         { status: 400 }
       );
     }
     if (result.kind === "invalid-lead") {
       return NextResponse.json(
-        { error: "El lead seleccionado no existe o no tenÃ©s permiso para usarlo" },
+        {
+          error:
+            "El lead seleccionado no existe o no está asignado a vos. Elegí uno de tus leads o pedile a un admin que te lo asigne",
+        },
         { status: 403 }
       );
     }
 
     if (result.kind === "missing-list-price") {
       return NextResponse.json(
-        { error: "El lote no tiene un precio de lista para validar el anticipo" },
+        {
+          error:
+            "El lote no tiene precio de lista, así que no se puede validar el anticipo. Un administrador tiene que cargarle el precio antes de reservarlo",
+        },
         { status: 400 }
       );
     }
     if (result.kind === "invalid-anticipo") {
       return NextResponse.json(
         {
-          error: `El anticipo no puede ser menor a USD ${result.minimumAnticipo}`,
+          error: `El anticipo mínimo para este lote es USD ${result.minimumAnticipo} (${MIN_ANTICIPO_PCT}% del precio de lista)`,
         },
         { status: 400 }
       );
@@ -534,7 +559,7 @@ export async function PUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos invalidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

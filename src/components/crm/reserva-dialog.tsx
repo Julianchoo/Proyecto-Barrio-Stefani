@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { NETWORK_ERROR } from "@/components/crm/toast-api-error";
+import { FIELD_LABELS } from "@/lib/validation-message";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -202,7 +204,7 @@ export function ReservaDialog({
         form.reset(buildDefaults(data));
       })
       .catch(() => {
-        toast.error("No se pudieron cargar los datos del lote");
+        toast.error("No se pudieron cargar los datos del lote. Recargá la página; si sigue, avisale a un administrador");
       })
       .finally(() => setLoading(false));
   }
@@ -256,7 +258,7 @@ export function ReservaDialog({
       toast.success("Reserva generada y descargada");
       setOpen(false);
     } catch {
-      toast.error("Error de red al generar la reserva");
+      toast.error(NETWORK_ERROR);
     }
   }
 
@@ -283,7 +285,7 @@ export function ReservaDialog({
           </div>
         ) : (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit, (errors) => toast.error(`Completá: ${Object.keys(errors).map((key) => FIELD_LABELS[key] ?? key).join(", ")}`))} className="space-y-6">
               <section className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">Fecha</p>
                 <FormField

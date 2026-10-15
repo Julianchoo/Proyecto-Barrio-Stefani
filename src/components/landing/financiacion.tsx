@@ -5,7 +5,7 @@ import { MIN_ANTICIPO_PCT } from "@/lib/financiacion";
 
 const puntos = [
   `Anticipo desde el ${MIN_ANTICIPO_PCT}% del precio de lista`,
-  "Saldo en hasta 60 cuotas mensuales",
+  "Saldo en hasta 60 cuotas mensuales en pesos con ajuste por CAC",
   "Escritura del lote a tu nombre",
 ];
 
@@ -21,7 +21,8 @@ export function Financiacion({ precioDesde }: { precioDesde: number | null }) {
             Tu lote con anticipo<br />y cuotas
           </h2>
           <p className="font-body text-muted-foreground text-sm mt-4 leading-relaxed max-w-md">
-            Mové el anticipo y el plazo para ver cuánto pagarías por mes.
+            Mové el anticipo y el plazo para ver la cuota de referencia en USD.
+            Los contratos se pactan en pesos con ajuste por CAC.
           </p>
           <ul className="mt-8 space-y-3">
             {puntos.map((p) => (

@@ -34,6 +34,7 @@ import { MapaLotes } from "@/components/mapa-lotes";
 import { CalculadoraCuota } from "@/components/calculadora-cuota";
 import { useSession } from "@/lib/auth-client";
 import type { EstadoParcela, ParcelaConReserva } from "@/lib/schema";
+import { NETWORK_ERROR, toastBulkErrors } from "@/components/crm/toast-api-error";
 
 const estadoColors: Record<EstadoParcela, string> = {
   disponible: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -279,7 +280,7 @@ export default function LotesPage({
   const handleEstadoChange = async (id: number, estado: EstadoParcela) => {
     const lote = lotes.find((l) => l.id === id);
     if (lote && !canEditLote(lote)) {
-      toast.error("Este lote está vendido o bloqueado");
+      toast.error(bloqueoMessage(lote));
       return;
     }
     if (lote?.reservaId) {
@@ -310,7 +311,7 @@ export default function LotesPage({
   const handleCheckbox = (id: number, index: number, shiftKey: boolean) => {
     const target = lotes.find((lote) => lote.id === id);
     if (target && !canEditLote(target)) {
-      toast.error("Este lote está vendido o bloqueado");
+      toast.error(bloqueoMessage(target));
       return;
     }
     setSelected((prev) => {
@@ -378,10 +379,17 @@ export default function LotesPage({
           })
         )
       );
-      const failed = results.filter((r) => !r.ok).length;
-      if (failed > 0) {
-        setLotes(prev);
-        toast.error(`${failed} actualizacion(es) fallaron`);
+      const failed = results
+        .map((res, i) => ({ res, lote: lotes.find((l) => l.id === ids[i]) }))
+        .filter(({ res }) => !res.ok)
+        .map(({ res, lote }) => ({
+          res,
+          label: lote ? `Mz ${lote.manzana} Lote ${lote.parcela}` : "Lote",
+        }));
+      if (failed.length > 0) {
+        // Algunos pudieron guardarse: recargar muestra el estado real en vez de revertir todo.
+        await toastBulkErrors(failed, ids.length, "lotes");
+        fetchLotes();
       } else {
         toast.success(`${ids.length} lote(s) actualizados`);
         setSelected(new Set());
@@ -390,7 +398,7 @@ export default function LotesPage({
       }
     } catch {
       setLotes(prev);
-      toast.error("Error al actualizar");
+      toast.error(NETWORK_ERROR);
     } finally {
       setBulkLoading(false);
     }
@@ -401,7 +409,11 @@ export default function LotesPage({
 
     const value = Number(bulkPriceValue);
     if (!Number.isFinite(value) || value < 0 || (bulkPriceMode === "increase" && value === 0)) {
-      toast.error("Ingresá un valor válido");
+      toast.error(
+        bulkPriceMode === "increase"
+          ? "Ingresá un porcentaje de aumento mayor a 0"
+          : "Ingresá un precio en USD (0 o más)"
+      );
       return;
     }
 
@@ -423,7 +435,9 @@ export default function LotesPage({
       .filter((update): update is { id: number; precioBase: string } => update !== null);
 
     if (updates.length === 0) {
-      toast.error("No hay lotes con precio base para actualizar");
+      toast.error(
+        "Ninguno de los lotes seleccionados tiene precio base: para aumentar por % primero hay que cargarles un precio"
+      );
       return;
     }
 
@@ -453,10 +467,17 @@ export default function LotesPage({
           })
         )
       );
-      const failed = results.filter((r) => !r.ok).length;
-      if (failed > 0) {
-        setLotes(prev);
-        toast.error(`${failed} actualizacion(es) de precio fallaron`);
+      const failed = results
+        .map((res, i) => ({ res, lote: lotes.find((l) => l.id === updates[i]?.id) }))
+        .filter(({ res }) => !res.ok)
+        .map(({ res, lote }) => ({
+          res,
+          label: lote ? `Mz ${lote.manzana} Lote ${lote.parcela}` : "Lote",
+        }));
+      if (failed.length > 0) {
+        // Algunos pudieron guardarse: recargar muestra el estado real en vez de revertir todo.
+        await toastBulkErrors(failed, updates.length, "precios");
+        fetchLotes();
       } else {
         const skipped = selectedLotes.length - updates.length;
         toast.success(
@@ -467,7 +488,7 @@ export default function LotesPage({
       }
     } catch {
       setLotes(prev);
-      toast.error("Error al actualizar precios");
+      toast.error(NETWORK_ERROR);
     } finally {
       setBulkLoading(false);
     }
@@ -532,6 +553,12 @@ export default function LotesPage({
       session?.user?.role === "admin" ||
       lote.reservadoPor === session?.user?.email
     );
+  }
+
+  function bloqueoMessage(lote: ParcelaConReserva) {
+    return isSoldLote(lote)
+      ? `Mz ${lote.manzana} Lote ${lote.parcela} está vendido: solo un administrador puede cambiarlo`
+      : `Mz ${lote.manzana} Lote ${lote.parcela} lo reservó ${lote.reservadoPor ?? "otro comercial"}. Pedile a un administrador que lo modifique`;
   }
 
   return (

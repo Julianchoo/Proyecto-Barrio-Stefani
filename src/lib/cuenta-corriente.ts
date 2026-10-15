@@ -181,8 +181,19 @@ type CreateContratoResult =
   | { kind: "ok" | "exists"; contratoId: number }
   | { kind: "missing-data" | "invalid-data"; campos: string[] }
   | {
-      kind: "not-found" | "not-realizada" | "contado" | "missing-exchange-rate" | "missing-base-cac";
-    };
+      kind: "not-found" | "not-realizada" | "contado" | "missing-exchange-rate";
+    }
+  | { kind: "missing-base-cac"; periodo: string };
+
+// "2026-08" -> "08/2026"
+export function periodoLabel(periodo: string) {
+  const [year, month] = periodo.split("-");
+  return `${month}/${year}`;
+}
+
+export function missingBaseCacMessage(periodo: string) {
+  return `Falta el índice CAC de ${periodoLabel(periodo)} (período base). Cargalo en Cuotas › Índices y ajustes y volvé a intentar`;
+}
 
 // Mensaje para el usuario cuando la cuenta no se puede generar por datos de la reserva.
 export function camposContratoMessage(result: { kind: "missing-data" | "invalid-data"; campos: string[] }) {
@@ -456,7 +467,7 @@ export async function createContratoForReserva(
       .limit(1);
     indiceBaseCac = toNumber(baseIndexRow?.valor);
     if (!indiceBaseCac || indiceBaseCac <= 0) {
-      return { kind: "missing-base-cac" as const };
+      return { kind: "missing-base-cac" as const, periodo: periodoBaseCac! };
     }
   }
   const monedaBase: MonedaPago = input.modalidad === "pesos_cac" ? "ars" : "usd";

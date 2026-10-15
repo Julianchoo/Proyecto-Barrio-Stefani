@@ -33,6 +33,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { formatUsd } from "@/lib/financiacion";
+import { NETWORK_ERROR, toastApiError, toastBulkErrors } from "@/components/crm/toast-api-error";
 import type { EstadoLead, OrigenLead, SimulacionLead } from "@/lib/schema";
 
 type LeadRow = {
@@ -181,7 +182,7 @@ export default function LeadsPage({
     });
     if (!res.ok) {
       setLeads(prev);
-      toast.error("No se pudo actualizar el estado");
+      toastApiError(await res.json().catch(() => null), "No se pudo actualizar el estado del lead");
     }
   };
 
@@ -204,7 +205,7 @@ export default function LeadsPage({
     });
     if (!res.ok) {
       setLeads(prev);
-      toast.error("No se pudo asignar el lead");
+      toastApiError(await res.json().catch(() => null), "No se pudo asignar el lead");
       return;
     }
     // El servidor puede haber pasado el estado a "asignado" (o de vuelta a "nuevo").
@@ -261,10 +262,14 @@ export default function LeadsPage({
           })
         )
       );
-      const failed = results.filter((r) => !r.ok).length;
-      if (failed > 0) {
-        setLeads(prev);
-        toast.error(`${failed} actualizacion(es) fallaron`);
+      const failed = results
+        .map((res, i) => ({ res, lead: leads.find((l) => l.id === ids[i]) }))
+        .filter(({ res }) => !res.ok)
+        .map(({ res, lead }) => ({ res, label: lead?.nombre ?? "Lead" }));
+      if (failed.length > 0) {
+        // Algunos pudieron guardarse: recargar muestra el estado real en vez de revertir todo.
+        await toastBulkErrors(failed, ids.length, "leads");
+        fetchLeads();
       } else {
         toast.success(`${ids.length} lead(s) actualizados`);
         setSelected(new Set());
@@ -272,7 +277,7 @@ export default function LeadsPage({
       }
     } catch {
       setLeads(prev);
-      toast.error("Error al actualizar");
+      toast.error(NETWORK_ERROR);
     } finally {
       setBulkLoading(false);
     }
@@ -344,13 +349,21 @@ export default function LeadsPage({
       toast.success("Lead actualizado");
       setEditLead(null);
     } else {
-      toast.error("Error al actualizar el lead");
+      toastApiError(await res.json().catch(() => null), "No se pudo actualizar el lead");
     }
     setEditSaving(false);
   }
 
   async function handleCreateSave() {
-    if (!createForm.nombre || !createForm.telefono || !createForm.email) return;
+    const faltantes = [
+      !createForm.nombre && "nombre",
+      !createForm.telefono && "teléfono",
+      !createForm.email && "email",
+    ].filter(Boolean);
+    if (faltantes.length > 0) {
+      toast.error(`Completá ${faltantes.join(", ")} para crear el lead`);
+      return;
+    }
     setCreateSaving(true);
     const res = await fetch("/api/crm/leads", {
       method: "POST",
@@ -387,7 +400,7 @@ export default function LeadsPage({
       });
       fetchLeads();
     } else {
-      toast.error("Error al crear el lead");
+      toastApiError(await res.json().catch(() => null), "No se pudo crear el lead");
     }
     setCreateSaving(false);
   }
@@ -416,7 +429,7 @@ export default function LeadsPage({
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       toast.error(data?.error ?? "No se pudo borrar el lead");
     } catch {
-      toast.error("No se pudo borrar el lead");
+      toast.error(NETWORK_ERROR);
     } finally {
       setDeletingId(null);
     }
@@ -698,7 +711,7 @@ export default function LeadsPage({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateSave} disabled={createSaving || !createForm.nombre || !createForm.telefono || !createForm.email}>
+            <Button onClick={handleCreateSave} disabled={createSaving}>
               {createSaving ? "Creando..." : "Crear"}
             </Button>
           </DialogFooter>

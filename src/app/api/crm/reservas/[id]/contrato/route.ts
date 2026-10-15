@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
-import { camposContratoMessage, createContratoForReserva } from "@/lib/cuenta-corriente";
+import {
+  camposContratoMessage,
+  createContratoForReserva,
+  missingBaseCacMessage,
+} from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
 import { reservas } from "@/lib/schema";
+import { validationMessage } from "@/lib/validation-message";
 
 const createSchema = z.object({
   modalidad: z.enum(["usd_fijo", "pesos_cac"]),
@@ -36,7 +41,7 @@ export async function POST(
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -64,7 +69,7 @@ export async function POST(
   }
   if (result.kind === "not-realizada") {
     return NextResponse.json(
-      { error: "La cuenta corriente nace desde una reserva realizada" },
+      { error: "Marcá la reserva como realizada antes de crear la cuenta corriente" },
       { status: 409 }
     );
   }
@@ -76,13 +81,13 @@ export async function POST(
   }
   if (result.kind === "missing-exchange-rate") {
     return NextResponse.json(
-      { error: "Ingresá el tipo de cambio vendedor BNA para generar cuotas en pesos + CAC" },
+      { error: "Ingresá el tipo de cambio BNA vendedor para generar cuotas en Pesos + CAC" },
       { status: 400 }
     );
   }
   if (result.kind === "missing-base-cac") {
     return NextResponse.json(
-      { error: "Carga el indice CAC del periodo base antes de crear la cuenta corriente" },
+      { error: missingBaseCacMessage(result.periodo) },
       { status: 400 }
     );
   }

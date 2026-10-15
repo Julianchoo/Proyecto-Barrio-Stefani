@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import { validationMessage } from "@/lib/validation-message";
 
 export async function GET() {
   const authResult = await requireApiAdmin();
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

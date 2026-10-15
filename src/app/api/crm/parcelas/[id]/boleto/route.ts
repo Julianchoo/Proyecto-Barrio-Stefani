@@ -9,6 +9,7 @@ import { amountToSpanishWords } from "@/lib/number-words";
 import { parseMoney } from "@/lib/money";
 import path from "path";
 import fs from "fs";
+import { validationMessage } from "@/lib/validation-message";
 const PizZip = require("pizzip"); // eslint-disable-line @typescript-eslint/no-require-imports
 const Docxtemplater = require("docxtemplater"); // eslint-disable-line @typescript-eslint/no-require-imports
 
@@ -154,7 +155,7 @@ export async function POST(
   const parsed = boletoSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos inválidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -178,7 +179,12 @@ export async function POST(
       (row.parcela.estado === "disponible" || row.reserva?.reservadoPor === authResult.email));
   if (!canGenerateBoleto) {
     return NextResponse.json(
-      { error: "No tenés permiso para generar el boleto de este lote" },
+      {
+        error:
+          row.reserva?.estado === "realizada"
+            ? "La reserva ya está realizada: solo un administrador puede generar su boleto"
+            : `Este lote lo reservó ${row.reserva?.reservadoPor ?? "otro comercial"}: solo esa persona o un administrador pueden generar el boleto`,
+      },
       { status: 403 }
     );
   }
@@ -197,21 +203,30 @@ export async function POST(
         "cuotaMensual",
         "cantidadCuotas",
       ] as const;
-      const differs = economicFields.some(
-        (field) => form[field] && parseMoney(form[field]) !== parseMoney(row.reserva![field])
-      );
+      const economicLabels: Record<(typeof economicFields)[number], string> = {
+        precioTotalNum: "precio total",
+        anticipoNum: "anticipo",
+        saldoNum: "saldo",
+        cuotaMensual: "cuota mensual",
+        cantidadCuotas: "cantidad de cuotas",
+      };
       const modalidad = form.monedaBoleto === "usd" ? "usd_fijo" : "pesos_cac";
-      if (
-        form.tipoPago !== "financiado" ||
-        modalidad !== contrato.modalidad ||
-        differs ||
-        (contrato.modalidad === "pesos_cac" &&
+      const diferencias = [
+        form.tipoPago !== "financiado" && "tipo de pago (la cuenta corriente es financiada)",
+        modalidad !== contrato.modalidad &&
+          `moneda (la cuenta corriente es ${contrato.modalidad === "usd_fijo" ? "USD fijo" : "Pesos + CAC"})`,
+        ...economicFields
+          .filter((field) => form[field] && parseMoney(form[field]) !== parseMoney(row.reserva![field]))
+          .map((field) => `${economicLabels[field]} (reserva: ${row.reserva![field]}, boleto: ${form[field]})`),
+        contrato.modalidad === "pesos_cac" &&
           form.tipoCambioBna &&
-          parseMoney(form.tipoCambioBna) !== Number(contrato.tipoCambioBna))
-      ) {
+          parseMoney(form.tipoCambioBna) !== Number(contrato.tipoCambioBna) &&
+          `tipo de cambio BNA (cuenta corriente: ${contrato.tipoCambioBna})`,
+      ].filter(Boolean);
+      if (diferencias.length > 0) {
         return NextResponse.json(
           {
-            error: "El boleto debe respetar las condiciones de la reserva y el contrato existente",
+            error: `El boleto no coincide con la reserva y su cuenta corriente en: ${diferencias.join("; ")}. Corregilo o, si cambiaron las condiciones, cancelá la cuenta corriente y generá una nueva`,
           },
           { status: 409 }
         );
@@ -241,7 +256,7 @@ export async function POST(
   if (usePesosCac) {
     if (tipoCambioBna === null || tipoCambioBna <= 0) {
       return NextResponse.json(
-        { error: "Ingresá el tipo de cambio vendedor BNA" },
+        { error: "Ingresá el tipo de cambio BNA vendedor para generar un boleto en Pesos + CAC" },
         { status: 400 }
       );
     }

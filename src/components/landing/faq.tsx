@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: "¿Se puede financiar la compra del lote?",
-    a: "¡Sí! Con un anticipo desde el 20% del precio de lista, el saldo se paga en hasta 60 cuotas mensuales. También podés pagar al contado. En el mapa de lotes podés simular la cuota de cada lote.",
+    a: "¡Sí! Con un anticipo desde el 20% del precio de lista, el saldo se paga en hasta 60 cuotas mensuales en pesos con ajuste por CAC. Los precios y las simulaciones se muestran en USD como referencia; los contratos se pactan en pesos. También podés pagar al contado. En el mapa de lotes podés simular la cuota de cada lote.",
   },
   {
     q: "¿Qué servicios están disponibles en el loteo?",

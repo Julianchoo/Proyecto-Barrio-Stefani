@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { validationMessage } from "@/lib/validation-message";
 import {
   calculateInstallment,
   getMinimumAnticipoUsd,
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

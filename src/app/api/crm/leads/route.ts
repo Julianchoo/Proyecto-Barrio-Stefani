@@ -7,6 +7,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoLead } from "@/lib/schema";
 import { z } from "zod";
+import { validationMessage } from "@/lib/validation-message";
 
 const createLeadSchema = z.object({
   nombre: z.string().min(1),
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = createLeadSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    return NextResponse.json({ error: validationMessage(parsed.error.issues) }, { status: 400 });
   }
 
   const {

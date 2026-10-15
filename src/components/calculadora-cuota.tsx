@@ -154,6 +154,10 @@ export function CalculadoraCuota({
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Importes y cálculos de referencia en USD. Los contratos se pactan en pesos
+        con ajuste por CAC.
+      </p>
       <div className={publico ? "grid gap-4" : "grid gap-4 lg:grid-cols-4"}>
         {fields.map((item) => (
           <label key={item.key} className="space-y-2">

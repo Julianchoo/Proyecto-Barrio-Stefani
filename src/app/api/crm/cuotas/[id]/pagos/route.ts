@@ -3,11 +3,12 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { CUENTA_CANCELADA_ERROR, recomputeContratoCuotas } from "@/lib/cuenta-corriente";
+import { CUENTA_CANCELADA_ERROR, periodoLabel, recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos, reservas } from "@/lib/schema";
 import { deleteFile, upload } from "@/lib/storage";
 import { getTipoCambioOnOrBefore } from "@/lib/tipos-cambio";
+import { validationMessage } from "@/lib/validation-message";
 
 const pagoSchema = z.object({
   fechaPago: z.iso.date(),
@@ -47,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -76,16 +77,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return { error: CUENTA_CANCELADA_ERROR, status: 409 as const };
     }
     if (row.cuota.estado === "cancelada") {
-      return { error: "No se puede registrar pago en una cuota cancelada", status: 409 as const };
+      return { error: `La cuota ${row.cuota.numero} está cancelada: no admite pagos`, status: 409 as const };
     }
     if (row.cuota.estado === "pendiente_indice") {
+      const periodo = row.cuota.periodoCac ? ` de ${periodoLabel(row.cuota.periodoCac)}` : "";
       return {
-        error: "No se puede registrar pago: falta cargar el CAC aplicable a una cuota vencida",
+        error: `Falta el índice CAC${periodo} para calcular la cuota ${row.cuota.numero}. Cargalo en Cuotas › Índices y ajustes antes de registrar el pago`,
         status: 409 as const,
       };
     }
     if (parsed.data.moneda !== row.cuota.moneda) {
-      return { error: "La moneda del pago no coincide con la cuota", status: 409 as const };
+      return {
+        error: `La cuota ${row.cuota.numero} es en ${row.cuota.moneda === "usd" ? "USD" : "pesos"}: registrá el pago en esa moneda`,
+        status: 409 as const,
+      };
     }
 
     const activePayments = await tx

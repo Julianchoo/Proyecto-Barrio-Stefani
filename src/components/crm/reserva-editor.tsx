@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { toastApiError } from "@/components/crm/toast-api-error";
+import { NETWORK_ERROR, toastApiError } from "@/components/crm/toast-api-error";
+import { FIELD_LABELS } from "@/lib/validation-message";
 import { AlertCircle, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -338,11 +339,11 @@ export function ReservaEditor({
   // Carga el calculo en el formulario; se persiste recien con "Guardar".
   function applyCalculatorToReserva() {
     if (tipoPago !== "financiado") {
-      toast.error("Seleccioná Financiado para aplicar cuotas");
+      toast.error("Para aplicar cuotas, elegí primero tipo de pago Financiado");
       return;
     }
     if (modalidadContrato === "requiere_revision") {
-      toast.error("Elegí USD fijo o Pesos + CAC para aplicar cuotas");
+      toast.error("Para aplicar cuotas, elegí primero la modalidad (USD fijo o Pesos + CAC)");
       return;
     }
 
@@ -393,15 +394,15 @@ export function ReservaEditor({
           value !== ""
       );
     if (hasReservaInput && !values.leadId && !lote?.reservaId) {
-      toast.error("Seleccioná un lead antes de reservar el lote");
+      toast.error("Buscá y seleccioná el lead comprador antes de reservar el lote");
       return;
     }
     if (hasReservaInput && tipoPago === "sin_dato") {
-      toast.error("Elegi tipo de pago");
+      toast.error("Elegí el tipo de pago (contado o financiado) antes de guardar");
       return;
     }
     if (hasReservaInput && tipoPago === "financiado" && modalidadContrato === "requiere_revision") {
-      toast.error("Elegí USD fijo o Pesos + CAC");
+      toast.error("Elegí la modalidad de las cuotas (USD fijo o Pesos + CAC) antes de guardar");
       return;
     }
 
@@ -448,7 +449,7 @@ export function ReservaEditor({
         body: fd,
       });
       if (!res.ok) {
-        toast.error("No se pudo procesar la imagen");
+        toastApiError(await res.json().catch(() => null), "No se pudo leer la imagen. Probá con una foto más nítida o cargá los datos a mano");
         return;
       }
       const data = await res.json();
@@ -483,7 +484,7 @@ export function ReservaEditor({
       }
       toast.success("Datos extraídos. Revisá y guardá los cambios.");
     } catch {
-      toast.error("Error al procesar la imagen");
+      toast.error(NETWORK_ERROR);
     } finally {
       setIsOcrLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -710,7 +711,11 @@ export function ReservaEditor({
             <fieldset disabled={isLocked}>
             <form
               onSubmit={form.handleSubmit(onSubmit, (errors) =>
-                toast.error(`Campos inválidos: ${Object.keys(errors).join(", ")}`)
+                toast.error(
+                  `Revisá el formato de: ${Object.keys(errors)
+                    .map((key) => FIELD_LABELS[key] ?? key)
+                    .join(", ")}`
+                )
               )}
               className="space-y-5"
             >

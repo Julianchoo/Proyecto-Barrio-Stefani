@@ -302,7 +302,7 @@ export default function CuotasPage({
     try {
       const res = await fetch(`/api/crm/cuentas-corrientes?${params}`);
       if (!res.ok) {
-        toast.error("No se pudieron cargar las cuotas");
+        toast.error("No se pudieron cargar las cuotas. Recargá la página; si sigue, avisale a un administrador");
         return;
       }
       setRows(await res.json());
@@ -321,7 +321,7 @@ export default function CuotasPage({
     try {
       const res = await fetch("/api/crm/cuotas/dashboard");
       if (!res.ok) {
-        toast.error("No se pudo cargar el resumen de cuotas");
+        toast.error("No se pudo cargar el resumen de cuotas. Recargá la página; si sigue, avisale a un administrador");
         return;
       }
       setDashboard(await res.json());

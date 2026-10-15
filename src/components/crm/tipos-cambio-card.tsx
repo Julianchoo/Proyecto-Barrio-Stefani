@@ -55,8 +55,12 @@ export function TiposCambioCard({ onSaved }: { onSaved?: () => Promise<unknown> 
 
   async function save() {
     const numericValue = Number(valor);
-    if (!fecha || !Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("Ingresá fecha y BNA vendedor");
+    if (!fecha) {
+      toast.error("Elegí la fecha de la cotización");
+      return;
+    }
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      toast.error("Ingresá el valor BNA vendedor (mayor a 0)");
       return;
     }
     setSaving(true);

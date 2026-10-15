@@ -4,6 +4,7 @@ import { user } from "@/lib/schema";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { validationMessage } from "@/lib/validation-message";
 
 const updateUserSchema = z
   .object({
@@ -62,7 +63,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

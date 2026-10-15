@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { CUENTA_CANCELADA_ERROR, recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos } from "@/lib/schema";
+import { validationMessage } from "@/lib/validation-message";
 
 const updateSchema = z
   .object({
@@ -50,7 +51,7 @@ export async function PATCH(
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -69,7 +70,7 @@ export async function PATCH(
       parsed.data.importeBase !== undefined &&
       (row.cuota.estado === "cancelada" || parsed.data.estado === "cancelada")
     ) {
-      return { error: "No se puede cambiar el importe de una cuota cancelada", status: 409 };
+      return { error: `La cuota ${row.cuota.numero} está cancelada: no se le puede cambiar el importe`, status: 409 };
     }
     if (
       parsed.data.fechaVencimiento &&
@@ -82,7 +83,10 @@ export async function PATCH(
         .where(and(eq(pagos.cuotaId, cuotaId), eq(pagos.estado, "activo")))
         .limit(1);
       if (payment)
-        return { error: "No se puede cambiar el período CAC de una cuota con pagos", status: 409 };
+        return {
+          error: `La cuota ${row.cuota.numero} ya tiene pagos: no se le puede cambiar el vencimiento (cambiaría su período CAC). Borrá los pagos primero`,
+          status: 409,
+        };
     }
 
     await tx

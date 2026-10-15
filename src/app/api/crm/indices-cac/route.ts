@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { validationMessage } from "@/lib/validation-message";
 import {
   requireApiAuth,
   requireApiAdmin,
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const parsed = indiceSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }
@@ -84,7 +85,7 @@ export async function DELETE(request: Request) {
   const parsed = deleteIndiceSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Datos invalidos", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }

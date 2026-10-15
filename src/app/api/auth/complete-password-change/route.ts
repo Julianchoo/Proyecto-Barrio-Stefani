@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { account, user } from "@/lib/schema";
+import { validationMessage } from "@/lib/validation-message";
 
 const bodySchema = z
   .object({
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

@@ -3,11 +3,13 @@ import { and, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
+import { validationMessage } from "@/lib/validation-message";
 import {
   camposContratoMessage,
   contratoVigente,
   createContratoForReserva,
   cuentaCorrienteUrl,
+  missingBaseCacMessage,
 } from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
 import { contratos, leads, parcelas, reservas, user } from "@/lib/schema";
@@ -50,6 +52,7 @@ function cuentaCorrienteMessage(result: Awaited<ReturnType<typeof createContrato
   if (result.kind === "missing-exchange-rate") {
     return "La cuenta Pesos + CAC necesita el tipo de cambio BNA: generala desde su cuenta corriente";
   }
+  if (result.kind === "missing-base-cac") return missingBaseCacMessage(result.periodo);
   return "No se genero cuenta corriente";
 }
 
@@ -320,7 +323,10 @@ export async function PATCH(
     }
     if (result.kind === "forbidden") {
       return NextResponse.json(
-        { error: "Solo un administrador puede cambiar el estado o el comercial de una reserva" },
+        {
+          error:
+            "Solo un administrador puede cambiar el estado o el comercial de una reserva (un comercial solo puede cancelar sus propias reservas activas). Pedile el cambio a un admin",
+        },
         { status: 403 }
       );
     }
@@ -342,14 +348,17 @@ export async function PATCH(
     }
     if (result.kind === "sold-confirmation-required") {
       return NextResponse.json(
-        { error: "OJO! Estás por cambiar datos de un lote o reserva ya vendido" },
+        {
+          error:
+            "Esta reserva o su lote ya están vendidos. Para modificarla, tocá \"Editar vendida\" en la ficha de la reserva, confirmá y volvé a intentar",
+        },
         { status: 403 }
       );
     }
     if (result.kind === "active-conflict") {
       return NextResponse.json(
         {
-          error: `Este lote ya tiene la reserva #${result.other.id} ${result.other.estado}. Un lote no puede tener dos reservas activas o realizadas`,
+          error: `Este lote ya tiene la reserva #${result.other.id} ${result.other.estado}. Un lote no puede tener dos reservas vigentes: cancelá esa antes de reactivar esta`,
         },
         { status: 409 }
       );
@@ -362,13 +371,19 @@ export async function PATCH(
     }
     if (result.kind === "missing-forma-pago") {
       return NextResponse.json(
-        { error: "Elegí el tipo de pago antes de marcar la reserva como realizada" },
+        {
+          error:
+            "Elegí el tipo de pago (contado o financiado) en la ficha de la reserva antes de marcarla como realizada",
+        },
         { status: 400 }
       );
     }
     if (result.kind === "missing-modalidad-contrato") {
       return NextResponse.json(
-        { error: "Elegí USD fijo o Pesos + CAC antes de marcar la reserva como realizada" },
+        {
+          error:
+            "Elegí la modalidad de las cuotas (USD fijo o Pesos + CAC) en la ficha de la reserva antes de marcarla como realizada",
+        },
         { status: 400 }
       );
     }
@@ -409,7 +424,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos invalidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

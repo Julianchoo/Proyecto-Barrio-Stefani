@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { toastApiError } from "@/components/crm/toast-api-error";
+import { NETWORK_ERROR, toastApiError } from "@/components/crm/toast-api-error";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -103,7 +103,7 @@ export function CambiarEstadoReserva({
       setTarget(null);
       await onChanged();
     } catch {
-      toast.error("No se pudo cambiar el estado de la reserva");
+      toast.error(NETWORK_ERROR);
     } finally {
       setSaving(false);
     }

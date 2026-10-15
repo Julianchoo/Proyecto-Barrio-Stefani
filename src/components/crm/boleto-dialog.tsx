@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { NETWORK_ERROR } from "@/components/crm/toast-api-error";
+import { FIELD_LABELS } from "@/lib/validation-message";
 import { FileText, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -304,7 +306,8 @@ export function BoletoDialog({
         body: fd,
       });
       if (!res.ok) {
-        toast.error("No se pudo procesar la imagen");
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error ?? "No se pudo leer la imagen. Probá con una foto más nítida o cargá los datos a mano");
         return;
       }
       const data = await res.json();
@@ -349,7 +352,7 @@ export function BoletoDialog({
 
       toast.success("Datos extraídos. Revisá y completá lo que falte.");
     } catch {
-      toast.error("Error al procesar la imagen");
+      toast.error(NETWORK_ERROR);
     } finally {
       setIsOcrLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -381,7 +384,7 @@ export function BoletoDialog({
       toast.success("Boleto generado y descargado");
       setOpen(false);
     } catch {
-      toast.error("Error de red al generar el boleto");
+      toast.error(NETWORK_ERROR);
     }
   }
 
@@ -427,7 +430,7 @@ export function BoletoDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-2">
+          <form onSubmit={form.handleSubmit(onSubmit, (errors) => toast.error(`Completá: ${Object.keys(errors).map((key) => FIELD_LABELS[key] ?? key).join(", ")}`))} className="space-y-6 pt-2">
 
             {/* ── Apoderado vendedora ── */}
             <section>

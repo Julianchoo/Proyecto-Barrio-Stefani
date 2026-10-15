@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { requireApiAdmin, requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
+import { validationMessage } from "@/lib/validation-message";
 
 const updateSchema = z.object({
   estado: z.enum(["nuevo", "asignado", "a_contactar", "contactado", "sin_respuesta", "closed_won", "closed_lost"]).optional(),
@@ -40,7 +41,7 @@ export async function PUT(
 
     // Only admins can assign leads
     if ("asignadoA" in data && authResult.role !== "admin") {
-      return NextResponse.json({ error: "Sin permisos para asignar leads" }, { status: 403 });
+      return NextResponse.json({ error: "Solo un administrador puede asignar leads" }, { status: 403 });
     }
 
     return await crmTransaction(async (tx) => {
@@ -50,7 +51,7 @@ export async function PUT(
       }
       // Comercials can only edit their own leads
       if (authResult.role !== "admin" && current.asignadoA !== authResult.id) {
-        return NextResponse.json({ error: "Solo podés editar tus propios leads" }, { status: 403 });
+        return NextResponse.json({ error: "Este lead no está asignado a vos: solo podés editar tus propios leads" }, { status: 403 });
       }
       if (authResult.role !== "admin") {
         const [realizada] = await tx
@@ -60,7 +61,9 @@ export async function PUT(
           .limit(1);
         if (realizada)
           return NextResponse.json(
-            { error: "Solo un administrador puede modificar un lead con una reserva realizada" },
+            {
+              error: `Este lead tiene la reserva #${realizada.id} realizada (venta): solo un administrador puede modificarlo. Pedile el cambio a un admin`,
+            },
             { status: 403 }
           );
       }
@@ -90,7 +93,7 @@ export async function PUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: error.issues },
+        { error: validationMessage(error.issues), details: error.issues },
         { status: 400 }
       );
     }

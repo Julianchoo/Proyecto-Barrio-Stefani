@@ -36,7 +36,7 @@ export function IndicesCacCard({ onSaved }: { onSaved?: () => Promise<unknown> |
   async function fetchIndices() {
     const res = await fetch("/api/crm/indices-cac");
     if (!res.ok) {
-      toast.error("No se pudieron cargar los CAC");
+      toast.error("No se pudieron cargar los CAC. Recargá la página; si sigue, avisale a un administrador");
       return;
     }
     const rows: IndiceCac[] = await res.json();
@@ -56,8 +56,12 @@ export function IndicesCacCard({ onSaved }: { onSaved?: () => Promise<unknown> |
 
   async function save() {
     const numericValue = Number(valor);
-    if (!periodo || !Number.isFinite(numericValue) || numericValue <= 0) {
-      toast.error("Cargá período y valor CAC");
+    if (!periodo) {
+      toast.error("Elegí el período (mes y año) del CAC");
+      return;
+    }
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      toast.error("Ingresá el valor del índice CAC (mayor a 0)");
       return;
     }
     setSaving(true);

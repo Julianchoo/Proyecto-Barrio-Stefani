@@ -61,7 +61,7 @@ export function Hero() {
           </h1>
           <p className="font-body text-lg text-primary-foreground/70 max-w-xl mb-10 leading-relaxed">
             Lotes residenciales y comerciales de 200 a 400 m² en Cuartel V, Moreno.
-            Anticipo y hasta 60 cuotas en dólares, con escritura.
+            Anticipo y hasta 60 cuotas en pesos con ajuste por CAC, con escritura.
           </p>
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <Link

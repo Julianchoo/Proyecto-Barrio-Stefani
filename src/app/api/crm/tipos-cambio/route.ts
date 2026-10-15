@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isErrorResponse, requireApiAdmin } from "@/lib/api-auth";
 import { listTiposCambioBna, saveTipoCambioBna } from "@/lib/tipos-cambio";
+import { validationMessage } from "@/lib/validation-message";
 
 const inputSchema = z.object({
   fecha: z.iso.date(),
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   const parsed = inputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Fecha o cotizacion invalida", details: parsed.error.issues },
+      { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
       { status: 400 }
     );
   }

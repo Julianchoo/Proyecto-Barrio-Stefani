@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, ChevronDown, CreditCard, Download, Filter, List, Mail, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { NETWORK_ERROR } from "@/components/crm/toast-api-error";
 import { CambiarEstadoReserva } from "@/components/crm/cambiar-estado-reserva";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -397,7 +398,7 @@ export default function ReservasPage({
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       toast.error(data?.error ?? "No se pudo reasignar la reserva");
     } catch {
-      toast.error("No se pudo reasignar la reserva");
+      toast.error(NETWORK_ERROR);
     } finally {
       setUpdatingId(null);
     }
@@ -427,7 +428,7 @@ export default function ReservasPage({
 
       toast.success(`Resumen enviado${data?.count ? ` (${data.count})` : ""}`);
     } catch {
-      toast.error("No se pudo enviar el resumen");
+      toast.error(NETWORK_ERROR);
     } finally {
       setSendingSummary(false);
     }
@@ -439,7 +440,8 @@ export default function ReservasPage({
       const params = buildFilterParams();
       const res = await fetch(`/api/crm/reservas/export?${params}`);
       if (!res.ok) {
-        toast.error("No se pudo generar el Excel");
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(data?.error ?? "No se pudo generar el Excel. Recargá la página y volvé a intentar");
         return;
       }
 
@@ -453,7 +455,7 @@ export default function ReservasPage({
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      toast.error("No se pudo generar el Excel");
+      toast.error(NETWORK_ERROR);
     } finally {
       setExportingExcel(false);
     }

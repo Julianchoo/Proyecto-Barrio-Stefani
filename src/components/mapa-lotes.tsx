@@ -435,7 +435,8 @@ function PanelLote({ lote }: { lote: LoteMapa }) {
           <p className="text-sm font-semibold text-foreground">Simulá tu cuota</p>
           <CalculadoraCuota precio={lote.precio} publico onSimulacion={setSimulacion} />
           <p className="text-xs text-muted-foreground">
-            Simulación orientativa en dólares. Las condiciones finales se confirman con un asesor.
+            Importes de referencia en USD. Los contratos se pactan en pesos con ajuste por CAC.
+            Las condiciones finales se confirman con un asesor.
           </p>
         </div>
       ) : (

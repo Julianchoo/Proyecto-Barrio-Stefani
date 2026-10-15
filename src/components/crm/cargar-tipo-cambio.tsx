@@ -25,7 +25,7 @@ export function CargarTipoCambio({
   async function guardar() {
     const numero = Number(valor);
     if (!Number.isFinite(numero) || numero <= 0) {
-      toast.error("Ingresá el BNA vendedor de hoy");
+      toast.error("Ingresá el valor BNA vendedor de hoy (mayor a 0)");
       return;
     }
     setGuardando(true);

@@ -363,16 +363,16 @@ export default function LoteDetailPage() {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>
-                    OJO! Est?s por cambiar datos de un lote o reserva ya vendido
+                    OJO! Estás por cambiar datos de un lote o reserva ya vendido
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Esta acci?n habilita cambios sobre datos ya marcados como vendidos. Revis? bien antes de guardar porque puede afectar reserva, boleto, cuenta corriente y reportes.
+                    Esta acción habilita cambios sobre datos ya marcados como vendidos. Revisá bien antes de guardar porque puede afectar reserva, boleto, cuenta corriente y reportes.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={() => setSoldEditUnlocked(true)}>
-                    Entiendo, habilitar edici?n
+                    Entiendo, habilitar edición
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -414,7 +414,7 @@ export default function LoteDetailPage() {
         <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Este lote o reserva ya figura como vendido. Los datos est?n bloqueados; solo un administrador puede habilitar edici?n con confirmaci?n.
+            Este lote o reserva ya figura como vendido. Los datos están bloqueados; solo un administrador puede habilitar la edición con el botón &quot;Editar vendido&quot;.
           </span>
         </div>
       )}
