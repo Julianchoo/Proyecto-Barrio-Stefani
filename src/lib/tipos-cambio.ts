@@ -53,7 +53,13 @@ export async function saveTipoCambioBna(input: {
         .select({ contrato: contratos, reserva: reservas })
         .from(contratos)
         .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
-        .where(and(eq(contratos.modalidad, "pesos_cac"), eq(reservas.fechaFirma, input.fecha))),
+        .where(
+          and(
+            eq(contratos.modalidad, "pesos_cac"),
+            eq(contratos.estado, "vigente"),
+            eq(reservas.fechaFirma, input.fecha)
+          )
+        ),
     ]);
     const nextValue = Number(moneyString(input.valor));
     const nextRates = [
@@ -154,7 +160,13 @@ async function refreshUnpaidContractsForSigningDate(
     .select({ contrato: contratos, reserva: reservas })
     .from(contratos)
     .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
-    .where(and(eq(contratos.modalidad, "pesos_cac"), eq(reservas.fechaFirma, fecha)));
+    .where(
+      and(
+        eq(contratos.modalidad, "pesos_cac"),
+        eq(contratos.estado, "vigente"),
+        eq(reservas.fechaFirma, fecha)
+      )
+    );
   const updatedContractIds: number[] = [];
 
   for (const row of rows) {

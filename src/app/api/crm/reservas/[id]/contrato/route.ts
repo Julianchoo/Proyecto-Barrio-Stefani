@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
-import { createContratoForReserva } from "@/lib/cuenta-corriente";
+import { camposContratoMessage, createContratoForReserva } from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
 import { reservas } from "@/lib/schema";
 
@@ -53,14 +53,14 @@ export async function POST(
   }
 
   const result = await createContratoForReserva(reservaId, parsed.data, authResult.email);
-  if (result.kind === "invalid-data" || result.kind === "contado") {
+  if (result.kind === "contado") {
     return NextResponse.json(
-      {
-        error:
-          "El contrato requiere financiación, cuotas enteras positivas, importes positivos y una fecha válida",
-      },
+      { error: "Las reservas de contado no generan cuenta corriente" },
       { status: 400 }
     );
+  }
+  if (result.kind === "missing-data" || result.kind === "invalid-data") {
+    return NextResponse.json({ error: camposContratoMessage(result) }, { status: 400 });
   }
   if (result.kind === "not-realizada") {
     return NextResponse.json(
@@ -72,12 +72,6 @@ export async function POST(
     return NextResponse.json(
       { error: "La reserva ya tiene cuenta corriente", contratoId: result.contratoId },
       { status: 409 }
-    );
-  }
-  if (result.kind === "missing-data") {
-    return NextResponse.json(
-      { error: "Faltan datos para generar el plan de cuotas" },
-      { status: 400 }
     );
   }
   if (result.kind === "missing-exchange-rate") {

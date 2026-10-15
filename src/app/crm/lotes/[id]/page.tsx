@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft, Lock, Pencil } from "lucide-react";
+import { toastApiError } from "@/components/crm/toast-api-error";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -282,7 +283,10 @@ export default function LoteDetailPage() {
       toast.success("Parámetros del lote actualizados");
       await fetchLote();
     } else {
-      toast.error("No se pudieron guardar los parámetros del lote");
+      toastApiError(
+        await res.json().catch(() => null),
+        "No se pudieron guardar los parámetros del lote"
+      );
     }
   }
 

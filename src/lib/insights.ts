@@ -22,7 +22,7 @@ const cuotasBase = sql`
     FROM cuotas c
     JOIN contratos k ON k.id = c.contrato_id
     JOIN reservas r ON r.id = k.reserva_id
-    WHERE r.estado = 'realizada' AND c.estado <> 'cancelada'
+    WHERE r.estado = 'realizada' AND k.estado = 'vigente' AND c.estado <> 'cancelada'
   )`;
 
 // Una fila por cuota pagada: días entre el vencimiento y el último pago que la canceló.
@@ -33,7 +33,7 @@ const pagosConCuota = sql`
     JOIN contratos k ON k.id = c.contrato_id
     JOIN reservas r ON r.id = k.reserva_id
     JOIN pagos pg ON pg.cuota_id = c.id AND pg.estado = 'activo'
-    WHERE r.estado = 'realizada' AND c.estado <> 'cancelada' AND c.saldo::numeric <= 0
+    WHERE r.estado = 'realizada' AND k.estado = 'vigente' AND c.estado <> 'cancelada' AND c.saldo::numeric <= 0
     GROUP BY c.id, c.fecha_vencimiento
   )`;
 
@@ -75,8 +75,8 @@ export async function getInsights() {
         (SELECT round(avg(precio_total_num::numeric)) FROM reservas WHERE estado = 'realizada') AS ticket_promedio_usd,
         (SELECT count(*) FROM reservas WHERE estado = 'activa') AS reservas_activas,
         (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'activa') AS reservas_activas_usd,
-        (SELECT round(sum(monto_usd::numeric)) FROM pagos WHERE estado = 'activo') AS cobrado_usd,
-        (SELECT count(*) FROM pagos WHERE estado = 'activo' AND monto_usd IS NULL) AS pagos_sin_tc,
+        (SELECT round(sum(monto_usd::numeric)) FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente')) AS cobrado_usd,
+        (SELECT count(*) FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente') AND monto_usd IS NULL) AS pagos_sin_tc,
         (SELECT count(*) FROM parcelas WHERE estado = 'disponible') AS lotes_disponibles,
         (SELECT count(*) FROM parcelas WHERE estado IN ('vendido', 'reservado', 'disponible')) AS lotes_en_venta,
         -- Precio de lista: precio_base y, si falta, precio_etapa1 (igual que la API de parcelas).
@@ -94,9 +94,9 @@ export async function getInsights() {
           FROM reservas WHERE estado = 'realizada' AND forma_pago IS DISTINCT FROM 'contado') AS anticipos_usd,
         -- Ventas financiadas que todavía no tienen cuenta corriente: su saldo aún no está en cuotas.
         (SELECT round(sum(r.precio_total_num::numeric - CASE WHEN trim(r.anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(r.anticipo_num)::numeric ELSE 0 END))
-          FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+          FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
           WHERE r.estado = 'realizada' AND r.forma_pago IS DISTINCT FROM 'contado' AND k.id IS NULL) AS saldo_sin_cuenta_usd,
-        (SELECT count(*) FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+        (SELECT count(*) FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
           WHERE r.estado = 'realizada' AND r.forma_pago IS DISTINCT FROM 'contado' AND k.id IS NULL) AS ventas_sin_cuenta`),
     rows(sql`
       SELECT to_char(date_trunc('month', fecha_firma), 'YYYY-MM') AS mes, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
@@ -104,7 +104,7 @@ export async function getInsights() {
       GROUP BY 1 ORDER BY 1`),
     rows(sql`
       SELECT to_char(date_trunc('month', fecha_pago), 'YYYY-MM') AS mes, count(*) AS pagos, round(sum(monto_usd::numeric)) AS usd
-      FROM pagos WHERE estado = 'activo'
+      FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente')
       GROUP BY 1 ORDER BY 1`),
     rows(sql`
       SELECT coalesce(initcap(trim(nombre_corredor)), 'Sin corredor') AS corredor, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
@@ -119,7 +119,7 @@ export async function getInsights() {
           ELSE 'Financiado (sin modalidad)'
         END AS modalidad,
         count(*) AS lotes, round(sum(r.precio_total_num::numeric)) AS usd
-      FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+      FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
       WHERE r.estado = 'realizada'
       GROUP BY 1 ORDER BY lotes DESC`),
     rows(sql`
@@ -159,7 +159,7 @@ export async function getInsights() {
       WITH v AS (
         SELECT r.precio_total_num::numeric AS usd,
           CASE WHEN lower(r.forma_pago) = 'contado' THEN 0 ELSE ${cuotasDe("r.cantidad_cuotas")} END AS cuotas
-        FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id
+        FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
         WHERE r.estado = 'realizada'
       )
       SELECT x.tramo, x.orden, count(v.usd) AS ventas, round(coalesce(sum(v.usd), 0)) AS usd,

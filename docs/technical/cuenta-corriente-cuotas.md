@@ -26,7 +26,7 @@ Condiciones obligatorias:
 
 - La reserva debe existir.
 - La reserva debe estar en estado `realizada`.
-- No debe existir ya un contrato para esa reserva.
+- No debe existir ya un contrato **vigente** para esa reserva (puede haber canceladas).
 - Deben existir cantidad de cuotas, cuota mensual, saldo inicial y fecha de inicio.
 - Para modalidad `pesos_cac`, debe existir tipo de cambio BNA valido y CAC base cargado.
 
@@ -276,6 +276,32 @@ La cuenta corriente se crea sobre reservas realizadas. En el flujo actual, una r
 Ademas, los lotes vendidos o reservas realizadas quedan bloqueados por defecto para edicion. El admin puede desbloquear edicion desde el detalle del lote con una confirmacion explicita. La API exige esa confirmacion para editar datos de lote/reserva ya vendido.
 
 Ese bloqueo protege datos comerciales ya usados para boleto, cuenta corriente y reportes.
+
+## Cancelar una cuenta corriente (corregir una reserva)
+
+Una cuenta corriente nunca se borra ni se oculta. Tiene estado `vigente` o `cancelada`
+(`contratos.estado`, con `cancelado_por` y `cancelado_at`). Puede haber una sola vigente por
+reserva (índice único parcial) y cualquier cantidad de canceladas.
+
+Mientras la reserva tiene cuenta vigente:
+
+- No se pueden cambiar sus condiciones económicas (precio, anticipo, saldo, cuotas, cuota
+  mensual, forma de pago, modalidad, fechas de firma y reserva). La API responde 409 con
+  `cuentaCorrienteUrl` y la UI muestra el error con el botón "Ir a la cuenta corriente".
+- No se puede sacar la reserva de `realizada` (mismo error con link).
+
+Para corregir una reserva:
+
+1. En la cuenta corriente (`/crm/cuotas/{reservaId}`), un admin usa "Cancelar cuenta corriente"
+   (`POST /api/crm/reservas/{id}/cuentas-canceladas`). Pide confirmación y, si la cuenta tiene
+   pagos, avisa que quedan en la cancelada y hay que volver a cargarlos en la nueva.
+2. Se corrige la reserva desde el lote.
+3. En la misma página se crea la cuenta nueva ("Crear cuenta"), que toma los datos corregidos.
+
+La cuenta cancelada queda en "Cuentas corrientes canceladas" de esa página, con sus condiciones
+y pagos. Es historial congelado: no se recalcula y la API rechaza registrar, editar o borrar
+pagos y editar cuotas de una cuenta cancelada. Cobranza, insights, boleto y tipos de cambio
+consideran solo cuentas vigentes.
 
 ## Casos operativos para probar
 

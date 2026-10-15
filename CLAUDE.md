@@ -169,6 +169,9 @@ The project includes technical documentation in `docs/`:
    - Schema is defined in `@/lib/schema`
    - Always run migrations after schema changes
    - PostgreSQL is the database (not SQLite, MySQL, etc.)
+   - Local `.env` points to the Neon `dev` branch (`ep-fragrant-dust`). Never run migrations,
+     `db:push` or writes against production (`ep-wandering-lake`); production migrates on deploy.
+     See `docs/technical/entorno-desarrollo.md`
 
 7. **File Storage**
 

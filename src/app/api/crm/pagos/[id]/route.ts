@@ -3,7 +3,11 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
+import {
+  CUENTA_CANCELADA_ERROR,
+  isContratoCancelado,
+  recomputeContratoCuotas,
+} from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { cuotas, pagos } from "@/lib/schema";
 import { deleteFile, upload } from "@/lib/storage";
@@ -73,6 +77,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!current || !cuota) return { error: "Pago no encontrado", status: 404 as const };
     if (current.estado !== "activo") {
       return { error: "No se puede editar un pago anulado", status: 409 as const };
+    }
+    if (await isContratoCancelado(current.contratoId, tx)) {
+      return { error: CUENTA_CANCELADA_ERROR, status: 409 as const };
     }
     if (parsed.data.moneda !== current.moneda) {
       return { error: "No se puede cambiar la moneda del pago", status: 409 as const };
@@ -191,6 +198,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   const deleted = await crmTransaction(async (tx) => {
+    const [existing] = await tx
+      .select({ contratoId: pagos.contratoId })
+      .from(pagos)
+      .where(eq(pagos.id, pagoId));
+    if (existing && (await isContratoCancelado(existing.contratoId, tx))) return "cancelada";
     const [pago] = await tx.delete(pagos).where(eq(pagos.id, pagoId)).returning();
     if (pago) {
       await logAudit(tx, {
@@ -205,6 +217,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return pago;
   });
   if (!deleted) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
+  if (deleted === "cancelada") {
+    return NextResponse.json({ error: CUENTA_CANCELADA_ERROR }, { status: 409 });
+  }
   if (deleted.comprobanteUrl) await deleteFile(deleted.comprobanteUrl).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toastApiError } from "@/components/crm/toast-api-error";
 import { AlertCircle, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -431,8 +432,7 @@ export function ReservaEditor({
       toast.success(lote.reservaId ? "Reserva actualizada" : "Reserva creada");
       await onSaved();
     } else {
-      const error = await res.json().catch(() => null);
-      toast.error(error?.error ?? "Error al guardar");
+      toastApiError(await res.json().catch(() => null), "Error al guardar");
     }
   }
 

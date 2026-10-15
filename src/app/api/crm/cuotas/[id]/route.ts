@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
+import { CUENTA_CANCELADA_ERROR, recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos } from "@/lib/schema";
 
@@ -62,6 +62,9 @@ export async function PATCH(
       .innerJoin(contratos, eq(cuotas.contratoId, contratos.id))
       .where(eq(cuotas.id, cuotaId));
     if (!row) return { error: "Cuota no encontrada", status: 404 };
+    if (row.contrato.estado === "cancelada") {
+      return { error: CUENTA_CANCELADA_ERROR, status: 409 as const };
+    }
     if (
       parsed.data.importeBase !== undefined &&
       (row.cuota.estado === "cancelada" || parsed.data.estado === "cancelada")

@@ -7,6 +7,7 @@ import { contratos, leads, parcelas, reservas } from "@/lib/schema";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
+import { contratoVigente, cuentaCorrienteUrl } from "@/lib/cuenta-corriente";
 import {
   currentReservaJoin,
   flattenParcelaReserva,
@@ -326,7 +327,7 @@ export async function PUT(
         const [contrato] = await tx
           .select({ id: contratos.id })
           .from(contratos)
-          .where(eq(contratos.reservaId, activeReserva.id));
+          .where(and(eq(contratos.reservaId, activeReserva.id), contratoVigente));
         const protectedFields = [
           "formaPago",
           "modalidadContrato",
@@ -348,7 +349,7 @@ export async function PUT(
             (field) => field in reservaData && reservaData[field] !== activeReserva[field]
           )
         ) {
-          return { kind: "protected-contract" as const };
+          return { kind: "protected-contract" as const, reservaId: activeReserva.id };
         }
       }
 
@@ -447,13 +448,18 @@ export async function PUT(
     if (result.kind === "not-found") {
       return NextResponse.json({ error: "Parcela no encontrada" }, { status: 404 });
     }
-    if (result.kind === "protected-lead" || result.kind === "protected-contract") {
+    if (result.kind === "protected-lead") {
+      return NextResponse.json(
+        { error: "No se puede desvincular ni reemplazar el comprador de una reserva" },
+        { status: 409 }
+      );
+    }
+    if (result.kind === "protected-contract") {
       return NextResponse.json(
         {
           error:
-            result.kind === "protected-lead"
-              ? "No se puede desvincular ni reemplazar el comprador de una reserva"
-              : "La reserva tiene contrato: no se pueden cambiar sus condiciones económicas desde el lote",
+            "Esta reserva tiene cuenta corriente. Para cambiar precio, anticipo, cuotas, forma de pago o fechas, primero cancelá la cuenta corriente (queda guardada como historial) y después generá una nueva.",
+          cuentaCorrienteUrl: cuentaCorrienteUrl(result.reservaId),
         },
         { status: 409 }
       );

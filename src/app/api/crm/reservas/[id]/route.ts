@@ -3,9 +3,14 @@ import { and, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { createContratoForReserva } from "@/lib/cuenta-corriente";
+import {
+  camposContratoMessage,
+  contratoVigente,
+  createContratoForReserva,
+  cuentaCorrienteUrl,
+} from "@/lib/cuenta-corriente";
 import { db } from "@/lib/db";
-import { leads, parcelas, reservas, user } from "@/lib/schema";
+import { contratos, leads, parcelas, reservas, user } from "@/lib/schema";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { compradorSnapshot } from "@/lib/reservas";
 
@@ -36,14 +41,14 @@ function loteEstadoForReserva(estado: EstadoReservaValue) {
   return "disponible";
 }
 
-function cuentaCorrienteMessage(kind: string) {
-  if (kind === "ok") return "Cuenta corriente creada";
-  if (kind === "exists") return "La reserva ya tenia cuenta corriente";
-  if (kind === "missing-data") return "Faltan datos para generar la cuenta corriente";
-  if (kind === "invalid-data")
-    return "Corregí las cuotas, importes o fecha antes de generar la cuenta corriente";
-  if (kind === "missing-exchange-rate") {
-    return "Falta tipo de cambio BNA para generar la cuenta Pesos + CAC";
+function cuentaCorrienteMessage(result: Awaited<ReturnType<typeof createContratoForReserva>>) {
+  if (result.kind === "ok") return "Cuenta corriente creada";
+  if (result.kind === "exists") return "La reserva ya tenia cuenta corriente";
+  if (result.kind === "missing-data" || result.kind === "invalid-data") {
+    return `${camposContratoMessage(result)}. Completalos en la reserva y generá la cuenta desde su cuenta corriente`;
+  }
+  if (result.kind === "missing-exchange-rate") {
+    return "La cuenta Pesos + CAC necesita el tipo de cambio BNA: generala desde su cuenta corriente";
   }
   return "No se genero cuenta corriente";
 }
@@ -145,6 +150,15 @@ export async function PATCH(
         reserva.reservadoPor === authResult.email;
       if (authResult.role !== "admin" && !comercialCancelaPropia) {
         return { kind: "forbidden" as const };
+      }
+
+      // Una venta con cuenta corriente vigente no se deshace por atrás: primero se cancela la cuenta.
+      if (cambiaEstado && reserva.estado === "realizada") {
+        const [contrato] = await tx
+          .select({ id: contratos.id })
+          .from(contratos)
+          .where(and(eq(contratos.reservaId, reserva.id), contratoVigente));
+        if (contrato) return { kind: "cuenta-vigente" as const };
       }
 
       // Todo cambio de estado que toque una reserva vigente (desde o hacia activa/realizada)
@@ -310,6 +324,16 @@ export async function PATCH(
         { status: 403 }
       );
     }
+    if (result.kind === "cuenta-vigente") {
+      return NextResponse.json(
+        {
+          error:
+            "Esta reserva tiene cuenta corriente. Para cambiarle el estado, primero cancelá la cuenta corriente (queda guardada como historial).",
+          cuentaCorrienteUrl: cuentaCorrienteUrl(reservaId),
+        },
+        { status: 409 }
+      );
+    }
     if (result.kind === "estado-confirmation-required") {
       return NextResponse.json(
         { error: "OJO! Este cambio mueve el estado del lote. Confirmalo para continuar" },
@@ -374,7 +398,7 @@ export async function PATCH(
         ...updatedReserva,
         cuentaCorriente: {
           status: cuentaResult.kind,
-          message: cuentaCorrienteMessage(cuentaResult.kind),
+          message: cuentaCorrienteMessage(cuentaResult),
           contratoId:
             "contratoId" in cuentaResult ? cuentaResult.contratoId : null,
         },

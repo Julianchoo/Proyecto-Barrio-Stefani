@@ -2,6 +2,8 @@
 
 A complete agentic coding boilerplate with authentication, PostgreSQL database, AI chat functionality, and modern UI components - perfect for building AI-powered applications and autonomous agents.
 
+> **Equipo Barrio Stefani:** en local se trabaja contra la base de desarrollo (branch `dev` de Neon), nunca contra producción. Setup, migraciones y cómo refrescar dev: [docs/technical/entorno-desarrollo.md](docs/technical/entorno-desarrollo.md).
+
 ## 🚀 Features
 
 - **🔐 Authentication**: Better Auth with Google OAuth integration

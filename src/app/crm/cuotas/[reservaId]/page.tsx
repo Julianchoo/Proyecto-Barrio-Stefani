@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
+  Ban,
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -92,6 +93,8 @@ type CuentaDetail = {
   tipoCambioActual: number | null;
   fechasPagoSinTipoCambio: string[];
 };
+
+type CuentaCancelada = { contrato: Contrato; pagos: Pago[] };
 
 type ReservaForCuenta = Pick<
   Reserva,
@@ -222,6 +225,8 @@ export default function CuentaDetallePage() {
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [periodPickerYear, setPeriodPickerYear] = useState(currentYear());
   const [tipoCambioBna, setTipoCambioBna] = useState("");
+  const [canceladas, setCanceladas] = useState<CuentaCancelada[]>([]);
+  const [cancelling, setCancelling] = useState(false);
 
   const sortedPayments = useMemo(
     () => [...(detail?.pagos ?? [])].sort((a, b) => b.fechaPago.localeCompare(a.fechaPago)),
@@ -276,6 +281,10 @@ export default function CuentaDetallePage() {
     setMissing(false);
     setReservaForCuenta(null);
     try {
+      void fetch(`/api/crm/reservas/${reservaId}/cuentas-canceladas`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setCanceladas)
+        .catch(() => setCanceladas([]));
       const res = await fetch(`/api/crm/reservas/${reservaId}/cuenta-corriente`);
       if (res.status === 404) {
         const reserva = await fetchReservaForCuenta();
@@ -447,6 +456,36 @@ export default function CuentaDetallePage() {
     }
   }
 
+  async function cancelCuenta() {
+    if (!detail || cancelling) return;
+    const pagosActivos = detail.pagos.filter((pago) => pago.estado === "activo").length;
+    const aviso =
+      pagosActivos > 0
+        ? `\n\nOJO: tiene ${pagosActivos} pago(s) registrado(s). Quedan guardados en la cuenta cancelada y vas a tener que cargarlos de nuevo en la cuenta nueva.`
+        : "";
+    if (
+      !window.confirm(
+        `¿Cancelar esta cuenta corriente?\n\nNo se borra: queda guardada como historial (cuotas y pagos) y deja de contar para la cobranza. Después podés corregir la reserva y generar una cuenta nueva.${aviso}`
+      )
+    )
+      return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/crm/reservas/${reservaId}/cuentas-canceladas`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error ?? "No se pudo cancelar la cuenta corriente");
+        return;
+      }
+      toast.success("Cuenta corriente cancelada. Ya podés corregir la reserva.");
+      await fetchDetail();
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   async function copyMessage() {
     const res = await fetch(`/api/crm/reservas/${reservaId}/mensaje-cuotas`, {
       method: "POST",
@@ -496,6 +535,22 @@ export default function CuentaDetallePage() {
             <RefreshCw className="mr-1 h-4 w-4" />
             Actualizar
           </Button>
+          {detail && !missing && (
+            <Button
+              type="button"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={cancelCuenta}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Ban className="mr-1 h-4 w-4" />
+              )}
+              Cancelar cuenta corriente
+            </Button>
+          )}
         </div>
       </div>
 
@@ -534,8 +589,9 @@ export default function CuentaDetallePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Esta reserva todavía no tiene contrato de cuotas. Solo se puede crear si la reserva
-              está realizada y tiene datos suficientes de financiación.
+              {canceladas.length > 0
+                ? "La cuenta corriente anterior fue cancelada (está en el historial, abajo). Antes de crear la nueva, revisá que la reserva tenga las condiciones corregidas: la cuenta se genera con el saldo, las cuotas y el importe de la reserva."
+                : "Esta reserva todavía no tiene contrato de cuotas. Solo se puede crear si la reserva está realizada y tiene datos suficientes de financiación."}
             </p>
             <div className="grid gap-3 sm:grid-cols-[220px_180px_180px_auto] sm:items-end">
               <div className="grid gap-2">
@@ -1098,6 +1154,56 @@ export default function CuentaDetallePage() {
           </Dialog>
         </>
       ) : null}
+
+      {!loading && canceladas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Cuentas corrientes canceladas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {canceladas.map(({ contrato, pagos }) => (
+              <div key={contrato.id} className="bg-muted/40 space-y-2 rounded-md border px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={estadoColors.cancelada}>Cancelada</Badge>
+                  <span className="text-foreground font-medium">Cuenta #{contrato.id}</span>
+                  <span className="text-muted-foreground">
+                    Cancelada{" "}
+                    {contrato.canceladoAt
+                      ? `el ${new Date(contrato.canceladoAt).toLocaleDateString("es-AR")}`
+                      : ""}{" "}
+                    por {contrato.canceladoPor ?? "-"}
+                  </span>
+                </div>
+                <p className="text-muted-foreground">
+                  {modalidadLabels[contrato.modalidad]} · {contrato.cantidadCuotas} cuotas de{" "}
+                  {formatMoney(contrato.cuotaBase, contrato.monedaBase)} · saldo inicial{" "}
+                  {formatMoney(contrato.saldoInicial, contrato.monedaBase)} · inicio{" "}
+                  {formatDate(contrato.fechaInicio)}
+                </p>
+                {pagos.length === 0 ? (
+                  <p className="text-muted-foreground">Sin pagos registrados.</p>
+                ) : (
+                  <div className="divide-y rounded-md border">
+                    {pagos.map((pago) => (
+                      <div
+                        key={pago.id}
+                        className="grid gap-2 px-3 py-1.5 sm:grid-cols-[100px_1fr_120px_120px]"
+                      >
+                        <span>{formatDate(pago.fechaPago)}</span>
+                        <span>{pago.medio || pago.observacion || "Pago registrado"}</span>
+                        <span className="font-medium">{formatMoney(pago.monto, pago.moneda)}</span>
+                        <span className="text-muted-foreground">
+                          {pago.estado === "activo" ? formatMoney(pago.montoUsd, "usd") : "Anulado"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

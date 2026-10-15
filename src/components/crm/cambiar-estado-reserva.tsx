@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { toastApiError } from "@/components/crm/toast-api-error";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -84,10 +85,12 @@ export function CambiarEstadoReserva({
       });
       const data = (await res.json().catch(() => null)) as {
         error?: string;
+        cuentaCorrienteUrl?: string;
         cuentaCorriente?: { status?: string; message?: string };
       } | null;
       if (!res.ok) {
-        toast.error(data?.error ?? "No se pudo cambiar el estado de la reserva");
+        toastApiError(data, "No se pudo cambiar el estado de la reserva");
+        setTarget(null);
         return;
       }
       if (data?.cuentaCorriente?.status === "ok") {

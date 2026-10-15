@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { contratos, leads, parcelas, reservas } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
 import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
@@ -188,7 +188,7 @@ export async function POST(
     const [contrato] = await db
       .select()
       .from(contratos)
-      .where(eq(contratos.reservaId, row.reserva.id));
+      .where(and(eq(contratos.reservaId, row.reserva.id), eq(contratos.estado, "vigente")));
     if (contrato) {
       const economicFields = [
         "precioTotalNum",

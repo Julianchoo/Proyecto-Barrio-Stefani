@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { logAudit } from "@/lib/audit";
-import { recomputeContratoCuotas } from "@/lib/cuenta-corriente";
+import { CUENTA_CANCELADA_ERROR, recomputeContratoCuotas } from "@/lib/cuenta-corriente";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos, reservas } from "@/lib/schema";
 import { deleteFile, upload } from "@/lib/storage";
@@ -72,6 +72,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
       .where(eq(cuotas.id, cuotaId));
     if (!row) return { error: "Cuota no encontrada", status: 404 as const };
+    if (row.contrato.estado === "cancelada") {
+      return { error: CUENTA_CANCELADA_ERROR, status: 409 as const };
+    }
     if (row.cuota.estado === "cancelada") {
       return { error: "No se puede registrar pago en una cuota cancelada", status: 409 as const };
     }

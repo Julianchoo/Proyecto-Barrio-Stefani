@@ -389,8 +389,53 @@ async function main() {
     ).status,
     403
   );
+  // Cancelar una cuenta corriente: no se borra, queda como historial congelado y libera la reserva.
+  role = "admin";
+  const blocked = await editLot(
+    json({ cuotaMensual: "80", confirmarEdicionVendida: true }),
+    params(lot!.id)
+  );
+  assert.equal(blocked.status, 409);
+  assert.equal((await blocked.json()).cuentaCorrienteUrl, `/crm/cuotas/${reserva!.id}`);
+  const leaveRealizada = await patchReserva(
+    json({ estado: "activa", confirmarCambioEstado: true }),
+    params(reserva!.id)
+  );
+  assert.equal(leaveRealizada.status, 409);
+  assert.equal((await leaveRealizada.json()).cuentaCorrienteUrl, `/crm/cuotas/${reserva!.id}`);
+  const cuentasCanceladas = route("src/app/api/crm/reservas/[id]/cuentas-canceladas/route.ts");
+  assert.equal((await cuentasCanceladas.POST!(json({}), params(reserva!.id))).status, 200);
+  assert.equal((await cuentasCanceladas.POST!(json({}), params(reserva!.id))).status, 404);
+  const [cancelled] = await db.select().from(contratos).where(eq(contratos.id, contract!.id));
+  assert.equal(cancelled!.estado, "cancelada");
+  assert.equal(cancelled!.canceladoPor, "test@example.test");
+  const keptPagos = await db.select().from(pagos).where(eq(pagos.contratoId, contract!.id));
+  assert.ok(keptPagos.length > 0);
+  assert.ok((await db.select().from(cuotas).where(eq(cuotas.contratoId, contract!.id))).length > 0);
+  assert.equal((await postPayment(payment(1), params(secondCuota!.id))).status, 409);
+  const deletePayment = route("src/app/api/crm/pagos/[id]/route.ts").DELETE!;
+  assert.equal((await deletePayment(json({}), params(keptPagos[0]!.id))).status, 409);
+  assert.equal(
+    (await editLot(json({ cuotaMensual: "80", confirmarEdicionVendida: true }), params(lot!.id)))
+      .status,
+    200
+  );
+  const recreated = await cuenta.createContratoForReserva(
+    reserva!.id,
+    { modalidad: "usd_fijo" },
+    "test"
+  );
+  assert.equal(recreated.kind, "ok");
+  const vigente = await cuenta.getCuentaCorrienteDetailByReserva(reserva!.id);
+  assert.notEqual(vigente!.contrato.id, contract!.id);
+  assert.equal(Number(vigente!.contrato.cuotaBase), 80);
+  const history = await cuenta.listCuentasCanceladas(reserva!.id);
+  assert.deepEqual(
+    history.map((item) => [item.contrato.id, item.pagos.length]),
+    [[contract!.id, keptPagos.length]]
+  );
   process.stdout.write(
-    "CRM integrity checks passed: concurrency, rollback, new-contract validation, lead protection, immutable conditions, snapshot, TC confirmation and permissions.\n"
+    "CRM integrity checks passed: concurrency, rollback, new-contract validation, lead protection, immutable conditions, snapshot, TC confirmation, permissions and account cancellation.\n"
   );
 }
 

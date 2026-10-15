@@ -70,6 +70,10 @@ export const monedaPagoEnum = pgEnum("moneda_pago", ["usd", "ars"]);
 
 export const estadoPagoEnum = pgEnum("estado_pago", ["activo", "anulado"]);
 
+// Una cuenta corriente cancelada no se borra: queda como historial (con sus cuotas y pagos)
+// y la reserva puede tener una nueva vigente.
+export const estadoContratoEnum = pgEnum("estado_contrato", ["vigente", "cancelada"]);
+
 // ─── Better Auth Tables ───────────────────────────────────────────────────────
 
 export const user = pgTable(
@@ -375,6 +379,9 @@ export const contratos = pgTable(
     requiereRevision: boolean("requiere_revision").default(false).notNull(),
     observaciones: text("observaciones"),
     creadoPor: text("creado_por"),
+    estado: estadoContratoEnum("estado").default("vigente").notNull(),
+    canceladoPor: text("cancelado_por"),
+    canceladoAt: timestamp("cancelado_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -382,7 +389,10 @@ export const contratos = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("contratos_reserva_idx").on(table.reservaId),
+    uniqueIndex("contratos_reserva_vigente_idx")
+      .on(table.reservaId)
+      .where(sql`${table.estado} = 'vigente'`),
+    index("contratos_reserva_idx").on(table.reservaId),
     index("contratos_modalidad_idx").on(table.modalidad),
   ]
 );
