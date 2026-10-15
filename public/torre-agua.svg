@@ -1,0 +1,10 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <title>Torre de agua Stefani</title>
+  <g fill="#B52E35">
+    <path d="M32 55C32 32 75 20 128 20s96 12 96 35v22c0 15-19 26-40 39-21 13-34 27-36 46l10 68h-60l10-68c-2-19-15-33-36-46C51 103 32 92 32 77V55Z"/>
+    <path d="M91 230h74a6 6 0 0 1 0 12H91a6 6 0 0 1 0-12Z"/>
+  </g>
+  <path d="M44 55c0-12 37-23 84-23s84 11 84 23v14c-20-10-51-15-84-15s-64 5-84 15V55Z" fill="#F4F1E7"/>
+  <path d="M58 84c19 7 42 23 57 48M91 80c12 12 24 29 30 47m77-43c-19 7-42 23-57 48m24-52c-12 12-24 29-30 47m-7-48v46" stroke="#F4F1E7" stroke-width="6" stroke-linecap="round"/>
+  <path d="m121 155-9 69m23-69 9 69" stroke="#F4F1E7" stroke-width="5" stroke-linecap="round"/>
+</svg>

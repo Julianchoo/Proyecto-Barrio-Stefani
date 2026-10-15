@@ -17,6 +17,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: { url: "/torre-agua.svg", type: "image/svg+xml", sizes: "any" },
+    shortcut: "/torre-agua.svg",
+  },
   title: {
     default: "Barrio Stefani",
     template: "%s | Barrio Stefani",
