@@ -16,15 +16,15 @@ const faqs = [
   },
   {
     q: "¿Se puede financiar la compra del lote?",
-    a: "¡Sí! Con un anticipo desde el 19% del precio de lista, el saldo se paga en hasta 60 cuotas mensuales. También podés pagar al contado. En el mapa de lotes podés simular la cuota de cada lote.",
+    a: "¡Sí! Con un anticipo desde el 20% del precio de lista, el saldo se paga en hasta 60 cuotas mensuales. También podés pagar al contado. En el mapa de lotes podés simular la cuota de cada lote.",
   },
   {
     q: "¿Qué servicios están disponibles en el loteo?",
-    a: "El barrio contará con: red eléctrica aérea de media tensión (EDENOR), 120 luminarias LED, desagüe pluvial por zanjas con 14 pases hidráulicos, calles internas con sub-base compactada y terminación en piedra partida, boulevard central de 4.150 m² y sistema de efluentes mediante biodigestores individuales. El agua será mediante perforación individual en cada lote.",
+    a: "El barrio contará con: red eléctrica (EDENOR), iluminación LED, desagüe pluvial, calles internas con terminación en piedra partida, boulevard central y sistema de efluentes mediante biodigestores individuales. El agua será mediante perforación individual en cada lote.",
   },
   {
     q: "¿Cuándo estarán listos los lotes para construir?",
-    a: "La entrega de los lotes está proyectada para fines de 2026, una vez finalizadas todas las obras de infraestructura que incluyen 14.130 m² de calles, el boulevard, iluminación LED y sistema de drenaje pluvial completo.",
+    a: "La entrega de los lotes está proyectada para mediados de 2027, una vez finalizadas las obras.",
   },
   {
     q: "¿Se escritura el lote?",
