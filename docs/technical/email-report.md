@@ -74,11 +74,28 @@ Muestra el email con datos reales de la DB sin mandarlo.
 
 ## Chequeo diario del mapa (`/api/cron/mapa-check`)
 
-`POST` con el mismo header `Authorization: Bearer <CRON_SECRET>`. Llama a `/api/mapa` y
-manda un mail a juliankorn@gmail.com si falla, no devuelve parcelas o está usando la copia
-local (`src/lib/arba-parcelas.json`) porque ARBA no responde. Si el mail no se puede mandar
-responde 500, así cron-job.org también avisa.
+El mapa (`/api/mapa`) dibuja los lotes con una copia del catastro de ARBA guardada en
+`src/lib/arba-parcelas.json`; nunca consulta a ARBA en vivo (ver `src/lib/arba.ts`).
+
+El chequeo es un `POST` con el mismo header `Authorization: Bearer <CRON_SECRET>`. Manda
+un mail a juliankorn@gmail.com si:
+
+- el mapa no carga o no trae parcelas;
+- las parcelas de alguna manzana en ARBA ya no coinciden con la copia (p. ej. ARBA registró
+  una subdivisión). El mail dice qué manzanas cambiaron;
+- ARBA no responde: en ese caso avisa sólo los lunes.
+
+Si el mail no se puede mandar responde 500, así cron-job.org también avisa.
 
 - **URL:** `https://www.stefani.ar/api/cron/mapa-check`
 - **Method:** `POST`
 - **Schedule:** todos los días (ej. 8am Argentina = 11:00 UTC)
+
+### Actualizar la copia de ARBA
+
+```bash
+pnpm run arba:actualizar            # vuelve a bajar las manzanas que ya están en la copia
+pnpm run arba:actualizar 157 158    # además agrega manzanas nuevas
+```
+
+Revisar el diff de `src/lib/arba-parcelas.json`, commitear y hacer deploy.
