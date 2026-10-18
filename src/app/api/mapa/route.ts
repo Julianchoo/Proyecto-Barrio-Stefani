@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/api-auth";
+import arbaRespaldo from "@/lib/arba-parcelas.json";
 import { soloDisponibilidad } from "@/lib/lotes-mapa";
 import { getLotesPublicos } from "@/lib/lotes-publicos";
-import arbaRespaldo from "@/lib/arba-parcelas.json";
 
 // Público: lo usa el mapa de /mapa y la pestaña Mapa del CRM. Sólo expone
 // catastro, estado y precio de lista (ver getLotesPublicos). Sin sesión, el estado
