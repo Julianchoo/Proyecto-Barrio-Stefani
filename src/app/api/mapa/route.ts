@@ -19,7 +19,8 @@ function manzanaCca(manzana: string) {
 }
 
 // Copia de las parcelas del barrio bajada de ARBA (oct. 2026), para cuando el WFS
-// no responde (p. ej. el 16/10/2026 se les venció el certificado SSL).
+// no responde (p. ej. el 16/10/2026 se les venció el certificado SSL). La respuesta
+// indica la fuente usada; /api/cron/mapa-check avisa por mail si es la copia.
 function geometriaRespaldo(manzanas: string[]) {
   const prefijos = manzanas.map(manzanaCca);
   return {
@@ -66,11 +67,11 @@ export async function GET() {
     });
     if (!response.ok) {
       console.error(`ARBA respondió ${response.status}, se usa la copia local`);
-      return NextResponse.json({ geometria: geometriaRespaldo(manzanas), lotes });
+      return NextResponse.json({ geometria: geometriaRespaldo(manzanas), lotes, fuente: "copia" });
     }
-    return NextResponse.json({ geometria: await response.json(), lotes });
+    return NextResponse.json({ geometria: await response.json(), lotes, fuente: "arba" });
   } catch (error) {
     console.error("No se pudo consultar el catastro de ARBA, se usa la copia local", error);
-    return NextResponse.json({ geometria: geometriaRespaldo(manzanas), lotes });
+    return NextResponse.json({ geometria: geometriaRespaldo(manzanas), lotes, fuente: "copia" });
   }
 }
