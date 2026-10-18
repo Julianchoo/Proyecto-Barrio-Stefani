@@ -71,3 +71,14 @@ Muestra el email con datos reales de la DB sin mandarlo.
 - **Method:** `POST`
 - **Header:** `Authorization: Bearer <CRON_SECRET>`
 - **Schedule:** a elección (ej. todos los días 9am Argentina = 12:00 UTC)
+
+## Chequeo diario del mapa (`/api/cron/mapa-check`)
+
+`POST` con el mismo header `Authorization: Bearer <CRON_SECRET>`. Llama a `/api/mapa` y
+manda un mail a juliankorn@gmail.com si falla, no devuelve parcelas o está usando la copia
+local (`src/lib/arba-parcelas.json`) porque ARBA no responde. Si el mail no se puede mandar
+responde 500, así cron-job.org también avisa.
+
+- **URL:** `https://www.stefani.ar/api/cron/mapa-check`
+- **Method:** `POST`
+- **Schedule:** todos los días (ej. 8am Argentina = 11:00 UTC)
