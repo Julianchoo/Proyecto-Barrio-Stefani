@@ -14,6 +14,12 @@ import {
 
 type Calculator = { precio: number; anticipo: number; tasa: number; plazo: number };
 
+type TipoCambio = { valor: number | null; fecha: string | null };
+
+function formatArs(value: number): string {
+  return `$ ${Math.round(value).toLocaleString("es-AR")}`;
+}
+
 function formatDeliveryInstallment(value: number): string {
   if (value === 0) return "Con el anticipo";
   return `Después de cuota ${value}`;
@@ -40,6 +46,20 @@ export function CalculadoraCuota({
       ? { precio, anticipo: getMinimumAnticipoUsd(precio), tasa: TASA_PUBLICA, plazo: PLAZO_MAX_PUBLICO }
       : { precio, anticipo: 4500, tasa: 1, plazo: 48 }
   );
+
+  const [enPesos, setEnPesos] = useState(false);
+  const [tipoCambio, setTipoCambio] = useState<TipoCambio | null>(null);
+
+  useEffect(() => {
+    if (!enPesos || tipoCambio) return;
+    fetch("/api/tipo-cambio/referencia")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: TipoCambio | null) => setTipoCambio(data ?? { valor: null, fecha: null }))
+      .catch(() => setTipoCambio({ valor: null, fecha: null }));
+  }, [enPesos, tipoCambio]);
+
+  const tc = enPesos ? tipoCambio?.valor ?? null : null;
+  const formatMonto = (value: number) => (tc ? formatArs(value * tc) : formatUsd(value));
 
   const minimumAnticipo = getMinimumAnticipoUsd(calculator.precio);
 
@@ -141,23 +161,42 @@ export function CalculadoraCuota({
 
   const results: [string, string][] = publico
     ? [
-        ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
-        ["Total en cuotas", formatUsd(calculatorResult.totalFinanciado)],
-        ["Precio total", formatUsd(calculatorResult.precioTotalNominal)],
+        ["Cuota mensual", formatMonto(calculatorResult.cuotaMensual)],
+        ["Total en cuotas", formatMonto(calculatorResult.totalFinanciado)],
+        ["Precio total", formatMonto(calculatorResult.precioTotalNominal)],
       ]
     : [
-        ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
-        ["Plazo total financiado", formatUsd(calculatorResult.totalFinanciado)],
-        ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
+        ["Cuota mensual", formatMonto(calculatorResult.cuotaMensual)],
+        ["Plazo total financiado", formatMonto(calculatorResult.totalFinanciado)],
+        ["Precio total nominal", formatMonto(calculatorResult.precioTotalNominal)],
         ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
       ];
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Importes y cálculos de referencia en USD. Los contratos se pactan en pesos
-        con ajuste por CAC.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">Ver valores en</span>
+        <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="Moneda">
+          {([
+            [false, "USD"],
+            [true, "Pesos"],
+          ] as const).map(([pesos, label]) => (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={enPesos === pesos}
+              onClick={() => setEnPesos(pesos)}
+              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                enPesos === pesos
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className={publico ? "grid gap-4" : "grid gap-4 lg:grid-cols-4"}>
         {fields.map((item) => (
           <label key={item.key} className="space-y-2">
@@ -224,6 +263,23 @@ export function CalculadoraCuota({
           </div>
         ))}
       </div>
+      {enPesos && (
+        <p className="text-xs text-muted-foreground">
+          {!tipoCambio
+            ? "Buscando la cotización del dólar…"
+            : tc
+              ? `Conversión con dólar BNA vendedor ${formatArs(tc)}${
+                  tipoCambio.fecha
+                    ? ` (${new Date(tipoCambio.fecha).toLocaleDateString("es-AR")})`
+                    : ""
+                }. Anticipo y precio se cargan en USD.`
+              : "No pudimos obtener la cotización del dólar; se muestran los valores en USD."}
+        </p>
+      )}
+      <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        Esta calculadora es solo una estimación. Todo se pacta en pesos con ajuste
+        por CAC: los importes finales los define el contrato.
+      </p>
     </div>
   );
 }
