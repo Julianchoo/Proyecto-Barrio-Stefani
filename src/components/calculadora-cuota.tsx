@@ -161,12 +161,12 @@ export function CalculadoraCuota({
 
   const results: [string, string][] = publico
     ? [
-        ["Cuota mensual (valor base, ajustable)", formatMonto(calculatorResult.cuotaMensual)],
+        ["Cuota inicial base", formatMonto(calculatorResult.cuotaMensual)],
         ["Total en cuotas", formatMonto(calculatorResult.totalFinanciado)],
         ["Precio total", formatMonto(calculatorResult.precioTotalNominal)],
       ]
     : [
-        ["Cuota mensual (valor base, ajustable)", formatMonto(calculatorResult.cuotaMensual)],
+        ["Cuota inicial base", formatMonto(calculatorResult.cuotaMensual)],
         ["Plazo total financiado", formatMonto(calculatorResult.totalFinanciado)],
         ["Precio total nominal", formatMonto(calculatorResult.precioTotalNominal)],
         ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
@@ -175,8 +175,18 @@ export function CalculadoraCuota({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">Ver valores en</span>
-        <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="Moneda">
+        <span className="text-sm text-muted-foreground">Ver valores en</span>
+        <div
+          className="relative inline-grid grid-cols-2 rounded-full border bg-muted/60 p-1 shadow-inner"
+          role="group"
+          aria-label="Moneda"
+        >
+          <span
+            aria-hidden
+            className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-background shadow-sm ring-1 ring-border transition-transform duration-300 ease-out ${
+              enPesos ? "translate-x-full" : "translate-x-0"
+            }`}
+          />
           {([
             [false, "USD"],
             [true, "Pesos"],
@@ -186,9 +196,9 @@ export function CalculadoraCuota({
               type="button"
               aria-pressed={enPesos === pesos}
               onClick={() => setEnPesos(pesos)}
-              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+              className={`relative z-10 min-w-16 cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${
                 enPesos === pesos
-                  ? "bg-primary text-primary-foreground"
+                  ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -260,6 +270,11 @@ export function CalculadoraCuota({
           >
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className="text-lg font-semibold text-foreground">{value}</p>
+            {i === 0 && (
+              <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                No es una cuota fija: se ajusta mes a mes por CAC.
+              </p>
+            )}
           </div>
         ))}
       </div>
