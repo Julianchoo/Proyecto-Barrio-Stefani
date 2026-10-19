@@ -161,12 +161,12 @@ export function CalculadoraCuota({
 
   const results: [string, string][] = publico
     ? [
-        ["Cuota mensual", formatMonto(calculatorResult.cuotaMensual)],
+        ["Cuota mensual (valor base, ajustable)", formatMonto(calculatorResult.cuotaMensual)],
         ["Total en cuotas", formatMonto(calculatorResult.totalFinanciado)],
         ["Precio total", formatMonto(calculatorResult.precioTotalNominal)],
       ]
     : [
-        ["Cuota mensual", formatMonto(calculatorResult.cuotaMensual)],
+        ["Cuota mensual (valor base, ajustable)", formatMonto(calculatorResult.cuotaMensual)],
         ["Plazo total financiado", formatMonto(calculatorResult.totalFinanciado)],
         ["Precio total nominal", formatMonto(calculatorResult.precioTotalNominal)],
         ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
@@ -277,8 +277,8 @@ export function CalculadoraCuota({
         </p>
       )}
       <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-        Esta calculadora es solo una estimación. Todo se pacta en pesos con ajuste
-        por CAC: los importes finales los define el contrato.
+        Valores estimativos. La operación se pacta en pesos con ajuste por CAC y
+        las condiciones finales se definen en el contrato.
       </p>
     </div>
   );
