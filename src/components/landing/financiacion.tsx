@@ -21,7 +21,7 @@ export function Financiacion({ precioDesde }: { precioDesde: number | null }) {
             Tu lote con anticipo<br />y cuotas
           </h2>
           <p className="font-body text-muted-foreground text-sm mt-4 leading-relaxed max-w-md">
-            Mové el anticipo y el plazo para ver la cuota de referencia en USD.
+            Mové el anticipo y el plazo para ver la cuota de referencia en USD o en pesos.
             Los contratos se pactan en pesos con ajuste por CAC.
           </p>
           <ul className="mt-8 space-y-3">

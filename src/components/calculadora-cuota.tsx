@@ -14,6 +14,12 @@ import {
 
 type Calculator = { precio: number; anticipo: number; tasa: number; plazo: number };
 
+type TipoCambio = { valor: number | null; fecha: string | null };
+
+function formatArs(value: number): string {
+  return `$ ${Math.round(value).toLocaleString("es-AR")}`;
+}
+
 function formatDeliveryInstallment(value: number): string {
   if (value === 0) return "Con el anticipo";
   return `Después de cuota ${value}`;
@@ -40,6 +46,20 @@ export function CalculadoraCuota({
       ? { precio, anticipo: getMinimumAnticipoUsd(precio), tasa: TASA_PUBLICA, plazo: PLAZO_MAX_PUBLICO }
       : { precio, anticipo: 4500, tasa: 1, plazo: 48 }
   );
+
+  const [enPesos, setEnPesos] = useState(false);
+  const [tipoCambio, setTipoCambio] = useState<TipoCambio | null>(null);
+
+  useEffect(() => {
+    if (!enPesos || tipoCambio) return;
+    fetch("/api/tipo-cambio/referencia")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: TipoCambio | null) => setTipoCambio(data ?? { valor: null, fecha: null }))
+      .catch(() => setTipoCambio({ valor: null, fecha: null }));
+  }, [enPesos, tipoCambio]);
+
+  const tc = enPesos ? tipoCambio?.valor ?? null : null;
+  const formatMonto = (value: number) => (tc ? formatArs(value * tc) : formatUsd(value));
 
   const minimumAnticipo = getMinimumAnticipoUsd(calculator.precio);
 
@@ -141,23 +161,52 @@ export function CalculadoraCuota({
 
   const results: [string, string][] = publico
     ? [
-        ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
-        ["Total en cuotas", formatUsd(calculatorResult.totalFinanciado)],
-        ["Precio total", formatUsd(calculatorResult.precioTotalNominal)],
+        ["Cuota inicial base", formatMonto(calculatorResult.cuotaMensual)],
+        ["Total en cuotas", formatMonto(calculatorResult.totalFinanciado)],
+        ["Precio total", formatMonto(calculatorResult.precioTotalNominal)],
       ]
     : [
-        ["Cuota mensual", formatUsd(calculatorResult.cuotaMensual)],
-        ["Plazo total financiado", formatUsd(calculatorResult.totalFinanciado)],
-        ["Precio total nominal", formatUsd(calculatorResult.precioTotalNominal)],
+        ["Cuota inicial base", formatMonto(calculatorResult.cuotaMensual)],
+        ["Plazo total financiado", formatMonto(calculatorResult.totalFinanciado)],
+        ["Precio total nominal", formatMonto(calculatorResult.precioTotalNominal)],
         ["Cuota de entrega", formatDeliveryInstallment(calculatorResult.cuotaEntrega)],
       ];
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Importes y cálculos de referencia en USD. Los contratos se pactan en pesos
-        con ajuste por CAC.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm text-muted-foreground">Ver valores en</span>
+        <div
+          className="relative inline-grid grid-cols-2 rounded-full border bg-muted/60 p-1 shadow-inner"
+          role="group"
+          aria-label="Moneda"
+        >
+          <span
+            aria-hidden
+            className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-background shadow-sm ring-1 ring-border transition-transform duration-300 ease-out ${
+              enPesos ? "translate-x-full" : "translate-x-0"
+            }`}
+          />
+          {([
+            [false, "USD"],
+            [true, "Pesos"],
+          ] as const).map(([pesos, label]) => (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={enPesos === pesos}
+              onClick={() => setEnPesos(pesos)}
+              className={`relative z-10 min-w-16 cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${
+                enPesos === pesos
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className={publico ? "grid gap-4" : "grid gap-4 lg:grid-cols-4"}>
         {fields.map((item) => (
           <label key={item.key} className="space-y-2">
@@ -221,9 +270,31 @@ export function CalculadoraCuota({
           >
             <p className="text-xs text-muted-foreground">{label}</p>
             <p className="text-lg font-semibold text-foreground">{value}</p>
+            {i === 0 && (
+              <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                No es una cuota fija: se ajusta mes a mes por CAC.
+              </p>
+            )}
           </div>
         ))}
       </div>
+      {enPesos && (
+        <p className="text-xs text-muted-foreground">
+          {!tipoCambio
+            ? "Buscando la cotización del dólar…"
+            : tc
+              ? `Conversión con dólar BNA vendedor ${formatArs(tc)}${
+                  tipoCambio.fecha
+                    ? ` (${new Date(tipoCambio.fecha).toLocaleDateString("es-AR")})`
+                    : ""
+                }. Anticipo y precio se cargan en USD.`
+              : "No pudimos obtener la cotización del dólar; se muestran los valores en USD."}
+        </p>
+      )}
+      <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        Valores estimativos. La operación se pacta en pesos con ajuste por CAC y
+        las condiciones finales se definen en el contrato.
+      </p>
     </div>
   );
 }
