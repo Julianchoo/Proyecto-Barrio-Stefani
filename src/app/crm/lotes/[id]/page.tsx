@@ -311,7 +311,7 @@ export default function LoteDetailPage() {
     : {};
   const canEditLoteParams =
     session?.user?.role === "admin" ||
-    (session?.user?.role === "comercial" &&
+    ((session?.user?.role === "comercial" || session?.user?.role === "socio") &&
       (lote.estado === "disponible" || lote.reservadoPor === session.user.email));
   const visibleEditableLoteFields =
     session?.user?.role === "admin"

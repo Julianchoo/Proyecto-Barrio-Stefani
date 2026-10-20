@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CargarTipoCambio } from "@/components/crm/cargar-tipo-cambio";
 import { StatsCard } from "@/components/crm/stats-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBnaBilleteVendedor } from "@/lib/bna-exchange-rate";
 import { getInsights, type Insights } from "@/lib/insights";
-import { requireAdmin } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 import { argentinaTodayKey } from "@/lib/tipos-cambio";
 import { tones } from "@/lib/tones";
 import { cn } from "@/lib/utils";
@@ -360,7 +361,8 @@ function Rentabilidad({ r, t }: { r: Insights["rentabilidad"]; t: FacturacionTot
 }
 
 export default async function InsightsPage() {
-  await requireAdmin();
+  const { user } = await requireAuth();
+  if (user.role !== "admin" && user.role !== "socio") redirect("/crm");
   const { ventas, cobranza, facturacionTotal, rentabilidad } = await getInsights();
 
   const ultimo = ventas.porMes[ventas.porMes.length - 1];
@@ -413,7 +415,7 @@ export default async function InsightsPage() {
         <p className="mt-1 text-sm text-muted-foreground">Comercialización, cobranza y rentabilidad del barrio, en USD</p>
       </div>
 
-      {faltaTcHoy && (
+      {faltaTcHoy && user.role === "admin" && (
         <CargarTipoCambio
           fecha={hoy}
           sugerido={tcSugerido}

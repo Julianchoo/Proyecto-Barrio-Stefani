@@ -40,7 +40,9 @@ function NavLinks({ role, onClose }: { role?: string; onClose?: () => void }) {
         { href: "/crm/usuarios", icon: UserCog, label: "Usuarios" },
         { href: "/crm/auditoria", icon: History, label: "Auditoría" },
       ]
-    : baseNavItems;
+    : role === "socio"
+      ? [...baseNavItems, { href: "/crm/insights", icon: BarChart3, label: "Insights" }]
+      : baseNavItems;
 
   return (
     <nav className="flex-1 space-y-1 px-3">
@@ -68,7 +70,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { data: session } = useSession();
   const router = useRouter();
   const role: string | undefined = (session?.user as { role?: string } | undefined)?.role;
-  const canViewRate = role === "admin" || role === "comercial";
+  const canViewRate = role === "admin" || role === "comercial" || role === "socio";
 
   const handleSignOut = async () => {
     await signOut();

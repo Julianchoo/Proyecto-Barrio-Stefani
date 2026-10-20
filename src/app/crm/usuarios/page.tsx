@@ -53,7 +53,7 @@ const createSchema = z.object({
   name: z.string().min(2, "Ingresá el nombre"),
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres"),
-  role: z.enum(["admin", "comercial"]),
+  role: z.enum(["admin", "comercial", "socio"]),
 });
 
 type CreateFormValues = z.infer<typeof createSchema>;
@@ -61,7 +61,7 @@ type CreateFormValues = z.infer<typeof createSchema>;
 const editSchema = z.object({
   name: z.string().min(2, "Ingresá el nombre"),
   email: z.string().email("Email inválido"),
-  role: z.enum(["admin", "comercial"]),
+  role: z.enum(["admin", "comercial", "socio"]),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -121,7 +121,7 @@ export default function UsuariosPage() {
     editForm.reset({
       name: u.name,
       email: u.email,
-      role: u.role as "admin" | "comercial",
+      role: u.role as EditFormValues["role"],
     });
     setEditOpen(true);
   }
@@ -263,6 +263,7 @@ export default function UsuariosPage() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="comercial">Comercial</SelectItem>
+                          <SelectItem value="socio">Socio</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
@@ -409,6 +410,7 @@ export default function UsuariosPage() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="comercial">Comercial</SelectItem>
+                        <SelectItem value="socio">Socio</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>

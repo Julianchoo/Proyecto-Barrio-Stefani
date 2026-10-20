@@ -6,7 +6,7 @@ export async function GET() {
   const authResult = await requireApiAuth();
   if (isErrorResponse(authResult)) return authResult;
 
-  if (!["admin", "comercial"].includes(authResult.role)) {
+  if (!["admin", "comercial", "socio"].includes(authResult.role)) {
     return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
   }
 

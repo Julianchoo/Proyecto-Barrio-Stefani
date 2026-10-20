@@ -59,7 +59,7 @@ type UsuarioRow = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "comercial";
+  role: "admin" | "comercial" | "socio";
 };
 
 type CalendarEvent = {
@@ -252,7 +252,7 @@ export default function ReservasPage({
     fetch("/api/crm/usuarios")
       .then((res) => (res.ok ? res.json() : []))
       .then((data: UsuarioRow[]) => {
-        setUsuarios(data.filter((usuario) => usuario.role === "comercial"));
+        setUsuarios(data.filter((usuario) => usuario.role !== "admin"));
       })
       .catch(() => setUsuarios([]));
   }, [session?.user?.role]);

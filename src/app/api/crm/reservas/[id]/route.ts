@@ -183,7 +183,7 @@ export async function PATCH(
         const [targetUser] = await tx
           .select({ id: user.id })
           .from(user)
-          .where(and(eq(user.email, data.reservadoPor), eq(user.role, "comercial")))
+          .where(and(eq(user.email, data.reservadoPor), ne(user.role, "admin")))
           .limit(1);
 
         if (!targetUser) return { kind: "invalid-comercial" as const };
