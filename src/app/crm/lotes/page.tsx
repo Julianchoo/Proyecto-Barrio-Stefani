@@ -831,7 +831,15 @@ export default function LotesPage({
                         </SelectTrigger>
                         <SelectContent position="popper">
                           {ESTADOS_MANUALES.map((e) => (
-                            <SelectItem key={e} value={e}>
+                            <SelectItem
+                              key={e}
+                              value={e}
+                              disabled={
+                                e === "disponible" &&
+                                lote.estado !== "disponible" &&
+                                session?.user?.role !== "admin"
+                              }
+                            >
                               {estadoLabels[e]}
                             </SelectItem>
                           ))}
@@ -889,7 +897,11 @@ export default function LotesPage({
             </SelectTrigger>
             <SelectContent>
               {ESTADOS_MANUALES.map((e) => (
-                <SelectItem key={e} value={e}>
+                <SelectItem
+                  key={e}
+                  value={e}
+                  disabled={e === "disponible" && session?.user?.role !== "admin"}
+                >
                   {estadoLabels[e]}
                 </SelectItem>
               ))}

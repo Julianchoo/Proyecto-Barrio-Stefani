@@ -210,7 +210,26 @@ async function main() {
     (await editLot(json({ leadId: null, confirmarEdicionVendida: true }), params(lot!.id))).status,
     409
   );
+  const [blockedLot] = await db
+    .insert(parcelas)
+    .values({ numero: 4, estado: "no_disponible" })
+    .returning();
   const patchReserva = route("src/app/api/crm/reservas/[id]/route.ts").PATCH!;
+  for (const nonAdmin of ["comercial", "socio"]) {
+    role = nonAdmin;
+    assert.equal((await editLot(json({ estado: "disponible" }), params(blockedLot!.id))).status, 403);
+    assert.equal(
+      (
+        await patchReserva(
+          json({ estado: "cancelada", confirmarCambioEstado: true }),
+          params(reserva!.id)
+        )
+      ).status,
+      403
+    );
+  }
+  role = "admin";
+  assert.equal((await editLot(json({ estado: "disponible" }), params(blockedLot!.id))).status, 200);
   assert.equal(
     (
       await patchReserva(

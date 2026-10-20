@@ -589,8 +589,9 @@ export default function LoteDetailPage() {
         </Card>
       ) : lote.estado === "no_disponible" ? (
         <div className="rounded-md border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          Este lote está marcado como no disponible. Pasalo a disponible desde la lista de lotes para
-          reservarlo.
+          {session?.user?.role === "admin"
+            ? "Este lote está marcado como no disponible. Pasalo a disponible desde la lista de lotes para reservarlo."
+            : "Este lote está marcado como no disponible. Pedile a un administrador que lo pase a disponible para reservarlo."}
         </div>
       ) : (
         <ReservaEditor

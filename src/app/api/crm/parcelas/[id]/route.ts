@@ -362,6 +362,14 @@ export async function PUT(
           return { kind: "estado-con-reserva" as const, reservaId: activeReserva.id };
         }
         if (shouldTouchReserva) return { kind: "estado-y-reserva" as const };
+        // Liberar un lote no disponible es decisión de un administrador.
+        if (
+          authResult.role !== "admin" &&
+          allowedData.estado === "disponible" &&
+          current.estado !== "disponible"
+        ) {
+          return { kind: "admin-only-disponible" as const };
+        }
       }
       if (createsReserva && current.estado === "no_disponible") {
         return { kind: "lote-no-disponible" as const };
@@ -513,6 +521,12 @@ export async function PUT(
             "No se puede cambiar el estado del lote y cargar una reserva en el mismo guardado: guardá primero el estado y después la reserva",
         },
         { status: 400 }
+      );
+    }
+    if (result.kind === "admin-only-disponible") {
+      return NextResponse.json(
+        { error: "Solo un administrador puede pasar un lote a disponible. Pedile el cambio a un admin" },
+        { status: 403 }
       );
     }
     if (result.kind === "lote-no-disponible") {
