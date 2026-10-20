@@ -297,9 +297,6 @@ export async function getInsights() {
       totalACobrar,
       ventasSinCuenta: num(vk.ventas_sin_cuenta),
       totalVendido,
-      facturacionVendida: num(vk.facturacion_usd),
-      // Las cuotas en pesos ajustan por CAC y se pasan a USD al dólar: lo que se cobra difiere del precio del boleto.
-      ajusteCacDolar: totalVendido - num(vk.facturacion_usd),
       valuacionRestantes,
       lotesRestantes: num(vk.lotes_restantes),
       lotesSinPrecio: num(vk.lotes_sin_precio),
@@ -318,6 +315,7 @@ export async function getInsights() {
         ventasSinLista: num(r.ventas_sin_lista),
         precioSinLista: num(r.precio_sin_lista),
         precioM2: num(r.precio_m2),
+        // Las cuotas en pesos ajustan por CAC y se pasan a USD al dólar: lo que se cobra difiere del precio del boleto.
         ajusteCacDolar: totalVendido - num(vk.facturacion_usd),
       };
     })(),
