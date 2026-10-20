@@ -260,9 +260,7 @@ function ResumenFacturacion({ t }: { t: FacturacionTotal }) {
             )}
           </div>
           <div className="py-2">
-            <Linea nombre="Total de ventas firmadas" nota={n(t.lotesVendidos, "lote", "lotes")} valor={t.totalVendido} fuerte />
-            <Linea nombre="Facturación vendida" nota="precio de los boletos" valor={t.facturacionVendida} />
-            <Linea nombre="Ajuste CAC y dólar" nota="cuotas en pesos ajustadas por CAC, al dólar de hoy" valor={t.ajusteCacDolar} />
+            <Linea nombre="= Ventas firmadas" nota={`cobrado + falta cobrar · ${n(t.lotesVendidos, "lote", "lotes")}`} valor={t.totalVendido} fuerte />
           </div>
           <div className="py-2">
             <Linea
