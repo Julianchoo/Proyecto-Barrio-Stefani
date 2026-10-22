@@ -14,6 +14,7 @@ const pagoSchema = z.object({
   fechaPago: z.iso.date(),
   monto: z.number().positive(),
   moneda: z.enum(["usd", "ars"]),
+  tipoCambio: z.number().positive().nullable(),
   medio: z.string().nullable().optional(),
   observacion: z.string().nullable().optional(),
 });
@@ -43,6 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     fechaPago: formData.get("fechaPago"),
     monto: Number(formData.get("monto")),
     moneda: formData.get("moneda"),
+    tipoCambio: formData.get("tipoCambio") ? Number(formData.get("tipoCambio")) : null,
     medio: formData.get("medio") || null,
     observacion: formData.get("observacion") || null,
   });
@@ -110,9 +112,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       };
     }
 
-    const tipoCambio = parsed.data.moneda === "ars"
+    const tipoCambioManual = parsed.data.moneda === "ars" ? parsed.data.tipoCambio : null;
+    const tipoCambio = parsed.data.moneda === "ars" && !tipoCambioManual
       ? await getTipoCambioOnOrBefore(parsed.data.fechaPago, tx) : null;
-    const tipoCambioValor = tipoCambio ? Number(tipoCambio.valor) : null;
+    const tipoCambioValor = tipoCambioManual ?? (tipoCambio ? Number(tipoCambio.valor) : null);
     const uploaded = comprobante
       ? await upload(
           Buffer.from(await comprobante.arrayBuffer()),
@@ -132,6 +135,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         monto: String(parsed.data.monto),
         moneda: parsed.data.moneda,
         tipoCambioAplicado: tipoCambioValor && tipoCambioValor > 0 ? String(tipoCambioValor) : null,
+        tipoCambioManual: tipoCambioManual !== null,
         montoUsd:
           parsed.data.moneda === "usd"
             ? String(parsed.data.monto)

@@ -351,6 +351,16 @@ async function main() {
       tipoCambioAplicado: "10",
       montoUsd: "10",
     });
+  // Un pago con TC manual no cuenta en el impacto ni se reescribe al corregir el BNA.
+  await db.insert(pagos).values({
+    contratoId: contract!.id,
+    fechaPago: "2026-09-20",
+    monto: "100",
+    moneda: "ars",
+    tipoCambioAplicado: "50",
+    tipoCambioManual: true,
+    montoUsd: "2",
+  });
   const preview = await tiposCambio.saveTipoCambioBna({
     fecha: "2026-09-01",
     valor: 20,
@@ -376,8 +386,11 @@ async function main() {
     ).kind,
     "ok"
   );
-  const [arsPayment] = await db.select().from(pagos).where(eq(pagos.moneda, "ars"));
+  const [arsPayment] = await db.select().from(pagos).where(eq(pagos.fechaPago, "2026-09-15"));
   assert.equal(Number(arsPayment!.montoUsd), 5);
+  const [manualPayment] = await db.select().from(pagos).where(eq(pagos.fechaPago, "2026-09-20"));
+  assert.equal(Number(manualPayment!.tipoCambioAplicado), 50);
+  assert.equal(Number(manualPayment!.montoUsd), 2);
   await db
     .insert(pagos)
     .values({

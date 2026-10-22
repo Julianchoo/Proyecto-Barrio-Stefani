@@ -442,6 +442,8 @@ export const pagos = pgTable(
     monto: numeric("monto").notNull(),
     moneda: monedaPagoEnum("moneda").notNull(),
     tipoCambioAplicado: numeric("tipo_cambio_aplicado"),
+    // TC cargado a mano en el pago: la carga/corrección del TC BNA no lo pisa.
+    tipoCambioManual: boolean("tipo_cambio_manual").default(false).notNull(),
     montoUsd: numeric("monto_usd"),
     medio: text("medio"),
     observacion: text("observacion"),

@@ -215,6 +215,7 @@ export default function CuentaDetallePage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => formatDate(todayKey()));
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentRate, setPaymentRate] = useState("");
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
@@ -372,6 +373,11 @@ export default function CuentaDetallePage() {
       toast.error("Ingresá un monto mayor a 0");
       return;
     }
+    const rate = Number(paymentRate);
+    if (paymentRate && (!Number.isFinite(rate) || rate <= 0)) {
+      toast.error("Ingresá un tipo de cambio mayor a 0, o dejalo vacío para usar el BNA vendedor");
+      return;
+    }
 
     setRegisteringPayment(true);
     try {
@@ -382,6 +388,7 @@ export default function CuentaDetallePage() {
       formData.set("observacion", paymentObservation);
       formData.set("quitarComprobante", String(removeReceipt));
       if (paymentMethod) formData.set("medio", paymentMethod);
+      if (paymentRate) formData.set("tipoCambio", String(rate));
       if (paymentReceipt) formData.set("comprobante", paymentReceipt);
 
       const res = await fetch(
@@ -403,6 +410,7 @@ export default function CuentaDetallePage() {
       setPayingCuota(null);
       setPaymentAmount("");
       setPaymentMethod("");
+      setPaymentRate("");
       setPaymentReceipt(null);
       await fetchDetail();
     } catch {
@@ -876,6 +884,7 @@ export default function CuentaDetallePage() {
                           setEditingPayment(null);
                           setPaymentDate(formatDate(todayKey()));
                           setPaymentMethod("");
+                          setPaymentRate("");
                           setPaymentObservation("");
                           setRemoveReceipt(false);
                           setPayingCuota(cuota);
@@ -915,7 +924,7 @@ export default function CuentaDetallePage() {
                       <span className="font-medium">{formatMoney(pago.monto, pago.moneda)}</span>
                       <span className="text-muted-foreground">
                         {pago.tipoCambioAplicado
-                          ? `TC $ ${Number(pago.tipoCambioAplicado).toLocaleString("es-AR")}`
+                          ? `TC $ ${Number(pago.tipoCambioAplicado).toLocaleString("es-AR")}${pago.tipoCambioManual ? " (manual)" : ""}`
                           : pago.moneda === "usd"
                             ? "Pago USD"
                             : "Falta TC"}
@@ -974,6 +983,9 @@ export default function CuentaDetallePage() {
                             setPaymentDate(formatDate(pago.fechaPago));
                             setPaymentAmount(String(pago.monto));
                             setPaymentMethod(pago.medio ?? "");
+                            setPaymentRate(
+                              pago.tipoCambioManual ? String(pago.tipoCambioAplicado ?? "") : ""
+                            );
                             setPaymentObservation(pago.observacion ?? "");
                             setPaymentReceipt(null);
                             setRemoveReceipt(false);
@@ -1060,6 +1072,19 @@ export default function CuentaDetallePage() {
                     onChange={(event) => setPaymentAmount(event.target.value)}
                   />
                 </div>
+                {(editingPayment?.moneda ?? detail.moneda) === "ars" && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="payment-rate">Tipo de cambio (opcional)</Label>
+                    <Input
+                      id="payment-rate"
+                      type="number"
+                      step="0.01"
+                      value={paymentRate}
+                      onChange={(event) => setPaymentRate(event.target.value)}
+                      placeholder="Vacío = BNA vendedor de la fecha del pago"
+                    />
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label>Medio / nota</Label>
                   <Input

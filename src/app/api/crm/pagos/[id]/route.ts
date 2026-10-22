@@ -18,6 +18,7 @@ const pagoSchema = z.object({
   fechaPago: z.iso.date(),
   monto: z.number().positive(),
   moneda: z.enum(["usd", "ars"]),
+  tipoCambio: z.number().positive().nullable(),
   medio: z.string().nullable().optional(),
   observacion: z.string().nullable().optional(),
 });
@@ -47,6 +48,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     fechaPago: formData.get("fechaPago"),
     monto: Number(formData.get("monto")),
     moneda: formData.get("moneda"),
+    tipoCambio: formData.get("tipoCambio") ? Number(formData.get("tipoCambio")) : null,
     medio: formData.get("medio") || null,
     observacion: formData.get("observacion") || null,
   });
@@ -116,17 +118,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const dateChanged = parsed.data.fechaPago !== current.fechaPago;
+    // TC vacío en un pago con TC manual = volver al TC BNA de la fecha.
+    const tipoCambioManual = current.moneda === "ars" ? parsed.data.tipoCambio : null;
+    const rateChanged =
+      tipoCambioManual !== null
+        ? tipoCambioManual !== Number(current.tipoCambioAplicado) || !current.tipoCambioManual
+        : current.tipoCambioManual || dateChanged;
     const tipoCambio =
-      dateChanged && current.moneda === "ars"
+      rateChanged && tipoCambioManual === null && current.moneda === "ars"
         ? await getTipoCambioOnOrBefore(parsed.data.fechaPago, tx)
         : null;
-    const tipoCambioValor = dateChanged
-      ? tipoCambio
-        ? Number(tipoCambio.valor)
-        : null
-      : current.tipoCambioAplicado
-        ? Number(current.tipoCambioAplicado)
-        : null;
+    const tipoCambioValor =
+      tipoCambioManual ??
+      (rateChanged
+        ? tipoCambio
+          ? Number(tipoCambio.valor)
+          : null
+        : current.tipoCambioAplicado
+          ? Number(current.tipoCambioAplicado)
+          : null);
     const uploaded = comprobante
       ? await upload(
           Buffer.from(await comprobante.arrayBuffer()),
@@ -143,10 +153,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         fechaPago: parsed.data.fechaPago,
         monto: String(parsed.data.monto),
         moneda: parsed.data.moneda,
-        ...(dateChanged || amountChanged
+        ...(rateChanged || amountChanged
           ? {
               tipoCambioAplicado:
                 tipoCambioValor && tipoCambioValor > 0 ? String(tipoCambioValor) : null,
+              tipoCambioManual: tipoCambioManual !== null,
               montoUsd:
                 current.moneda === "usd"
                   ? String(parsed.data.monto)

@@ -1,0 +1,1 @@
+ALTER TABLE "pagos" ADD COLUMN "tipo_cambio_manual" boolean DEFAULT false NOT NULL;

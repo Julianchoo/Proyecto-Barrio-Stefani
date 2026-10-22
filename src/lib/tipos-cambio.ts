@@ -67,7 +67,7 @@ export async function saveTipoCambioBna(input: {
       { fecha: input.fecha, valor: String(nextValue) },
     ].sort((a, b) => b.fecha.localeCompare(a.fecha));
     const affectedPayments = paymentRows
-      .filter((payment) => payment.moneda === "ars")
+      .filter((payment) => payment.moneda === "ars" && !payment.tipoCambioManual)
       .flatMap((payment) => {
         const rate = nextRates.find((item) => item.fecha <= payment.fechaPago);
         if (rate?.fecha !== input.fecha) return [];
@@ -264,7 +264,7 @@ async function refreshPagoUsdValues(tx: CrmTransaction, fecha: string): Promise<
 
   for (const pago of paymentRows) {
     const monto = Number(pago.monto);
-    if (pago.moneda === "usd") {
+    if (pago.moneda === "usd" || pago.tipoCambioManual) {
       continue;
     }
 

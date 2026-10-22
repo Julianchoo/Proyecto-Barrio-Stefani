@@ -79,6 +79,7 @@ const fieldLabels: Record<string, string> = {
   monto: "Monto",
   montoUsd: "Monto USD",
   tipoCambioAplicado: "TC aplicado",
+  tipoCambioManual: "TC manual",
   medio: "Medio",
   observacion: "Observación",
   comprobanteNombre: "Comprobante",

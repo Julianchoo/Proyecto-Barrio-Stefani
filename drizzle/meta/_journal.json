@@ -183,6 +183,13 @@
       "when": 1792083568260,
       "tag": "0025_bizarre_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792698141567,
+      "tag": "0026_equal_tinkerer",
+      "breakpoints": true
     }
   ]
 }
