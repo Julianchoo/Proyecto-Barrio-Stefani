@@ -80,8 +80,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-4">
-        <Image src="/torre-agua.svg" alt="" width={24} height={24} className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">Barrio Stefani</span>
+        <Link href="/" className="flex min-w-0 flex-1 items-center gap-2">
+          <Image src="/torre-agua.svg" alt="" width={24} height={24} className="shrink-0" />
+          <span className="truncate text-sm font-semibold">Barrio Stefani</span>
+        </Link>
         <ModeToggle />
       </div>
 
@@ -151,8 +153,10 @@ export function CrmSidebar() {
             <SidebarContent />
           </SheetContent>
         </Sheet>
-        <Image src="/torre-agua.svg" alt="" width={24} height={24} className="ml-3 shrink-0" />
-        <span className="ml-2 flex-1 text-sm font-semibold">Barrio Stefani</span>
+        <Link href="/" className="ml-3 flex flex-1 items-center gap-2">
+          <Image src="/torre-agua.svg" alt="" width={24} height={24} className="shrink-0" />
+          <span className="text-sm font-semibold">Barrio Stefani</span>
+        </Link>
         <ModeToggle />
       </div>
     </>

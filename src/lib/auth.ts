@@ -23,6 +23,13 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
+  session: {
+    // Avoid a DB round trip on every request; role changes apply within 5 min
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
+  },
   user: {
     additionalFields: {
       role: {
