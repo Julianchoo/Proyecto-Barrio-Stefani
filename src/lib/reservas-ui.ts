@@ -68,8 +68,10 @@ export function formatDate(value: string | null) {
   if (!dateKey) return "-";
   const [year, month, day] = dateKey.split("-");
   if (!year || !month || !day) return value;
-  return `${day}/${month}/${year}`;
+  return `${day}-${shortMonths[Number(month) - 1]}-${year}`;
 }
+
+const shortMonths = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 type PaymentData = Partial<
   Pick<ReservaRow, "formaPago" | "modalidadContrato" | "cantidadCuotas" | "cuotaMensual">

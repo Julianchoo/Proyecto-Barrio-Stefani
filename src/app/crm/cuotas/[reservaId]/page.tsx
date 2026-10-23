@@ -49,6 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSession } from "@/lib/auth-client";
+import { formatDate } from "@/lib/reservas-ui";
 import type {
   Contrato,
   Cuota,
@@ -156,8 +157,8 @@ function formatIndex(value: number | string | null | undefined) {
   });
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "-";
+// dd/mm/yyyy para el input de fecha del pago (lo lee parsePaymentDate)
+function toInputDate(value: string) {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
 }
@@ -213,7 +214,7 @@ export default function CuentaDetallePage() {
   const [paymentObservation, setPaymentObservation] = useState("");
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState(() => formatDate(todayKey()));
+  const [paymentDate, setPaymentDate] = useState(() => toInputDate(todayKey()));
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentRate, setPaymentRate] = useState("");
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
@@ -294,8 +295,7 @@ export default function CuentaDetallePage() {
         setCreateModalidad(reserva.modalidadContrato ?? "requiere_revision");
         if (reserva.modalidadContrato === "pesos_cac") {
           await fetchTipoCambioBna();
-          const rows = await fetchIndicesCac();
-          setPeriodPickerYear(rows[0]?.periodo ? yearFromPeriod(rows[0].periodo) : currentYear());
+          await fetchIndicesCac();
         }
         setMissing(true);
         setDetail(null);
@@ -318,10 +318,10 @@ export default function CuentaDetallePage() {
   }
 
   useEffect(() => {
-    if (!session || session.user.role !== "admin") return;
+    if (session?.user?.role !== "admin") return;
     fetchDetail();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservaId, session]);
+  }, [reservaId, session?.user?.role]);
 
   async function createContrato() {
     if (reservaForCuenta?.formaPago === "contado") return;
@@ -613,11 +613,7 @@ export default function CuentaDetallePage() {
                       void fetchTipoCambioBna();
                     }
                     if (next === "pesos_cac" && indicesCac.length === 0) {
-                      void fetchIndicesCac().then((rows) => {
-                        setPeriodPickerYear(
-                          rows[0]?.periodo ? yearFromPeriod(rows[0].periodo) : currentYear()
-                        );
-                      });
+                      void fetchIndicesCac();
                     }
                   }}
                 >
@@ -642,7 +638,7 @@ export default function CuentaDetallePage() {
                     className="justify-start"
                     onClick={() => {
                       setPeriodPickerYear(
-                        periodoBaseCac ? yearFromPeriod(periodoBaseCac) : periodPickerYear
+                        periodoBaseCac ? yearFromPeriod(periodoBaseCac) : currentYear()
                       );
                       setShowPeriodPicker((value) => !value);
                     }}
@@ -882,7 +878,7 @@ export default function CuentaDetallePage() {
                         size="sm"
                         onClick={() => {
                           setEditingPayment(null);
-                          setPaymentDate(formatDate(todayKey()));
+                          setPaymentDate(toInputDate(todayKey()));
                           setPaymentMethod("");
                           setPaymentRate("");
                           setPaymentObservation("");
@@ -980,7 +976,7 @@ export default function CuentaDetallePage() {
                           onClick={() => {
                             setPayingCuota(null);
                             setEditingPayment(pago);
-                            setPaymentDate(formatDate(pago.fechaPago));
+                            setPaymentDate(toInputDate(pago.fechaPago));
                             setPaymentAmount(String(pago.monto));
                             setPaymentMethod(pago.medio ?? "");
                             setPaymentRate(
@@ -1057,7 +1053,7 @@ export default function CuentaDetallePage() {
                           }
                         }}
                         onChange={(event) => {
-                          setPaymentDate(event.target.value ? formatDate(event.target.value) : "");
+                          setPaymentDate(event.target.value ? toInputDate(event.target.value) : "");
                         }}
                       />
                     </div>

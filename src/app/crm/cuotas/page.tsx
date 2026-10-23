@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/auth-client";
+import { formatDate } from "@/lib/reservas-ui";
 import type { ModalidadContrato, MonedaPago } from "@/lib/schema";
 
 type CuentaRow = {
@@ -205,12 +206,6 @@ function formatIndexValue(value: number | null) {
   return value.toLocaleString("es-AR", { maximumFractionDigits: 3 });
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "-";
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
-}
-
 function formatUsd(value: number | null) {
   if (value === null) return "Sin BNA de hoy";
   return `USD ${value.toLocaleString("es-AR", {
@@ -338,7 +333,7 @@ export default function CuotasPage({
     if (!session) return;
     fetchRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, session]);
+  }, [params, session?.user?.role]);
 
   useEffect(() => {
     if (session?.user?.role === "admin") {
