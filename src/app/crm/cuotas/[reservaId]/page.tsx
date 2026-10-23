@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -217,6 +217,8 @@ export default function CuentaDetallePage() {
   const [paymentDate, setPaymentDate] = useState(() => toInputDate(todayKey()));
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentRate, setPaymentRate] = useState("");
+  const [loadingRate, setLoadingRate] = useState(false);
+  const rateDate = useRef<string | null>(null);
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
@@ -275,6 +277,23 @@ export default function CuentaDetallePage() {
     const data = await res.json().catch(() => null);
     if (res.ok && data?.sell) {
       setTipoCambioBna(String(data.sell));
+    }
+  }
+
+  // Precarga el TC del pago con el promedio blue de Ámbito de esa fecha; queda editable.
+  async function fillAmbitoRate(fecha: string | null, moneda: MonedaPago) {
+    if (!fecha || moneda !== "ars") return;
+    rateDate.current = fecha;
+    setLoadingRate(true);
+    const res = await fetch(`/api/tipo-cambio/ambito-blue?fecha=${fecha}`).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (rateDate.current !== fecha) return;
+    setLoadingRate(false);
+    if (res?.ok && data?.average) {
+      setPaymentRate(String(Math.round(data.average * 100) / 100));
+    } else {
+      setPaymentRate("");
+      toast.error("No hay cotización de Ámbito para esa fecha: cargá el tipo de cambio a mano");
     }
   }
 
@@ -375,7 +394,11 @@ export default function CuentaDetallePage() {
     }
     const rate = Number(paymentRate);
     if (paymentRate && (!Number.isFinite(rate) || rate <= 0)) {
-      toast.error("Ingresá un tipo de cambio mayor a 0, o dejalo vacío para usar el BNA vendedor");
+      toast.error(
+        editingPayment
+          ? "Ingresá un tipo de cambio mayor a 0, o dejalo vacío para usar el BNA vendedor"
+          : "Ingresá un tipo de cambio mayor a 0"
+      );
       return;
     }
 
@@ -886,6 +909,7 @@ export default function CuentaDetallePage() {
                           setPayingCuota(cuota);
                           setPaymentAmount(String(cuota.saldo ?? ""));
                           setPaymentReceipt(null);
+                          void fillAmbitoRate(todayKey(), detail.moneda);
                         }}
                         disabled={["pagada", "cancelada", "pendiente_indice"].includes(
                           cuota.estado
@@ -976,6 +1000,8 @@ export default function CuentaDetallePage() {
                           onClick={() => {
                             setPayingCuota(null);
                             setEditingPayment(pago);
+                            rateDate.current = null;
+                            setLoadingRate(false);
                             setPaymentDate(toInputDate(pago.fechaPago));
                             setPaymentAmount(String(pago.monto));
                             setPaymentMethod(pago.medio ?? "");
@@ -1036,7 +1062,13 @@ export default function CuentaDetallePage() {
                       placeholder="dd/mm/yyyy"
                       maxLength={10}
                       value={paymentDate}
-                      onChange={(event) => setPaymentDate(event.target.value)}
+                      onChange={(event) => {
+                        setPaymentDate(event.target.value);
+                        void fillAmbitoRate(
+                          parsePaymentDate(event.target.value),
+                          editingPayment?.moneda ?? detail.moneda
+                        );
+                      }}
                     />
                     <div className="border-input focus-within:ring-ring relative flex h-9 w-10 shrink-0 items-center justify-center rounded-md border focus-within:ring-2">
                       <Calendar className="h-4 w-4" aria-hidden="true" />
@@ -1054,6 +1086,10 @@ export default function CuentaDetallePage() {
                         }}
                         onChange={(event) => {
                           setPaymentDate(event.target.value ? toInputDate(event.target.value) : "");
+                          void fillAmbitoRate(
+                            event.target.value || null,
+                            editingPayment?.moneda ?? detail.moneda
+                          );
                         }}
                       />
                     </div>
@@ -1070,15 +1106,25 @@ export default function CuentaDetallePage() {
                 </div>
                 {(editingPayment?.moneda ?? detail.moneda) === "ars" && (
                   <div className="grid gap-2">
-                    <Label htmlFor="payment-rate">Tipo de cambio (opcional)</Label>
+                    <Label htmlFor="payment-rate">Tipo de cambio</Label>
                     <Input
                       id="payment-rate"
                       type="number"
                       step="0.01"
                       value={paymentRate}
                       onChange={(event) => setPaymentRate(event.target.value)}
-                      placeholder="Vacío = BNA vendedor de la fecha del pago"
+                      placeholder={
+                        loadingRate
+                          ? "Buscando cotización de Ámbito..."
+                          : editingPayment
+                            ? "Vacío = BNA vendedor de la fecha del pago"
+                            : "Promedio blue de Ámbito"
+                      }
                     />
+                    <p className="text-muted-foreground text-xs">
+                      Al cambiar la fecha se precarga el promedio blue de Ámbito de ese día. Podés
+                      modificarlo.
+                    </p>
                   </div>
                 )}
                 <div className="grid gap-2">
@@ -1157,7 +1203,7 @@ export default function CuentaDetallePage() {
                 <Button
                   type="button"
                   onClick={registerPayment}
-                  disabled={registeringPayment}
+                  disabled={registeringPayment || loadingRate}
                 >
                   {registeringPayment ? (
                     <Loader2 className="mr-1 h-4 w-4 animate-spin" />

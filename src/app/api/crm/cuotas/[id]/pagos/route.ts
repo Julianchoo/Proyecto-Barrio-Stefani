@@ -7,7 +7,6 @@ import { CUENTA_CANCELADA_ERROR, periodoLabel, recomputeContratoCuotas } from "@
 import { crmTransaction } from "@/lib/crm-transaction";
 import { contratos, cuotas, pagos, reservas } from "@/lib/schema";
 import { deleteFile, upload } from "@/lib/storage";
-import { getTipoCambioOnOrBefore } from "@/lib/tipos-cambio";
 import { validationMessage } from "@/lib/validation-message";
 
 const pagoSchema = z.object({
@@ -51,6 +50,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!parsed.success) {
     return NextResponse.json(
       { error: validationMessage(parsed.error.issues), details: parsed.error.issues },
+      { status: 400 }
+    );
+  }
+  if (parsed.data.moneda === "ars" && parsed.data.tipoCambio === null) {
+    return NextResponse.json(
+      { error: "Cargá el tipo de cambio del pago (por defecto, el promedio blue de Ámbito del día)" },
       { status: 400 }
     );
   }
@@ -113,9 +118,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const tipoCambioManual = parsed.data.moneda === "ars" ? parsed.data.tipoCambio : null;
-    const tipoCambio = parsed.data.moneda === "ars" && !tipoCambioManual
-      ? await getTipoCambioOnOrBefore(parsed.data.fechaPago, tx) : null;
-    const tipoCambioValor = tipoCambioManual ?? (tipoCambio ? Number(tipoCambio.valor) : null);
+    const tipoCambioValor = tipoCambioManual;
     const uploaded = comprobante
       ? await upload(
           Buffer.from(await comprobante.arrayBuffer()),

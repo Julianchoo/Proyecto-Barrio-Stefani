@@ -7,7 +7,7 @@ import {
 import { buildWeeklySigningsEmailHtml } from "@/lib/weekly-signings-email-template";
 import { buildWeeklySigningsExcel } from "@/lib/weekly-signings-excel";
 
-const RECIPIENTS = "juliankorn@gmail.com, hugo.guindani@gmail.com";
+const RECIPIENTS = "juliankorn@gmail.com, hugo.guindani@gmail.com, agustin.alonso@eulerdesarrollos.com.ar";
 
 function formatDate(value: string) {
   const [year, month, day] = value.split("-");
