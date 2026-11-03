@@ -42,6 +42,7 @@ export async function logAudit(
   entry: {
     entidad: AuditEntidad;
     entidadId: number;
+    entidadRef?: string;
     usuario: string;
     antes: Row;
     despues: Row;
@@ -52,6 +53,7 @@ export async function logAudit(
   await executor.insert(auditLog).values({
     entidad: entry.entidad,
     entidadId: entry.entidadId,
+    entidadRef: entry.entidadRef,
     accion: !entry.antes ? "crear" : !entry.despues ? "eliminar" : "editar",
     usuario: entry.usuario,
     cambios,

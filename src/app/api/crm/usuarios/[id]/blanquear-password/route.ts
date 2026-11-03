@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 import { isErrorResponse, requireApiAdmin } from "@/lib/api-auth";
+import { logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { account, user } from "@/lib/schema";
 
@@ -64,6 +65,16 @@ export async function POST(
         .update(user)
         .set({ mustChangePassword: true })
         .where(eq(user.id, id));
+
+      // Solo se registra que se blanqueó, nunca la contraseña.
+      await logAudit(tx, {
+        entidad: "usuario",
+        entidadId: 0,
+        entidadRef: id,
+        usuario: authResult.email,
+        antes: { contraseña: null },
+        despues: { contraseña: "blanqueada" },
+      });
     });
 
     return NextResponse.json({ temporaryPassword });

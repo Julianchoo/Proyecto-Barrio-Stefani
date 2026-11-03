@@ -5,6 +5,7 @@ import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { validationMessage } from "@/lib/validation-message";
+import { logAudit } from "@/lib/audit";
 
 const updateUserSchema = z
   .object({
@@ -41,16 +42,26 @@ export async function PATCH(
     if (data.email !== undefined) updates.email = data.email;
     if (data.role !== undefined) updates.role = data.role;
 
-    const [updated] = await db
-      .update(user)
-      .set(updates)
-      .where(eq(user.id, id))
-      .returning({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+    const fields = { name: user.name, email: user.email, role: user.role };
+    const updated = await db.transaction(async (tx) => {
+      const [antes] = await tx.select(fields).from(user).where(eq(user.id, id));
+      if (!antes) return null;
+      const [despues] = await tx
+        .update(user)
+        .set(updates)
+        .where(eq(user.id, id))
+        .returning({ id: user.id, ...fields });
+      if (!despues) return null;
+      await logAudit(tx, {
+        entidad: "usuario",
+        entidadId: 0,
+        entidadRef: id,
+        usuario: authResult.email,
+        antes,
+        despues: { name: despues.name, email: despues.email, role: despues.role },
       });
+      return despues;
+    });
 
     if (!updated) {
       return NextResponse.json(

@@ -40,6 +40,7 @@ const entidadLabels: Record<AuditRow["entidad"], string> = {
   contrato: "Cuenta corriente",
   cuota: "Cuota",
   pago: "Pago",
+  usuario: "Usuario",
 };
 
 const entidadColors: Record<AuditRow["entidad"], string> = {
@@ -49,6 +50,7 @@ const entidadColors: Record<AuditRow["entidad"], string> = {
   contrato: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
   cuota: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
   pago: "bg-amber-500/10 text-amber-800 dark:text-amber-400",
+  usuario: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
 };
 
 const accionLabels: Record<AuditRow["accion"], string> = {
@@ -87,6 +89,9 @@ const fieldLabels: Record<string, string> = {
   importeAjustado: "Importe ajustado",
   cuotaId: "Cuota",
   contratoId: "Cuenta corriente",
+  name: "Nombre",
+  email: "Email",
+  role: "Rol",
 };
 
 function fieldLabel(key: string) {
@@ -108,6 +113,7 @@ function formatDateTime(value: string) {
 function entidadHref(row: AuditRow) {
   if (row.entidad === "lote") return `/crm/lotes/${row.entidadId}`;
   if (row.entidad === "reserva") return `/crm/reservas/${row.entidadId}`;
+  if (row.entidad === "usuario") return "/crm/usuarios";
   if (row.reservaId) return `/crm/cuotas/${row.reservaId}`;
   return null;
 }
@@ -183,7 +189,7 @@ export default function AuditoriaPage() {
       <div>
         <h1 className="font-serif text-3xl font-normal text-foreground">Auditoría</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cambios en lotes, reservas, leads, cuentas corrientes y pagos: quién los hizo y cuándo
+          Cambios en lotes, reservas, leads, cuentas corrientes, pagos y usuarios: quién los hizo y cuándo
         </p>
       </div>
 
@@ -202,6 +208,7 @@ export default function AuditoriaPage() {
               <SelectItem value="contrato">Cuentas corrientes</SelectItem>
               <SelectItem value="cuota">Cuotas</SelectItem>
               <SelectItem value="pago">Pagos</SelectItem>
+              <SelectItem value="usuario">Usuarios</SelectItem>
             </SelectContent>
           </Select>
         </div>

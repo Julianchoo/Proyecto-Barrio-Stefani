@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { validationMessage } from "@/lib/validation-message";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const authResult = await requireApiAdmin();
@@ -81,6 +82,15 @@ export async function POST(request: Request) {
         .set({ role: data.role })
         .where(eq(user.id, created.id));
     }
+
+    await logAudit(db, {
+      entidad: "usuario",
+      entidadId: 0,
+      entidadRef: created.id,
+      usuario: authResult.email,
+      antes: null,
+      despues: { name: data.name, email, role: data.role },
+    });
 
     return NextResponse.json(
       { id: created.id, email, role: data.role },

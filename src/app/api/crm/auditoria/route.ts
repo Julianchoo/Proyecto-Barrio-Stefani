@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { db } from "@/lib/db";
-import { auditLog, contratos, cuotas, leads, pagos, parcelas, reservas } from "@/lib/schema";
+import { auditLog, contratos, cuotas, leads, pagos, parcelas, reservas, user } from "@/lib/schema";
 
 const PAGE_SIZE = 100;
-const ENTIDADES = ["lote", "reserva", "lead", "contrato", "cuota", "pago"] as const;
+const ENTIDADES = ["lote", "reserva", "lead", "contrato", "cuota", "pago", "usuario"] as const;
 
 function isDateKey(value: string | null): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
@@ -117,6 +117,18 @@ export async function GET(request: Request) {
         .where(inArray(contratos.id, contratoIds))
     : [];
   const contratosMap = new Map(contratoRows.map((row) => [row.id, row]));
+
+  // Usuarios: se identifican por entidadRef (id de texto).
+  const userIds = [
+    ...new Set(
+      page.filter((row) => row.entidad === "usuario" && row.entidadRef).map((row) => row.entidadRef as string)
+    ),
+  ];
+  const userRows = userIds.length
+    ? await db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(inArray(user.id, userIds))
+    : [];
+  const usersMap = new Map(userRows.map((row) => [row.id, `${row.name} (${row.email})`]));
+
   const entidadNombre = { contrato: "Cuenta corriente", cuota: "Cuota", pago: "Pago" } as const;
 
   return NextResponse.json({
@@ -136,6 +148,13 @@ export async function GET(request: Request) {
             : nombre,
           reservaId: contrato?.reservaId ?? null,
         };
+      }
+      if (row.entidad === "usuario") {
+        const email = row.cambios.email?.despues ?? row.cambios.email?.antes;
+        const label =
+          (row.entidadRef && usersMap.get(row.entidadRef)) ??
+          (typeof email === "string" ? email : `Usuario ${row.entidadRef ?? ""}`.trim());
+        return { ...row, label, reservaId: null };
       }
       const nombreBorrado = row.cambios.nombre?.antes;
       const label =
