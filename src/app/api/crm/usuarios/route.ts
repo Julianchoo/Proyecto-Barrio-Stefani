@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { user } from "@/lib/schema";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { validationMessage } from "@/lib/validation-message";
@@ -42,33 +41,49 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createUserSchema.parse(body);
 
-    // Use Better Auth server-side API to create user (handles password hashing)
-    const result = await auth.api.signUpEmail({
-      body: {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-      },
-      headers: await headers(),
+    // Public sign-up is disabled (disableSignUp), so create the user through
+    // Better Auth's internal adapter, same steps as its sign-up route.
+    const ctx = await auth.$context;
+    const email = data.email.toLowerCase();
+
+    if (await ctx.internalAdapter.findUserByEmail(email)) {
+      return NextResponse.json(
+        { error: "Ya existe un usuario con ese email" },
+        { status: 409 }
+      );
+    }
+
+    const hash = await ctx.password.hash(data.password);
+    const created = await ctx.internalAdapter.createUser({
+      name: data.name,
+      email,
+      emailVerified: false,
     });
 
-    if (!result?.user?.id) {
+    if (!created?.id) {
       return NextResponse.json(
         { error: "No se pudo crear el usuario" },
         { status: 500 }
       );
     }
 
+    await ctx.internalAdapter.linkAccount({
+      userId: created.id,
+      providerId: "credential",
+      accountId: created.id,
+      password: hash,
+    });
+
     // Update role if not default
     if (data.role !== "comercial") {
       await db
         .update(user)
         .set({ role: data.role })
-        .where(eq(user.id, result.user.id));
+        .where(eq(user.id, created.id));
     }
 
     return NextResponse.json(
-      { id: result.user.id, email: data.email, role: data.role },
+      { id: created.id, email, role: data.role },
       { status: 201 }
     );
   } catch (error) {

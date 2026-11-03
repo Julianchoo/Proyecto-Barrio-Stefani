@@ -46,6 +46,8 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    // Public sign-up is closed: users are created only by admins via /api/crm/usuarios
+    disableSignUp: true,
     sendResetPassword: async ({ user, url }) => {
       // Log password reset URL to terminal (no email integration yet)
       // eslint-disable-next-line no-console
