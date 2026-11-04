@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useCallback, useRef } from "react";
+import { use, useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Lock, Pencil } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Lock, Pencil } from "lucide-react";
 import { MapaLotes } from "@/components/mapa-lotes";
 import { CalculadoraCuota } from "@/components/calculadora-cuota";
 import { useSession } from "@/lib/auth-client";
@@ -137,6 +137,72 @@ function getCellValue(lote: ParcelaConReserva, key: ColKey): string {
     case "cuotaMensual": return lote.cuotaMensual ? `USD ${lote.cuotaMensual}` : "—";
     case "observaciones": return lote.observaciones ?? "—";
   }
+}
+
+type SortKey =
+  | ColKey
+  | "estado"
+  | "numero"
+  | "circunscripcion"
+  | "seccion"
+  | "manzana"
+  | "parcela"
+  | "partidaArba"
+  | "superficieM2"
+  | "metrosFrente"
+  | "metrosFondo"
+  | "precioBase";
+
+const SORT_FIELDS: Record<Exclude<SortKey, "estado" | "entrega">, keyof ParcelaConReserva> = {
+  numero: "numero",
+  circunscripcion: "circunscripcion",
+  seccion: "seccion",
+  manzana: "manzana",
+  parcela: "parcela",
+  partidaArba: "partidaArba",
+  superficieM2: "superficieM2",
+  metrosFrente: "metrosFrente",
+  metrosFondo: "metrosFondo",
+  precioBase: "precioBase",
+  comprador: "nombreComprador",
+  dniCuit: "dniCuit",
+  telefono: "telefono",
+  email: "emailComprador",
+  domicilio: "domicilioComprador",
+  corredor: "nombreCorredor",
+  emailCorredor: "emailCorredor",
+  formaPago: "formaPago",
+  fechaReserva: "fechaReserva",
+  fechaVencimiento: "fechaVencimiento",
+  precioEtapa1: "precioEtapa1",
+  precioTotal: "precioTotalNum",
+  anticipo: "anticipoNum",
+  saldo: "saldoNum",
+  cuotas: "cantidadCuotas",
+  cuotaMensual: "cuotaMensual",
+  observaciones: "observaciones",
+};
+
+function getSortValue(lote: ParcelaConReserva, key: SortKey): string | null {
+  if (key === "estado") return estadoLabels[lote.estado];
+  if (key === "entrega") return lote.tipoEntrega ? formatEntrega(lote) : null;
+  const value = lote[SORT_FIELDS[key]];
+  return value === null || value === undefined || value === "" ? null : String(value);
+}
+
+// Numérico si ambos valores son números (superficie, precios); si no, texto con dígitos en orden natural.
+// Los vacíos van siempre al final, en cualquier dirección.
+function compareLotes(a: ParcelaConReserva, b: ParcelaConReserva, key: SortKey, desc: boolean) {
+  const va = getSortValue(a, key);
+  const vb = getSortValue(b, key);
+  if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+  const na = Number(va);
+  const nb = Number(vb);
+  const result =
+    Number.isFinite(na) && Number.isFinite(nb)
+      ? na - nb
+      : va.localeCompare(vb, "es-AR", { numeric: true, sensitivity: "base" });
+  return desc ? -result : result;
 }
 
 const DEFAULT_COLS: Record<ColKey, boolean> = {
@@ -277,6 +343,35 @@ export default function LotesPage({
     fetchLotes();
   }, [fetchLotes]);
 
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean } | null>(null);
+  const sortedLotes = useMemo(
+    () => (sort ? [...lotes].sort((a, b) => compareLotes(a, b, sort.key, sort.desc)) : lotes),
+    [lotes, sort]
+  );
+
+  function toggleSort(key: SortKey) {
+    setSort((current) => ({ key, desc: current?.key === key ? !current.desc : false }));
+    // El shift-click usa índices de la vista: tras reordenar, el último índice ya no vale.
+    lastCheckedIndexRef.current = null;
+  }
+
+  function SortHeader({ sortKey, children }: { sortKey: SortKey; children: ReactNode }) {
+    const isActive = sort?.key === sortKey;
+    const Icon = !isActive ? ArrowUpDown : sort.desc ? ArrowDown : ArrowUp;
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => toggleSort(sortKey)}
+        className="-ml-3 h-8 px-3 text-inherit hover:bg-muted/50 hover:text-foreground"
+      >
+        {children}
+        <Icon className="ml-1 h-3.5 w-3.5" />
+      </Button>
+    );
+  }
+
   const handleEstadoChange = async (id: number, estado: EstadoParcela) => {
     const lote = lotes.find((l) => l.id === id);
     if (lote && !canEditLote(lote)) {
@@ -321,7 +416,7 @@ export default function LotesPage({
         const to = Math.max(lastCheckedIndexRef.current, index);
         const isSelecting = !prev.has(id);
         for (let i = from; i <= to; i++) {
-          const lote = lotes[i];
+          const lote = sortedLotes[i];
           if (!lote) continue;
           if (!canEditLote(lote)) continue;
           if (isSelecting) next.add(lote.id);
@@ -512,7 +607,7 @@ export default function LotesPage({
       ...activeCols.map((c) => c.label),
     ];
 
-    const rows = lotes.map((lote) => [
+    const rows = sortedLotes.map((lote) => [
       lote.numero,
       lote.circunscripcion ?? "",
       lote.seccion ?? "",
@@ -747,19 +842,21 @@ export default function LotesPage({
                 />
               </TableHead>
               <TableHead className="w-16" />
-              <TableHead>Estado</TableHead>
-              <TableHead className="w-12">N°</TableHead>
-              <TableHead>Circ.</TableHead>
-              <TableHead>Secc.</TableHead>
-              <TableHead>Manzana</TableHead>
-              <TableHead>Parcela</TableHead>
-              <TableHead>Partida ARBA</TableHead>
-              <TableHead>Superficie</TableHead>
-              <TableHead>Frente</TableHead>
-              <TableHead>Fondo</TableHead>
-              <TableHead>Precio base</TableHead>
+              <TableHead><SortHeader sortKey="estado">Estado</SortHeader></TableHead>
+              <TableHead className="w-12"><SortHeader sortKey="numero">N°</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="circunscripcion">Circ.</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="seccion">Secc.</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="manzana">Manzana</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="parcela">Parcela</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="partidaArba">Partida ARBA</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="superficieM2">Superficie</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="metrosFrente">Frente</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="metrosFondo">Fondo</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey="precioBase">Precio base</SortHeader></TableHead>
               {activeOptionalCols.map((col) => (
-                <TableHead key={col.key}>{col.label}</TableHead>
+                <TableHead key={col.key}>
+                  <SortHeader sortKey={col.key}>{col.label}</SortHeader>
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -774,7 +871,7 @@ export default function LotesPage({
                     ))}
                   </TableRow>
                 ))
-              : lotes.map((lote, index) => {
+              : sortedLotes.map((lote, index) => {
                   const isLoteLocked = !canEditLote(lote);
                   return (
                   <TableRow
