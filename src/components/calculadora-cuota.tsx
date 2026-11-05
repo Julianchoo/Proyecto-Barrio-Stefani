@@ -272,7 +272,9 @@ export function CalculadoraCuota({
             <p className="text-lg font-semibold text-foreground">{value}</p>
             {i === 0 && (
               <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                No es una cuota fija: se ajusta mes a mes por CAC.
+                {enPesos
+                  ? "No es una cuota fija: se ajusta mes a mes por CAC."
+                  : "Cuota de referencia en USD: se pesifica y se ajusta mes a mes por CAC."}
               </p>
             )}
           </div>

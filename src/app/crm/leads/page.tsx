@@ -100,12 +100,13 @@ const estadoLabels: Record<EstadoLead, string> = {
 export default function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; editar?: string }>;
 }) {
   // Permite llegar prefiltrado, p. ej. desde la tarjeta "Leads nuevos" del dashboard.
-  const { estado: estadoInicial } = use(searchParams);
+  const { estado: estadoInicial, editar: leadParaEditar } = use(searchParams);
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
+  const currentUserId = session?.user?.id;
   const canEditLead = (lead: LeadRow) => isAdmin || lead.asignadoA === session?.user?.id;
 
   const [leads, setLeads] = useState<LeadRow[]>([]);
@@ -118,6 +119,7 @@ export default function LeadsPage({
   const lastCheckedIndexRef = useRef<number | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const [editLead, setEditLead] = useState<LeadRow | null>(null);
+  const openedLeadRef = useRef<string | null>(null);
   const [editForm, setEditForm] = useState({
     nombre: "",
     telefono: "",
@@ -284,7 +286,7 @@ export default function LeadsPage({
     }
   };
 
-  function openEditDialog(lead: LeadRow) {
+  const openEditDialog = useCallback((lead: LeadRow) => {
     setEditLead(lead);
     setEditForm({
       nombre: lead.nombre,
@@ -298,7 +300,21 @@ export default function LeadsPage({
       cuitComprador: lead.cuitComprador ?? "",
       notas: lead.notas ?? "",
     });
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!leadParaEditar || loading || !currentUserId || openedLeadRef.current === leadParaEditar) return;
+    const lead = leads.find((row) => String(row.id) === leadParaEditar);
+    const timer = window.setTimeout(() => {
+      openedLeadRef.current = leadParaEditar;
+      if (!lead || (!isAdmin && lead.asignadoA !== currentUserId)) {
+        toast.error("Lead no encontrado o sin permiso para editarlo");
+        return;
+      }
+      openEditDialog(lead);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [leadParaEditar, loading, currentUserId, leads, isAdmin, openEditDialog]);
 
   async function handleEditSave() {
     if (!editLead) return;

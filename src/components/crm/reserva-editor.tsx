@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { NETWORK_ERROR, toastApiError } from "@/components/crm/toast-api-error";
 import { FIELD_LABELS } from "@/lib/validation-message";
-import { AlertCircle, ImageUp, Loader2 } from "lucide-react";
+import { AlertCircle, ExternalLink, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -570,8 +571,21 @@ export function ReservaEditor({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base font-medium">Lead asociado</CardTitle>
+          {selectedLeadId && (
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={`/crm/leads?editar=${selectedLeadId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Editar lead #${selectedLeadId} en una pestaña nueva`}
+              >
+                Editar lead
+                <ExternalLink aria-hidden="true" className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {lote.reservaId && !selectedLeadId && (
