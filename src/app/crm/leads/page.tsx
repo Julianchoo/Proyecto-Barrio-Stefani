@@ -33,6 +33,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { formatUsd } from "@/lib/financiacion";
+import { FIELD_LABELS } from "@/lib/validation-message";
 import { NETWORK_ERROR, toastApiError, toastBulkErrors } from "@/components/crm/toast-api-error";
 import type { EstadoLead, OrigenLead, SimulacionLead } from "@/lib/schema";
 
@@ -321,11 +322,35 @@ export default function LeadsPage({
       return;
     }
 
-    const res = await fetch(`/api/crm/leads/${editLead.id}`, {
+    const save = (confirmarEdicionReservas = false) => fetch(`/api/crm/leads/${editLead.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(changed),
+      body: JSON.stringify({ ...changed, confirmarEdicionReservas }),
     });
+    let res: Response;
+    try {
+      res = await save();
+      if (res.status === 409) {
+        const warning = await res.clone().json();
+        if (warning.requiereConfirmacionReservas) {
+          const reservas = warning.reservas
+            .map((reserva: { id: number; estado: string }) => `#${reserva.id} (${reserva.estado})`)
+            .join(", ");
+          const cambios = Object.entries(changed)
+            .map(([field, value]) => `${FIELD_LABELS[field] ?? field}: ${editLead[field as keyof LeadRow] ?? "Sin dato"} → ${value ?? "Sin dato"}`)
+            .join("\n");
+          if (!window.confirm(`${warning.error}\n\nReservas: ${reservas}\n\n${cambios}\n\n¿Confirmás los cambios?`)) {
+            setEditSaving(false);
+            return;
+          }
+          res = await save(true);
+        }
+      }
+    } catch {
+      toast.error(NETWORK_ERROR);
+      setEditSaving(false);
+      return;
+    }
     if (res.ok) {
       setLeads((ls) =>
         ls.map((l) =>

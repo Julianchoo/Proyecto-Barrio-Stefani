@@ -247,16 +247,17 @@ async function main() {
   assert.equal((await boleto(json({ ...documentInput, cuotaMensual: "80" }), params(newLot!.id))).status, 409);
   assert.equal((await boleto(json(documentInput), params(newLot!.id))).status, 200);
   assert.deepEqual((await db.select().from(reservas).where(eq(reservas.id, pending!.id)))[0], beforeDocument);
-  assert.equal((await editLead.PUT!(json({ nombre: "Updated" }), params(lead!.id))).status, 200);
+  assert.equal((await editLead.PUT!(json({ nombre: "Updated", confirmarEdicionReservas: true }), params(lead!.id))).status, 200);
   const [updatedLead] = await db.select().from(leads).where(eq(leads.id, lead!.id));
+  assert.deepEqual((await db.select().from(reservas).where(eq(reservas.id, pending!.id)))[0], beforeDocument);
   assert.equal(
     reservasLib.flattenParcelaReserva(newLot!, snapshot!, updatedLead).nombreComprador,
-    "Original"
+    "Updated"
   );
   await db.insert(rates).values({ fecha: tiposCambio.argentinaTodayKey(), valor: "1000" });
   assert.equal(
     (await cuenta.getCuentaCorrienteDetailByReserva(pending!.id))!.comprador,
-    "Original"
+    "Updated"
   );
   const [raceLot] = await db
     .insert(parcelas)

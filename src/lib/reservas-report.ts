@@ -1,6 +1,7 @@
 import { and, eq, gte, ilike, inArray, lte, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { flattenParcelaReserva } from "@/lib/reservas";
+import { compradorColumns, compradorGuardado, flattenParcelaReserva } from "@/lib/reservas";
+import type { DatosComprador } from "@/lib/reservas";
 import { leads, parcelas, reservas } from "@/lib/schema";
 import type { EstadoReserva, ParcelaConReserva } from "@/lib/schema";
 
@@ -13,6 +14,7 @@ export type ReservaReportRow = Omit<ParcelaConReserva, "id" | "estado"> & {
   reservaEstado: EstadoReserva;
   reservaCreatedAt: Date;
   reservaUpdatedAt: Date;
+  compradorGuardado: DatosComprador;
 };
 
 function isDateKey(value: string | null) {
@@ -67,12 +69,12 @@ export async function getFilteredReservas(searchParams: URLSearchParams): Promis
   // ilike sin comodines = igualdad sin distinguir mayúsculas.
   if (manzana) conditions.push(ilike(parcelas.manzana, manzana));
   if (parcela) conditions.push(ilike(parcelas.parcela, parcela));
-  if (comprador) conditions.push(ilike(reservas.nombreComprador, `%${comprador}%`));
+  if (comprador) conditions.push(ilike(compradorColumns.nombreComprador, `%${comprador}%`));
   if (search) {
     conditions.push(
       or(
-        ilike(reservas.nombreComprador, `%${search}%`),
-        ilike(reservas.dniCuit, `%${search}%`),
+        ilike(compradorColumns.nombreComprador, `%${search}%`),
+        ilike(compradorColumns.dniCuit, `%${search}%`),
         ilike(parcelas.manzana, `%${search}%`),
         ilike(parcelas.parcela, `%${search}%`)
       )
@@ -97,5 +99,6 @@ export async function getFilteredReservas(searchParams: URLSearchParams): Promis
     reservaEstado: reserva.estado,
     reservaCreatedAt: reserva.createdAt,
     reservaUpdatedAt: reserva.updatedAt,
+    compradorGuardado: compradorGuardado(reserva),
   }));
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit";
 import { leads, reservas } from "@/lib/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { compradorDesdeLead } from "@/lib/reservas";
 import { crmTransaction } from "@/lib/crm-transaction";
 import { requireApiAdmin, requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import { z } from "zod";
@@ -20,6 +21,7 @@ const updateSchema = z.object({
   fechaNacimiento: z.string().nullable().optional(),
   estadoCivil: z.string().nullable().optional(),
   cuitComprador: z.string().nullable().optional(),
+  confirmarEdicionReservas: z.boolean().optional(),
 });
 
 export async function PUT(
@@ -37,7 +39,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const data = updateSchema.parse(body);
+    const { confirmarEdicionReservas, ...data } = updateSchema.parse(body);
 
     // Only admins can assign leads
     if ("asignadoA" in data && authResult.role !== "admin") {
@@ -53,12 +55,17 @@ export async function PUT(
       if (authResult.role !== "admin" && current.asignadoA !== authResult.id) {
         return NextResponse.json({ error: "Este lead no está asignado a vos: solo podés editar tus propios leads" }, { status: 403 });
       }
+      const vinculadas = await tx
+        .select()
+        .from(reservas)
+        .where(and(eq(reservas.leadId, leadId), inArray(reservas.estado, ["activa", "realizada"])));
+      const antesComprador = compradorDesdeLead(current);
+      const despuesComprador = compradorDesdeLead(Object.assign({}, current, data));
+      const cambiaComprador = Object.entries(despuesComprador).some(
+          ([field, value]) => value !== antesComprador[field as keyof typeof antesComprador]
+      );
       if (authResult.role !== "admin") {
-        const [realizada] = await tx
-          .select({ id: reservas.id })
-          .from(reservas)
-          .where(and(eq(reservas.leadId, leadId), eq(reservas.estado, "realizada")))
-          .limit(1);
+        const realizada = vinculadas.find((reserva) => reserva.estado === "realizada");
         if (realizada)
           return NextResponse.json(
             {
@@ -66,6 +73,22 @@ export async function PUT(
             },
             { status: 403 }
           );
+        if (cambiaComprador && vinculadas.length > 0) {
+          return NextResponse.json(
+            { error: "Este lead tiene reservas activas: solo un administrador puede modificar los datos del comprador" },
+            { status: 403 }
+          );
+        }
+      }
+      if (cambiaComprador && vinculadas.length > 0 && confirmarEdicionReservas !== true) {
+        return NextResponse.json(
+          {
+            error: "Este lead es la fuente de los datos del comprador de las reservas vinculadas. Los cambios se verán en reservas, cuotas y exportaciones. Los documentos ya descargados no se actualizan.",
+            requiereConfirmacionReservas: true,
+            reservas: vinculadas.map(({ id, estado }) => ({ id, estado })),
+          },
+          { status: 409 }
+        );
       }
 
       // Asignar un lead nuevo lo pasa a "asignado"; desasignarlo lo devuelve a "nuevo".

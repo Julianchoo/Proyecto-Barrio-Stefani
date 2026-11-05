@@ -14,7 +14,7 @@ import {
   flattenParcelaReserva,
   hasReservaData,
   pickReservaData,
-  compradorSnapshot,
+  compradorDesdeLead,
 } from "@/lib/reservas";
 
 const COMERCIAL_FIELDS = [
@@ -391,7 +391,7 @@ export async function PUT(
 
         if (!selectedLead) return { kind: "invalid-lead" as const };
         if (createsReserva || requestedLeadId !== activeReserva?.leadId)
-          Object.assign(reservaData, compradorSnapshot(selectedLead));
+          Object.assign(reservaData, compradorDesdeLead(selectedLead));
       }
 
       if (allowedData.estado !== undefined) {

@@ -537,7 +537,7 @@ export function ReservaEditor({
     | "fechaNacimiento"
     | "estadoCivil"
     | "cuitComprador"
-  >) => form.watch(field) || lote[field] || "-";
+  >) => form.watch(field) || "-";
   const leadDisplay = [
     ["Nombre", leadValue("nombreComprador")],
     ["DNI / CUIT", leadValue("dniCuit")],

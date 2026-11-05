@@ -14,7 +14,7 @@ import {
 import { db } from "@/lib/db";
 import { contratos, leads, parcelas, reservas, user } from "@/lib/schema";
 import { crmTransaction } from "@/lib/crm-transaction";
-import { compradorSnapshot } from "@/lib/reservas";
+import { compradorColumns, compradorDesdeLead } from "@/lib/reservas";
 
 const updateSchema = z
   .object({
@@ -75,10 +75,7 @@ export async function GET(
       parcelaId: reservas.parcelaId,
       leadId: reservas.leadId,
       estado: reservas.estado,
-      nombreComprador: reservas.nombreComprador,
-      dniCuit: reservas.dniCuit,
-      telefono: reservas.telefono,
-      emailComprador: reservas.emailComprador,
+      ...compradorColumns,
       reservadoPor: reservas.reservadoPor,
       fechaReserva: reservas.fechaReserva,
       fechaVencimiento: reservas.fechaVencimiento,
@@ -96,6 +93,7 @@ export async function GET(
     })
     .from(reservas)
     .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+    .leftJoin(leads, eq(reservas.leadId, leads.id))
     .where(eq(reservas.id, reservaId));
 
   if (!row) {
@@ -230,14 +228,14 @@ export async function PATCH(
         }
       }
 
-      const [lead] =
-        reserva.leadId && nextEstado === "realizada"
+      const [leadAlFormalizar] =
+        cambiaEstado && nextEstado === "realizada" && reserva.leadId
           ? await tx.select().from(leads).where(eq(leads.id, reserva.leadId))
           : [];
       await tx
         .update(reservas)
         .set({
-          ...(cambiaEstado && nextEstado === "realizada" && lead ? compradorSnapshot(lead) : {}),
+          ...(leadAlFormalizar ? compradorDesdeLead(leadAlFormalizar) : {}),
           ...(data.estado ? { estado: data.estado } : {}),
           ...(data.reservadoPor ? { reservadoPor: data.reservadoPor } : {}),
           modificadoPor: authResult.email,
@@ -280,10 +278,7 @@ export async function PATCH(
           parcelaId: reservas.parcelaId,
           leadId: reservas.leadId,
           estado: reservas.estado,
-          nombreComprador: reservas.nombreComprador,
-          dniCuit: reservas.dniCuit,
-          telefono: reservas.telefono,
-          emailComprador: reservas.emailComprador,
+          ...compradorColumns,
           reservadoPor: reservas.reservadoPor,
           fechaReserva: reservas.fechaReserva,
           fechaVencimiento: reservas.fechaVencimiento,
@@ -301,6 +296,7 @@ export async function PATCH(
         })
         .from(reservas)
         .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+        .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(eq(reservas.id, reserva.id));
 
       const cuentaResult =

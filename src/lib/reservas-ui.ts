@@ -1,4 +1,5 @@
 import type { EstadoParcela, EstadoReserva, ModalidadContrato, ParcelaConReserva } from "@/lib/schema";
+import type { DatosComprador } from "@/lib/reservas";
 
 // Fila de GET /api/crm/reservas (ver getFilteredReservas). createdAt es del lote;
 // la fecha de creacion de la reserva viene en reservaCreatedAt.
@@ -28,6 +29,7 @@ export type ReservaRow = Omit<ParcelaConReserva, "id" | "estado" | "createdAt" |
   manzana: string | null;
   parcela: string | null;
   loteEstado: EstadoParcela;
+  compradorGuardado?: DatosComprador;
 };
 
 export const estadoLabels: Record<EstadoReserva, string> = {

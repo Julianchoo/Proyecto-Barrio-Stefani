@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { requireApiAdmin, isErrorResponse } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { compradorColumns } from "@/lib/reservas";
 import { auditLog, contratos, cuotas, leads, pagos, parcelas, reservas, user } from "@/lib/schema";
 
 const PAGE_SIZE = 100;
@@ -57,9 +58,10 @@ export async function GET(request: Request) {
       : [],
     reservaIds.length
       ? db
-          .select({ id: reservas.id, loteNumero: parcelas.numero, comprador: reservas.nombreComprador })
+          .select({ id: reservas.id, loteNumero: parcelas.numero, comprador: compradorColumns.nombreComprador })
           .from(reservas)
           .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+          .leftJoin(leads, eq(reservas.leadId, leads.id))
           .where(inArray(reservas.id, reservaIds))
       : [],
     leadIds.length
@@ -109,11 +111,12 @@ export async function GET(request: Request) {
           id: contratos.id,
           reservaId: contratos.reservaId,
           loteNumero: parcelas.numero,
-          comprador: reservas.nombreComprador,
+          comprador: compradorColumns.nombreComprador,
         })
         .from(contratos)
         .innerJoin(reservas, eq(contratos.reservaId, reservas.id))
         .innerJoin(parcelas, eq(reservas.parcelaId, parcelas.id))
+        .leftJoin(leads, eq(reservas.leadId, leads.id))
         .where(inArray(contratos.id, contratoIds))
     : [];
   const contratosMap = new Map(contratoRows.map((row) => [row.id, row]));

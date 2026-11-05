@@ -5,10 +5,14 @@ pagos, cuotas, CAC y TC manual usan `crmTransaction`. El bloqueo transaccional d
 PostgreSQL serializa estas operaciones entre procesos. Pago y recálculo se confirman
 juntos; una falla revierte ambos. No hay migraciones ni backfill.
 
-- Un lead con reservas no se elimina. Con una reserva realizada, solo un administrador
-  puede editarlo. Las reservas nuevas copian los datos del comprador y al formalizarlas
-  conservan una copia independiente del lead. Las históricas sin copia mantienen la
-  lectura del lead; no se completan automáticamente.
+- Un lead con reservas no se elimina. Los datos personales del comprador provienen
+  siempre del lead vinculado, incluso si están vacíos. Las reservas sin lead conservan
+  sus datos propios. Se conserva una copia al crear o formalizar una reserva; editar
+  el lead no cambia esa copia. La copia no reemplaza los datos actuales en las lecturas.
+  Cambiar datos personales con reservas activas o realizadas requiere administrador y
+  confirmación; el cambio queda auditado en el lead. No hay backfill de datos existentes.
+  En la ficha, solo los administradores pueden consultar la copia guardada, en una
+  sección al final y cerrada por defecto. La API omite esa copia para los demás roles.
 - Con contrato, no se modifican las condiciones económicas desde el lote. Generar
   documentos no escribe en la reserva. El boleto rechaza condiciones distintas de
   las guardadas.
@@ -25,6 +29,15 @@ juntos; una falla revierte ambos. No hay migraciones ni backfill.
 ## Verificación local
 
 `node scripts/check-payment-edit.mjs` verifica edición de pagos sin acceso a DB/storage.
+
+`node scripts/check-lead-buyer-edit.mjs` verifica la fuente del comprador y sus permisos
+sin acceso a DB. `pnpm exec tsx scripts/preview-lead-buyer-impact.ts` compara el impacto
+en DEV. Con `--production` usa exclusivamente `PROD_POSTGRES_URL`, en una transacción
+de solo lectura. Guarda el informe en `.cache/crm-safety/` (ignorado por Git).
+
+`pnpm exec tsx src/lib/lead-buyer-integrity.spec.ts` verifica en esa misma base
+descartable la captura del comprador al crear/formalizar, la conservación de la copia,
+las lecturas del lead actual, permisos y rollback. También borra sus fixtures con TRUNCATE.
 
 `pnpm exec tsx src/lib/crm-integrity.spec.ts` necesita una base **descartable**
 `barrio_crm_test` en PostgreSQL local, puerto 55437, usuario postgres, con el esquema

@@ -7,5 +7,11 @@ export async function GET(request: Request) {
   if (isErrorResponse(authResult)) return authResult;
 
   const { searchParams } = new URL(request.url);
-  return NextResponse.json(await getFilteredReservas(searchParams));
+  const rows = await getFilteredReservas(searchParams);
+  return NextResponse.json(
+    rows.map((row) => ({
+      ...row,
+      compradorGuardado: authResult.role === "admin" ? row.compradorGuardado : undefined,
+    }))
+  );
 }

@@ -1,5 +1,6 @@
-import { and, eq, or } from "drizzle-orm";
-import { parcelas, reservas } from "@/lib/schema";
+import { and, eq, or, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { leads, parcelas, reservas } from "@/lib/schema";
 import type { Lead, Parcela, ParcelaConReserva, Reserva } from "@/lib/schema";
 
 export const RESERVA_FIELDS = [
@@ -47,7 +48,7 @@ export const RESERVA_FIELDS = [
 
 export type ReservaField = (typeof RESERVA_FIELDS)[number];
 
-export function compradorSnapshot(lead: Lead) {
+export function compradorDesdeLead(lead: Lead) {
   return {
     nombreComprador: lead.nombre,
     dniCuit: lead.dniCuit,
@@ -60,6 +61,36 @@ export function compradorSnapshot(lead: Lead) {
     cuitComprador: lead.cuitComprador,
   };
 }
+
+export type DatosComprador = {
+  [Field in keyof ReturnType<typeof compradorDesdeLead>]: string | null;
+};
+
+export function compradorGuardado(reserva: Reserva): DatosComprador {
+  return {
+    nombreComprador: reserva.nombreComprador,
+    dniCuit: reserva.dniCuit,
+    telefono: reserva.telefono,
+    emailComprador: reserva.emailComprador,
+    domicilioComprador: reserva.domicilioComprador,
+    nacionalidad: reserva.nacionalidad,
+    fechaNacimiento: reserva.fechaNacimiento,
+    estadoCivil: reserva.estadoCivil,
+    cuitComprador: reserva.cuitComprador,
+  };
+}
+
+function compradorColumn(lead: AnyPgColumn, reserva: AnyPgColumn) {
+  // Un dato vacío del lead no debe revivir un valor viejo de la reserva.
+  return sql<string | null>`case when ${leads.id} is not null then ${lead} else ${reserva} end`;
+}
+
+export const compradorColumns = {
+  nombreComprador: compradorColumn(leads.nombre, reservas.nombreComprador),
+  dniCuit: compradorColumn(leads.dniCuit, reservas.dniCuit),
+  telefono: compradorColumn(leads.telefono, reservas.telefono),
+  emailComprador: compradorColumn(leads.email, reservas.emailComprador),
+};
 
 const EMPTY_RESERVA_FIELDS = {
   leadId: null,
@@ -133,30 +164,7 @@ export function flattenParcelaReserva(
     };
   }
 
-  const leadData =
-    lead && !(reserva.estado === "realizada" && reserva.nombreComprador)
-      ? {
-          nombreComprador: lead.nombre,
-          dniCuit: lead.dniCuit,
-          telefono: lead.telefono,
-          emailComprador: lead.email,
-          domicilioComprador: lead.domicilio,
-          nacionalidad: lead.nacionalidad,
-          fechaNacimiento: lead.fechaNacimiento,
-          estadoCivil: lead.estadoCivil,
-          cuitComprador: lead.cuitComprador,
-        }
-      : {
-          nombreComprador: reserva.nombreComprador,
-          dniCuit: reserva.dniCuit,
-          telefono: reserva.telefono,
-          emailComprador: reserva.emailComprador,
-          domicilioComprador: reserva.domicilioComprador,
-          nacionalidad: reserva.nacionalidad,
-          fechaNacimiento: reserva.fechaNacimiento,
-          estadoCivil: reserva.estadoCivil,
-          cuitComprador: reserva.cuitComprador,
-        };
+  const leadData = lead ? compradorDesdeLead(lead) : compradorGuardado(reserva);
 
   return {
     ...parcela,

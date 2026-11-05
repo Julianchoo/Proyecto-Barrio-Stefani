@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads, parcelas, reservas } from "@/lib/schema";
-import { currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
+import { compradorColumns, currentReservaJoin, flattenParcelaReserva } from "@/lib/reservas";
 import { requireApiAuth, isErrorResponse } from "@/lib/api-auth";
 import type { EstadoParcela } from "@/lib/schema";
 
@@ -47,11 +47,10 @@ export async function GET(request: Request) {
       or(
         ilike(parcelas.manzana, `%${search}%`),
         ilike(parcelas.parcela, `%${search}%`),
-        ilike(reservas.nombreComprador, `%${search}%`),
-        ilike(leads.nombre, `%${search}%`),
-        ilike(leads.email, `%${search}%`),
-        ilike(leads.telefono, `%${search}%`),
-        ilike(leads.dniCuit, `%${search}%`)
+        ilike(compradorColumns.nombreComprador, `%${search}%`),
+        ilike(compradorColumns.emailComprador, `%${search}%`),
+        ilike(compradorColumns.telefono, `%${search}%`),
+        ilike(compradorColumns.dniCuit, `%${search}%`)
       )
     );
   }

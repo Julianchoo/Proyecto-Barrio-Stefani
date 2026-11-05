@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, CreditCard, FileText, MapPin, Pencil } from "lucide-react";
 import { BoletoDialog } from "@/components/crm/boleto-dialog";
+import { CompradorReservaComparison } from "@/components/crm/comprador-reserva-comparison";
 import { CambiarEstadoReserva } from "@/components/crm/cambiar-estado-reserva";
 import { ReservaDialog } from "@/components/crm/reserva-dialog";
 import { ReservaEditor } from "@/components/crm/reserva-editor";
@@ -260,7 +261,7 @@ export default function ReservaDetailPage() {
       ) : (
         <>
         <Section
-          title="Comprador"
+          title={reserva.leadId ? `Comprador actual · Lead #${reserva.leadId}` : "Comprador de la reserva"}
           items={[
             ["Nombre", reserva.nombreComprador],
             ["DNI / CUIT", reserva.dniCuit],
@@ -332,6 +333,13 @@ export default function ReservaDetailPage() {
           </Card>
         )}
         </>
+      )}
+      {isAdmin && (
+        <CompradorReservaComparison
+          guardado={reserva.compradorGuardado}
+          actual={reserva}
+          leadId={reserva.leadId}
+        />
       )}
     </div>
   );
