@@ -30,6 +30,8 @@ export type ReservaRow = Omit<ParcelaConReserva, "id" | "estado" | "createdAt" |
   parcela: string | null;
   loteEstado: EstadoParcela;
   compradorGuardado?: DatosComprador;
+  compradorCapturadoAt?: string | null;
+  reservaUpdatedAt: string;
 };
 
 export const estadoLabels: Record<EstadoReserva, string> = {

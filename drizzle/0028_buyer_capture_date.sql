@@ -1,0 +1,1 @@
+ALTER TABLE "reservas" ADD COLUMN "comprador_capturado_at" timestamp with time zone;

@@ -50,3 +50,30 @@ en las pruebas; las transacciones y consultas se ejecutan en PostgreSQL real.
 El bloqueo es global para estas operaciones: una escritura lenta puede demorar otra.
 Si la concurrencia crece, separar bloqueos requiere mantener un orden común y repetir
 las pruebas de operaciones cruzadas. Los comprobantes públicos no cambian en este trabajo.
+
+## Datos actuales y copia del comprador
+
+`leads` es la fuente de los datos personales actuales. `reservas` conserva una
+copia al crear la reserva o cambiar el lead de una reserva activa y vuelve a
+capturarla al formalizar. `comprador_capturado_at` identifica la última captura;
+las copias anteriores mantienen NULL porque su fecha exacta no se conoce.
+La migración solo agrega una columna nullable, sin modificar datos existentes.
+
+Una reserva realizada permite corregir su copia desde la sección histórica de
+la ficha, solo para administradores. La acción requiere confirmación, motivo y
+la versión leída; una versión desactualizada devuelve 409. El cambio y su motivo
+se auditan dentro de la misma transacción. La corrección conserva la fecha de
+captura original y no escribe en el lead ni en las condiciones económicas.
+La API específica es `PUT /api/crm/reservas/:id/comprador-guardado`; recibe
+`confirmar`, `motivo`, `version` (reservaUpdatedAt) y `comprador` (los nueve campos
+de la copia). La edición general rechaza campos personales del comprador.
+
+### Columnas heredadas del lote
+
+`parcelas` todavía contiene columnas antiguas de comprador, fechas y condiciones
+de financiación. Las lecturas de `flattenParcelaReserva` toman esos valores de
+la reserva y del lead, y los vacían si no existe reserva. Las rutas actuales
+separan los campos del lote de los de la operación. Se conservan las columnas
+heredadas para no destruir información importada: su retiro requiere inventario
+comparativo de datos y revisión de scripts/importadores. No confundir los precios
+de catálogo del lote (`precioBase`, etc.) con el precio pactado en la reserva.

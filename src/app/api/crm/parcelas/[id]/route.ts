@@ -390,8 +390,11 @@ export async function PUT(
           .where(and(...leadConditions));
 
         if (!selectedLead) return { kind: "invalid-lead" as const };
-        if (createsReserva || requestedLeadId !== activeReserva?.leadId)
-          Object.assign(reservaData, compradorDesdeLead(selectedLead));
+        if (createsReserva || requestedLeadId !== activeReserva?.leadId) {
+          Object.assign(reservaData, compradorDesdeLead(selectedLead), {
+            compradorCapturadoAt: new Date(),
+          });
+        }
       }
 
       if (allowedData.estado !== undefined) {

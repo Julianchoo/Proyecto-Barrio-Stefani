@@ -336,6 +336,8 @@ export default function ReservaDetailPage() {
       )}
       {isAdmin && (
         <CompradorReservaComparison
+          capturadoAt={reserva.compradorCapturadoAt}
+          correccion={reserva.estado === "realizada" ? { reservaId: reserva.id, version: reserva.reservaUpdatedAt, onSaved: fetchReservas } : undefined}
           guardado={reserva.compradorGuardado}
           actual={reserva}
           leadId={reserva.leadId}

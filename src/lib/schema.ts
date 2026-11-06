@@ -198,6 +198,9 @@ export const parcelas = pgTable(
     cuotas60: numeric("cuotas_60"),
     nota: text("nota"),
 
+    // Columnas heredadas: no usar como fuente de comprador u operación.
+    // La fuente actual es leads; las condiciones y copia histórica están en reservas.
+    // Se conservan hasta auditar los datos importados (ver docs/technical/crm-integrity.md).
     // Datos de comprador / reserva (todos opcionales)
     nombreComprador: text("nombre_comprador"),
     dniCuit: text("dni_cuit"),
@@ -297,6 +300,9 @@ export const reservas = pgTable(
       onDelete: "set null",
     }),
     estado: estadoReservaEnum("estado").default("activa").notNull(),
+
+    // Fecha de la última captura desde el lead; null para copias heredadas sin fecha cierta.
+    compradorCapturadoAt: timestamp("comprador_capturado_at", { withTimezone: true }),
 
     nombreComprador: text("nombre_comprador"),
     dniCuit: text("dni_cuit"),

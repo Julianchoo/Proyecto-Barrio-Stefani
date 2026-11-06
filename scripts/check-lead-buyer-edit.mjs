@@ -28,6 +28,9 @@ const { createElement } = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const { CompradorReservaComparison } = load("src/components/crm/comprador-reserva-comparison.tsx", {
   "@/lib/reservas-ui": load("src/lib/reservas-ui.ts"),
+  "@/components/ui/button": { Button: "button" },
+  "@/components/ui/input": { Input: "input" },
+  "sonner": { toast: {} },
 });
 const savedBuyer = { nombreComprador: "Comprador", emailComprador: "viejo@example.test" };
 const comparison = renderToStaticMarkup(
@@ -257,3 +260,87 @@ for (const role of ["admin", "comercial", "socio"]) {
 console.log(
   "Lead buyer source: all states, empty fields, historical fallback, confirmation, permissions, collapsed comparison, admin-only copy, no reservation writes, audit and rollback checks passed"
 );
+
+// Corrections use their own admin-only route and cannot change the lead or economics.
+async function correctCopy(options = {}) {
+  const capturedAt = new Date("2026-11-05T20:00:00Z");
+  let stored = {
+    id: 11, estado: options.estado ?? "realizada", leadId: 41,
+    ...Object.fromEntries(Object.entries(reservasLib.compradorDesdeLead({ nombre: "Original", email: "old@example.test" })).map(([key, value]) => [key, value ?? null])),
+    compradorCapturadoAt: capturedAt, updatedAt: new Date("2026-11-05T21:00:00Z"),
+    cuotaMensual: "251", cantidadCuotas: "72",
+  };
+  const before = structuredClone(stored);
+  const audits = [];
+  let writes = 0;
+  const tx = {
+    select: () => ({ from: () => ({ where: async () => options.missing ? [] : [stored] }) }),
+    update: (table) => ({ set: (values) => ({ where: () => ({ returning: async () => {
+      assert.equal(table, schema.reservas);
+      writes++;
+      stored = { ...stored, ...values };
+      return [stored];
+    } }) }) }),
+  };
+  const route = load("src/app/api/crm/reservas/[id]/comprador-guardado/route.ts", {
+    "@/lib/schema": schema,
+    "@/lib/reservas": reservasLib,
+    "@/lib/api-auth": {
+      requireApiAdmin: async () => options.denied ? new Response(null, { status: options.denied }) : { email: "admin@example.test" },
+      isErrorResponse: (value) => value instanceof Response,
+    },
+    "@/lib/crm-transaction": { crmTransaction: async (work) => {
+      try { return await work(tx); } catch (error) { stored = structuredClone(before); throw error; }
+    } },
+    "@/lib/audit": { logAudit: async (_tx, entry) => {
+      assert.equal(_tx, tx);
+      if (options.failAudit) throw new Error("audit failed");
+      audits.push(entry);
+    } },
+  });
+  const body = {
+    confirmar: true, motivo: "Corregir error de transcripción",
+    version: before.updatedAt.toISOString(),
+    comprador: { ...reservasLib.compradorGuardado(before), emailComprador: "corrected@example.test" },
+    ...options.body,
+  };
+  const response = await route.PUT(new Request("http://localhost", {
+    method: "PUT", body: options.invalidJson ? "{" : JSON.stringify(body),
+  }), { params: Promise.resolve({ id: options.id ?? "11" }) });
+  return { response, stored, before, audits, writes };
+}
+for (const denied of [401, 403]) {
+  const result = await correctCopy({ denied });
+  assert.equal(result.response.status, denied);
+  assert.equal(result.writes, 0);
+}
+for (const options of [
+  { body: { confirmar: false } }, { body: { motivo: "" } },
+  { body: { cuotaMensual: "0" } }, { invalidJson: true }, { id: "abc" },
+]) {
+  const result = await correctCopy(options);
+  assert.equal(result.response.status, 400);
+  assert.equal(result.writes, 0);
+}
+for (const estado of ["activa", "cancelada", "vencida"]) {
+  assert.equal((await correctCopy({ estado })).response.status, 409);
+}
+assert.equal((await correctCopy({ missing: true })).response.status, 404);
+assert.equal((await correctCopy({ body: { version: "2026-11-04T00:00:00Z" } })).response.status, 409);
+let correction = await correctCopy();
+assert.equal(correction.response.status, 200);
+assert.equal(correction.stored.emailComprador, "corrected@example.test");
+assert.equal(correction.stored.compradorCapturadoAt.getTime(), correction.before.compradorCapturadoAt.getTime());
+assert.equal(correction.stored.cuotaMensual, "251");
+assert.equal(correction.stored.leadId, 41);
+assert.equal(correction.audits.length, 1);
+assert.equal(correction.audits[0].despues.motivoCorreccionCopia, "Corregir error de transcripción");
+correction = await correctCopy({ failAudit: true });
+assert.equal(correction.response.status, 500);
+assert.deepEqual(correction.stored, correction.before);
+const datedCopy = renderToStaticMarkup(createElement(CompradorReservaComparison, {
+  guardado: savedBuyer, actual: savedBuyer, leadId: 1, capturadoAt: "2026-11-05T20:00:00Z",
+}));
+assert.ok(datedCopy.includes("Copia capturada el"));
+assert.ok(!datedCopy.includes("No hay una fecha de captura registrada"));
+console.log("Historical correction: admin, confirmation, reason, stale version, protected economics, capture date and rollback checks passed");
