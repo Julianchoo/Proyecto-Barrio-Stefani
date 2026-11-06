@@ -235,7 +235,9 @@ export async function PATCH(
       await tx
         .update(reservas)
         .set({
-          ...(leadAlFormalizar ? compradorDesdeLead(leadAlFormalizar) : {}),
+          ...(leadAlFormalizar
+            ? { ...compradorDesdeLead(leadAlFormalizar), compradorCapturadoAt: new Date() }
+            : {}),
           ...(data.estado ? { estado: data.estado } : {}),
           ...(data.reservadoPor ? { reservadoPor: data.reservadoPor } : {}),
           modificadoPor: authResult.email,

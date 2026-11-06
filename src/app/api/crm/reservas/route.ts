@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   return NextResponse.json(
     rows.map((row) => ({
       ...row,
+      compradorCapturadoAt: authResult.role === "admin" ? row.compradorCapturadoAt : undefined,
       compradorGuardado: authResult.role === "admin" ? row.compradorGuardado : undefined,
     }))
   );

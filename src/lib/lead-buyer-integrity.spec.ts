@@ -78,6 +78,7 @@ async function main() {
   );
   const [created] = await db.select().from(reservas).where(eq(reservas.parcelaId, lot!.id));
   assert.deepEqual(helpers.compradorGuardado(created!), helpers.compradorDesdeLead(lead!));
+  assert.ok(created!.compradorCapturadoAt instanceof Date);
   const editLead = route("src/app/api/crm/leads/[id]/route.ts").PUT!;
   assert.equal(
     (await editLead(json({ email: "nuevo@example.test" }), params(lead!.id))).status,
@@ -103,6 +104,8 @@ async function main() {
   const [saved] = await db.select().from(reservas).where(eq(reservas.id, created!.id));
   assert.equal(saved!.emailComprador, "nuevo@example.test");
   assert.equal(saved!.estado, "realizada");
+  assert.ok(saved!.compradorCapturadoAt instanceof Date);
+  assert.ok(saved!.compradorCapturadoAt!.getTime() >= created!.compradorCapturadoAt!.getTime());
   const [soldLot] = await db.select().from(parcelas).where(eq(parcelas.id, lot!.id));
   assert.equal(soldLot!.estado, "vendido");
   assert.equal(

@@ -15,6 +15,7 @@ export type ReservaReportRow = Omit<ParcelaConReserva, "id" | "estado"> & {
   reservaCreatedAt: Date;
   reservaUpdatedAt: Date;
   compradorGuardado: DatosComprador;
+  compradorCapturadoAt: Date | null;
 };
 
 function isDateKey(value: string | null) {
@@ -100,5 +101,6 @@ export async function getFilteredReservas(searchParams: URLSearchParams): Promis
     reservaCreatedAt: reserva.createdAt,
     reservaUpdatedAt: reserva.updatedAt,
     compradorGuardado: compradorGuardado(reserva),
+    compradorCapturadoAt: reserva.compradorCapturadoAt,
   }));
 }

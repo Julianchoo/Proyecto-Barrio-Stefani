@@ -197,6 +197,13 @@
       "when": 1793732788475,
       "tag": "0027_fine_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793962990580,
+      "tag": "0028_buyer_capture_date",
+      "breakpoints": true
     }
   ]
 }
