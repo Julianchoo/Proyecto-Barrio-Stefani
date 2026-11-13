@@ -71,43 +71,43 @@ export async function getInsights() {
     rows(sql`
       SELECT
         (SELECT count(*) FROM reservas WHERE estado = 'realizada') AS lotes_vendidos,
-        (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'realizada') AS facturacion_usd,
-        (SELECT round(avg(precio_total_num::numeric)) FROM reservas WHERE estado = 'realizada') AS ticket_promedio_usd,
+        (SELECT round((sum(precio_total_num::numeric))::numeric, 2) FROM reservas WHERE estado = 'realizada') AS facturacion_usd,
+        (SELECT round((avg(precio_total_num::numeric))::numeric, 2) FROM reservas WHERE estado = 'realizada') AS ticket_promedio_usd,
         (SELECT count(*) FROM reservas WHERE estado = 'activa') AS reservas_activas,
-        (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'activa') AS reservas_activas_usd,
-        (SELECT round(sum(monto_usd::numeric)) FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente')) AS cobrado_usd,
+        (SELECT round((sum(precio_total_num::numeric))::numeric, 2) FROM reservas WHERE estado = 'activa') AS reservas_activas_usd,
+        (SELECT round((sum(monto_usd::numeric))::numeric, 2) FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente')) AS cobrado_usd,
         (SELECT count(*) FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente') AND monto_usd IS NULL) AS pagos_sin_tc,
         (SELECT count(*) FROM parcelas WHERE estado = 'disponible') AS lotes_disponibles,
         (SELECT count(*) FROM parcelas WHERE estado IN ('vendido', 'reservado', 'disponible')) AS lotes_en_venta,
         -- Precio de lista: precio_base y, si falta, precio_etapa1 (igual que la API de parcelas).
-        (SELECT round(sum(coalesce(precio_base, precio_etapa1)::numeric)) FROM parcelas WHERE estado <> 'vendido') AS valuacion_restantes_usd,
+        (SELECT round((sum(coalesce(precio_base, precio_etapa1)::numeric))::numeric, 2) FROM parcelas WHERE estado <> 'vendido') AS valuacion_restantes_usd,
         (SELECT count(*) FROM parcelas WHERE estado <> 'vendido') AS lotes_restantes,
         (SELECT count(*) FROM parcelas WHERE estado <> 'vendido' AND coalesce(precio_base, precio_etapa1) IS NULL) AS lotes_sin_precio,
         -- Desglose de la facturación vendida. Precio del boleto = anticipo + cuotas (con interés).
         -- Contado y anticipos se cobran al firmar.
-        (SELECT round(sum(precio_total_num::numeric)) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS contado_usd,
+        (SELECT round((sum(precio_total_num::numeric))::numeric, 2) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS contado_usd,
         (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND forma_pago = 'contado') AS ventas_contado,
         (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND forma_pago IS DISTINCT FROM 'contado') AS ventas_financiadas,
         (SELECT count(*) FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NULL) AS firmas_sin_fecha,
-        (SELECT round(coalesce(sum(precio_total_num::numeric), 0)) FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NULL) AS firmas_sin_fecha_usd,
-        (SELECT round(sum(CASE WHEN trim(anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(anticipo_num)::numeric ELSE 0 END))
+        (SELECT round((coalesce(sum(precio_total_num::numeric), 0))::numeric, 2) FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NULL) AS firmas_sin_fecha_usd,
+        (SELECT round((sum(CASE WHEN trim(anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(anticipo_num)::numeric ELSE 0 END))::numeric, 2)
           FROM reservas WHERE estado = 'realizada' AND forma_pago IS DISTINCT FROM 'contado') AS anticipos_usd,
         -- Ventas financiadas que todavía no tienen cuenta corriente: su saldo aún no está en cuotas.
-        (SELECT round(sum(r.precio_total_num::numeric - CASE WHEN trim(r.anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(r.anticipo_num)::numeric ELSE 0 END))
+        (SELECT round((sum(r.precio_total_num::numeric - CASE WHEN trim(r.anticipo_num) ~ '^[0-9]+([.][0-9]+)?$' THEN trim(r.anticipo_num)::numeric ELSE 0 END))::numeric, 2)
           FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
           WHERE r.estado = 'realizada' AND r.forma_pago IS DISTINCT FROM 'contado' AND k.id IS NULL) AS saldo_sin_cuenta_usd,
         (SELECT count(*) FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
           WHERE r.estado = 'realizada' AND r.forma_pago IS DISTINCT FROM 'contado' AND k.id IS NULL) AS ventas_sin_cuenta`),
     rows(sql`
-      SELECT to_char(date_trunc('month', fecha_firma), 'YYYY-MM') AS mes, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
+      SELECT to_char(date_trunc('month', fecha_firma), 'YYYY-MM') AS mes, count(*) AS lotes, round((sum(precio_total_num::numeric))::numeric, 2) AS usd
       FROM reservas WHERE estado = 'realizada' AND fecha_firma IS NOT NULL
       GROUP BY 1 ORDER BY 1`),
     rows(sql`
-      SELECT to_char(date_trunc('month', fecha_pago), 'YYYY-MM') AS mes, count(*) AS pagos, round(sum(monto_usd::numeric)) AS usd
+      SELECT to_char(date_trunc('month', fecha_pago), 'YYYY-MM') AS mes, count(*) AS pagos, round((sum(monto_usd::numeric))::numeric, 2) AS usd
       FROM pagos WHERE estado = 'activo' AND contrato_id IN (SELECT id FROM contratos WHERE estado = 'vigente')
       GROUP BY 1 ORDER BY 1`),
     rows(sql`
-      SELECT coalesce(initcap(trim(nombre_corredor)), 'Sin corredor') AS corredor, count(*) AS lotes, round(sum(precio_total_num::numeric)) AS usd
+      SELECT coalesce(initcap(trim(nombre_corredor)), 'Sin corredor') AS corredor, count(*) AS lotes, round((sum(precio_total_num::numeric))::numeric, 2) AS usd
       FROM reservas WHERE estado = 'realizada'
       GROUP BY 1 ORDER BY usd DESC`),
     rows(sql`
@@ -118,13 +118,13 @@ export async function getInsights() {
           WHEN coalesce(k.modalidad, r.modalidad_contrato) = 'pesos_cac' THEN 'Financiado pesos CAC'
           ELSE 'Financiado (sin modalidad)'
         END AS modalidad,
-        count(*) AS lotes, round(sum(r.precio_total_num::numeric)) AS usd
+        count(*) AS lotes, round((sum(r.precio_total_num::numeric))::numeric, 2) AS usd
       FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
       WHERE r.estado = 'realizada'
       GROUP BY 1 ORDER BY lotes DESC`),
     rows(sql`
       SELECT r.id AS venta, to_char(r.fecha_firma, 'YYYY-MM-DD') AS fecha_firma, p.manzana, p.parcela,
-        p.superficie_m2::numeric AS m2, round(r.precio_total_num::numeric) AS precio_usd,
+        p.superficie_m2::numeric AS m2, round((r.precio_total_num::numeric)::numeric, 2) AS precio_usd,
         CASE WHEN r.forma_pago = 'contado' THEN 'Contado' ELSE coalesce(r.cantidad_cuotas, '—') || ' cuotas' END AS plan,
         coalesce(initcap(trim(r.nombre_corredor)), 'Sin corredor') AS corredor
       FROM reservas r JOIN parcelas p ON p.id = r.parcela_id
@@ -133,25 +133,25 @@ export async function getInsights() {
     rows(sql`
       WITH ${cuotasBase}, ${pagosConCuota}
       SELECT
-        round(coalesce(sum(saldo_usd) FILTER (WHERE est <> 'pagada'), 0)) AS por_cobrar_usd,
-        round(coalesce(sum(saldo_usd) FILTER (WHERE est = 'vencida'), 0)) AS vencido_usd,
+        round((coalesce(sum(saldo_usd) FILTER (WHERE est <> 'pagada'), 0))::numeric, 2) AS por_cobrar_usd,
+        round((coalesce(sum(saldo_usd) FILTER (WHERE est = 'vencida'), 0))::numeric, 2) AS vencido_usd,
         count(*) FILTER (WHERE est = 'vencida') AS cuotas_vencidas,
         count(DISTINCT contrato_id) FILTER (WHERE est = 'vencida') AS contratos_con_mora,
         count(DISTINCT contrato_id) AS contratos,
-        round(coalesce(sum(saldo_usd) FILTER (WHERE est = 'a_vencer' AND fecha_vencimiento < (SELECT d FROM hoy) + 30), 0)) AS proximos_30d_usd,
+        round((coalesce(sum(saldo_usd) FILTER (WHERE est = 'a_vencer' AND fecha_vencimiento < (SELECT d FROM hoy) + 30), 0))::numeric, 2) AS proximos_30d_usd,
         count(*) FILTER (WHERE est = 'pagada') AS cuotas_pagadas,
         count(*) FILTER (WHERE est <> 'pagada') AS cuotas_pendientes,
         count(*) AS cuotas_totales,
         to_char(max(fecha_vencimiento), 'YYYY-MM') AS ultima_cuota,
         (SELECT avg((dias <= 0)::int) FROM p) AS pct_a_tiempo,
-        (SELECT round(avg(-dias), 1) FROM p) AS dias_anticipo_prom,
+        (SELECT round((avg(-dias))::numeric, 2) FROM p) AS dias_anticipo_prom,
         (SELECT v FROM tc) AS tipo_cambio,
         (SELECT to_char(fecha, 'YYYY-MM-DD') FROM tc) AS fecha_tc
       FROM q`),
     rows(sql`
       WITH ${cuotasBase}
       SELECT to_char((SELECT d FROM hoy) + interval '1 month', 'YYYY-MM') AS mes,
-        round(coalesce(sum(saldo_usd), 0)) AS usd, count(*) AS cuotas
+        round((coalesce(sum(saldo_usd), 0))::numeric, 2) AS usd, count(*) AS cuotas
       FROM q
       WHERE est <> 'pagada'
         AND date_trunc('month', fecha_vencimiento) = date_trunc('month', (SELECT d FROM hoy) + interval '1 month')`),
@@ -162,8 +162,8 @@ export async function getInsights() {
         FROM reservas r LEFT JOIN contratos k ON k.reserva_id = r.id AND k.estado = 'vigente'
         WHERE r.estado = 'realizada'
       )
-      SELECT x.tramo, x.orden, count(v.usd) AS ventas, round(coalesce(sum(v.usd), 0)) AS usd,
-        (SELECT round(sum(usd * cuotas) / nullif(sum(usd), 0), 1) FROM v WHERE cuotas IS NOT NULL) AS plazo_promedio
+      SELECT x.tramo, x.orden, count(v.usd) AS ventas, round((coalesce(sum(v.usd), 0))::numeric, 2) AS usd,
+        (SELECT round((sum(usd * cuotas) / nullif(sum(usd), 0))::numeric, 2) FROM v WHERE cuotas IS NOT NULL) AS plazo_promedio
       FROM (VALUES
         ('Contado', 1, 0, 0), ('Hasta 12 cuotas', 2, 1, 12), ('13 a 24 cuotas', 3, 13, 24), ('25 a 36 cuotas', 4, 25, 36),
         ('37 a 48 cuotas', 5, 37, 48), ('49 a 60 cuotas', 6, 49, 60), ('Más de 60 cuotas', 7, 61, 100000)
@@ -171,7 +171,7 @@ export async function getInsights() {
       LEFT JOIN v ON v.cuotas BETWEEN x.desde AND x.hasta
       GROUP BY 1, 2
       UNION ALL
-      SELECT 'Sin dato', 8, count(*), round(coalesce(sum(usd), 0)), NULL FROM v WHERE cuotas IS NULL HAVING count(*) > 0
+      SELECT 'Sin dato', 8, count(*), round((coalesce(sum(usd), 0))::numeric, 2), NULL FROM v WHERE cuotas IS NULL HAVING count(*) > 0
       ORDER BY 2`),
     // Precio de venta contra precio de lista del lote (lista = contado): interés de financiación y descuentos.
     rows(sql`
@@ -182,13 +182,13 @@ export async function getInsights() {
         WHERE r.estado = 'realizada'
       )
       SELECT
-        round(sum(lista) FILTER (WHERE NOT contado)) AS lista_financiadas,
-        round(sum(precio) FILTER (WHERE NOT contado AND lista IS NOT NULL)) AS precio_financiadas,
-        round(sum(lista) FILTER (WHERE contado)) AS lista_contado,
-        round(sum(precio) FILTER (WHERE contado AND lista IS NOT NULL)) AS precio_contado,
+        round((sum(lista) FILTER (WHERE NOT contado))::numeric, 2) AS lista_financiadas,
+        round((sum(precio) FILTER (WHERE NOT contado AND lista IS NOT NULL))::numeric, 2) AS precio_financiadas,
+        round((sum(lista) FILTER (WHERE contado))::numeric, 2) AS lista_contado,
+        round((sum(precio) FILTER (WHERE contado AND lista IS NOT NULL))::numeric, 2) AS precio_contado,
         count(*) FILTER (WHERE lista IS NULL) AS ventas_sin_lista,
-        round(sum(precio) FILTER (WHERE lista IS NULL)) AS precio_sin_lista,
-        round(sum(precio) / nullif(sum(m2), 0)) AS precio_m2
+        round((sum(precio) FILTER (WHERE lista IS NULL))::numeric, 2) AS precio_sin_lista,
+        round((sum(precio) / nullif(sum(m2), 0))::numeric, 2) AS precio_m2
       FROM v`),
     // Cuotas activas: la próxima cuota a vencer de cada contrato, o sea lo que entra por mes hoy.
     rows(sql`
@@ -199,12 +199,12 @@ export async function getInsights() {
         ORDER BY contrato_id, fecha_vencimiento
       )
       SELECT
-        count(*) FILTER (WHERE moneda = 'usd') AS en_usd, round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'usd'), 0)) AS en_usd_usd,
-        count(*) FILTER (WHERE moneda = 'ars') AS en_pesos, round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'ars'), 0)) AS en_pesos_usd
+        count(*) FILTER (WHERE moneda = 'usd') AS en_usd, round((coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'usd'), 0))::numeric, 2) AS en_usd_usd,
+        count(*) FILTER (WHERE moneda = 'ars') AS en_pesos, round((coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'ars'), 0))::numeric, 2) AS en_pesos_usd
       FROM prox`),
     rows(sql`
       WITH ${cuotasBase}
-      SELECT x.estado, x.orden, count(q.id) AS cuotas, round(coalesce(sum(q.saldo_usd), 0)) AS saldo_usd
+      SELECT x.estado, x.orden, count(q.id) AS cuotas, round((coalesce(sum(q.saldo_usd), 0))::numeric, 2) AS saldo_usd
       FROM (VALUES ('Pagadas', 1), ('Vencidas', 2), ('A vencer · en USD', 3), ('A vencer · en pesos', 4)) AS x(estado, orden)
       LEFT JOIN q ON (x.orden = 1 AND q.est = 'pagada')
         OR (x.orden = 2 AND q.est = 'vencida')
@@ -214,8 +214,8 @@ export async function getInsights() {
     rows(sql`
       WITH ${cuotasBase}
       SELECT to_char(date_trunc('month', fecha_vencimiento), 'YYYY-MM') AS mes,
-        round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'usd'), 0)) AS en_usd,
-        round(coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'ars'), 0)) AS en_pesos,
+        round((coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'usd'), 0))::numeric, 2) AS en_usd,
+        round((coalesce(sum(saldo_usd) FILTER (WHERE moneda = 'ars'), 0))::numeric, 2) AS en_pesos,
         count(*) AS cuotas
       FROM q WHERE est = 'a_vencer'
       GROUP BY 1 ORDER BY 1`),
@@ -236,7 +236,7 @@ export async function getInsights() {
       SELECT q.id AS cuota, q.contrato_id AS contrato, r.id AS reserva, pa.manzana, pa.parcela, q.numero,
         to_char(q.fecha_vencimiento, 'YYYY-MM-DD') AS vencimiento,
         (SELECT d FROM hoy) - q.fecha_vencimiento AS dias_atraso,
-        upper(q.moneda::text) AS moneda, q.saldo, round(q.saldo_usd) AS saldo_usd
+        upper(q.moneda::text) AS moneda, q.saldo, round((q.saldo_usd)::numeric, 2) AS saldo_usd
       FROM q
       JOIN contratos k ON k.id = q.contrato_id
       JOIN reservas r ON r.id = k.reserva_id
@@ -254,8 +254,8 @@ export async function getInsights() {
         count(*) FILTER (WHERE q.est = 'pagada') AS pagadas,
         count(*) AS cuotas,
         count(*) FILTER (WHERE q.est = 'vencida') AS vencidas,
-        round(coalesce(sum(q.saldo_usd) FILTER (WHERE q.est = 'vencida'), 0)) AS vencido_usd,
-        round(coalesce(sum(q.saldo_usd) FILTER (WHERE q.est <> 'pagada'), 0)) AS saldo_usd,
+        round((coalesce(sum(q.saldo_usd) FILTER (WHERE q.est = 'vencida'), 0))::numeric, 2) AS vencido_usd,
+        round((coalesce(sum(q.saldo_usd) FILTER (WHERE q.est <> 'pagada'), 0))::numeric, 2) AS saldo_usd,
         to_char(min(q.fecha_vencimiento) FILTER (WHERE q.est = 'a_vencer'), 'YYYY-MM-DD') AS proximo_venc
       FROM q
       JOIN contratos k ON k.id = q.contrato_id
