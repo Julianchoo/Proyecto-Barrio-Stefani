@@ -28,11 +28,13 @@ const MESES_LARGOS = [
 ];
 
 const int = (v: number) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(v);
-const usd = (v: number) => `USD ${int(v)}`;
+const dec = (v: number) =>
+  new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+const usd = (v: number) => `USD ${dec(v)}`;
 const usdCorto = (v: number) =>
-  `USD ${new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 }).format(v)}`;
+  `USD ${new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 2 }).format(v)}`;
 const pct = (v: number) =>
-  new Intl.NumberFormat("es-AR", { style: "percent", maximumFractionDigits: 1 }).format(v);
+  new Intl.NumberFormat("es-AR", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 const fecha = (s: string | null) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "—");
 const mesCorto = (m: string) => MESES[Number(m.slice(5, 7)) - 1];
 const mesLargo = (m: string) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
@@ -291,7 +293,7 @@ function PorPlazo({ filas, promedio }: { filas: Insights["ventas"]["porPlazo"]; 
         <p className="text-sm text-muted-foreground">
           Plazo promedio, ponderado por monto:{" "}
           <span className="font-medium tabular-nums text-foreground">
-            {new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(promedio)} cuotas
+            {dec(promedio)} cuotas
           </span>
         </p>
       )}
@@ -456,7 +458,7 @@ export default async function InsightsPage() {
             <StatsCard href="/crm/reservas?estado=activa" title="Reservas activas" value={int(ventas.reservasActivas)} description={`${usdCorto(ventas.reservasActivasUsd)} por firmar`} />
             <StatsCard
               title="Plazo promedio"
-              value={ventas.plazoPromedio === null ? "—" : `${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(ventas.plazoPromedio)} cuotas`}
+              value={ventas.plazoPromedio === null ? "—" : `${dec(ventas.plazoPromedio)} cuotas`}
               description="Ponderado por monto vendido"
             />
           </div>
@@ -566,7 +568,7 @@ export default async function InsightsPage() {
                       <TableCell>{r.manzana ?? "—"}</TableCell>
                       <TableCell>{r.parcela ?? "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(r.m2)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{int(r.precioUsd)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{dec(r.precioUsd)}</TableCell>
                       <TableCell>{r.plan}</TableCell>
                       <TableCell>{r.corredor}</TableCell>
                     </TableRow>
@@ -605,7 +607,7 @@ export default async function InsightsPage() {
               href="/crm/cuotas"
               title="Cuotas pagadas a término"
               value={cobranza.pctATiempo === null ? "—" : pct(cobranza.pctATiempo)}
-              description={cobranza.diasAnticipoProm === null ? "Sin cuotas pagadas" : `En promedio ${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 }).format(cobranza.diasAnticipoProm)} días antes del vencimiento`}
+              description={cobranza.diasAnticipoProm === null ? "Sin cuotas pagadas" : `En promedio ${dec(cobranza.diasAnticipoProm)} días antes del vencimiento`}
             />
           </div>
 
@@ -676,7 +678,7 @@ ${int(proyectada.cuotas)} cuotas restantes`,
             {tarjetaAVencer}
             <StatsCard
               title="Dólar usado"
-              value={cobranza.tipoCambio === null ? "—" : `$ ${int(cobranza.tipoCambio)}`}
+              value={cobranza.tipoCambio === null ? "—" : `$ ${dec(cobranza.tipoCambio)}`}
               description={`BNA vendedor del ${fecha(cobranza.fechaTipoCambio)}, para pasar cuotas en pesos a USD`}
             />
           </div>
@@ -732,9 +734,9 @@ ${int(proyectada.cuotas)} cuotas restantes`,
                         <TableCell>{fecha(r.vencimiento)}</TableCell>
                         <TableCell className="text-right tabular-nums text-destructive">{int(r.diasAtraso)}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {r.moneda} {new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(r.saldo)}
+                          {r.moneda} {dec(r.saldo)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{int(r.saldoUsd)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{dec(r.saldoUsd)}</TableCell>
                         <TableCell className="text-right">
                           <Link href={`/crm/cuotas/${r.reserva}`} className="text-sm font-medium text-primary hover:underline">
                             Gestionar
@@ -775,8 +777,8 @@ ${int(proyectada.cuotas)} cuotas restantes`,
                         {int(r.pagadas)} / {int(r.cuotas)}
                       </TableCell>
                       <TableCell className={cn("text-right tabular-nums", r.vencidas > 0 && "text-destructive")}>{int(r.vencidas)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", r.vencidoUsd > 0 && "text-destructive")}>{int(r.vencidoUsd)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{int(r.saldoUsd)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", r.vencidoUsd > 0 && "text-destructive")}>{dec(r.vencidoUsd)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{dec(r.saldoUsd)}</TableCell>
                       <TableCell>{fecha(r.proximoVenc)}</TableCell>
                     </TableRow>
                   ))}
